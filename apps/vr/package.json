@@ -1,0 +1,27 @@
+{
+  "name": "@agentic-commerce/vr",
+  "version": "1.0.0",
+  "description": "AR/VR experience for Agentic Commerce",
+  "main": "index.js",
+  "scripts": {
+    "start": "react-native start",
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "build": "echo 'VR build - coming soon'",
+    "test": "jest"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.74.0",
+    "react-360": "^1.1.0",
+    "three": "^0.159.0",
+    "@react-three/fiber": "^8.15.12",
+    "@react-three/xr": "^5.7.1",
+    "@agentic-commerce/shared": "*"
+  },
+  "devDependencies": {
+    "@types/react": "~18.2.45",
+    "@types/three": "^0.159.0",
+    "typescript": "^5.3.3"
+  }
+}

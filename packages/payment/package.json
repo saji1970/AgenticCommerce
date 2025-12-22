@@ -1,0 +1,46 @@
+{
+  "name": "@agentic-commerce/payment",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@agentic-commerce/shared": "*"
+  },
+  "peerDependencies": {
+    "stripe": "^14.7.0",
+    "razorpay": "^2.9.0",
+    "@paypal/checkout-server-sdk": "^1.0.3",
+    "square": "^34.0.0",
+    "uuid": "^9.0.1"
+  },
+  "peerDependenciesMeta": {
+    "stripe": {
+      "optional": true
+    },
+    "razorpay": {
+      "optional": true
+    },
+    "@paypal/checkout-server-sdk": {
+      "optional": true
+    },
+    "square": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.4",
+    "@types/uuid": "^9.0.7",
+    "stripe": "^14.7.0",
+    "razorpay": "^2.9.0",
+    "@paypal/checkout-server-sdk": "^1.0.3",
+    "square": "^34.0.0",
+    "uuid": "^9.0.1"
+  }
+}

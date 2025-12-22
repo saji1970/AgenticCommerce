@@ -1,0 +1,29 @@
+{
+  "name": "@agentic-commerce/visual-search",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@agentic-commerce/shared": "*",
+    "axios": "^1.6.2",
+    "form-data": "^4.0.0"
+  },
+  "peerDependencies": {
+    "@google-cloud/vision": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@google-cloud/vision": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.4",
+    "@google-cloud/vision": "^4.0.0"
+  }
+}

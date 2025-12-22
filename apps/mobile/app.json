@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Agentic Commerce",
+    "slug": "agentic-commerce",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.agenticcommerce.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera for AR product visualization.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone for voice shopping commands.",
+        "NSFaceIDUsageDescription": "This app uses Face ID for secure payment authentication."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.agenticcommerce.app",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-local-authentication",
+      "@stripe/stripe-react-native"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
+  }
+}
