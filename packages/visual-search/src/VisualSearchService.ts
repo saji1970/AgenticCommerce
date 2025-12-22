@@ -2,24 +2,57 @@ import { IVisualSearchProvider, VisualSearchResult } from './interfaces/IVisualS
 import { GoogleVisionProvider, GoogleVisionConfig } from './providers/GoogleVisionProvider';
 import { ClarifaiProvider, ClarifaiConfig } from './providers/ClarifaiProvider';
 
-export type VisualSearchProvider = 'google-vision' | 'clarifai';
+export type VisualSearchProvider = 'google-vision' | 'clarifai' | 'mock';
 
 export interface VisualSearchServiceConfig {
   provider: VisualSearchProvider;
-  config: GoogleVisionConfig | ClarifaiConfig;
+  config: GoogleVisionConfig | ClarifaiConfig | { apiKey?: string };
+}
+
+// Mock provider for development/testing when no API key is available
+class MockVisualSearchProvider implements IVisualSearchProvider {
+  readonly name = 'mock';
+
+  async analyzeImage(imageBuffer: Buffer | string): Promise<VisualSearchResult> {
+    console.warn('MockVisualSearchProvider: No API key configured, returning empty results');
+    return {
+      labels: [],
+      dominantColors: [],
+      suggestedQuery: '',
+      detectedObjects: [],
+      confidence: 0,
+    };
+  }
 }
 
 export class VisualSearchService {
   private provider: IVisualSearchProvider;
 
   constructor(serviceConfig: VisualSearchServiceConfig) {
+    // Check if API key is provided
+    const hasApiKey = serviceConfig.config && 'apiKey' in serviceConfig.config && serviceConfig.config.apiKey;
+
     switch (serviceConfig.provider) {
       case 'google-vision':
-        this.provider = new GoogleVisionProvider(serviceConfig.config as GoogleVisionConfig);
+        if (!hasApiKey) {
+          console.warn('Google Vision API key not provided, using mock provider');
+          this.provider = new MockVisualSearchProvider();
+        } else {
+          this.provider = new GoogleVisionProvider(serviceConfig.config as GoogleVisionConfig);
+        }
         break;
 
       case 'clarifai':
-        this.provider = new ClarifaiProvider(serviceConfig.config as ClarifaiConfig);
+        if (!hasApiKey) {
+          console.warn('Clarifai API key not provided, using mock provider');
+          this.provider = new MockVisualSearchProvider();
+        } else {
+          this.provider = new ClarifaiProvider(serviceConfig.config as ClarifaiConfig);
+        }
+        break;
+
+      case 'mock':
+        this.provider = new MockVisualSearchProvider();
         break;
 
       default:
