@@ -40,6 +40,21 @@ app.use(morgan('combined', {
   stream: { write: (message) => logger.info(message.trim()) }
 }));
 
+// Root endpoint
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).json({
+    name: 'Agentic Commerce API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      docs: '/api/docs (coming soon)',
+    },
+    message: 'Welcome to Agentic Commerce - AI-powered autonomous shopping platform',
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({
