@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "AI-powered autonomous shopping platform across iOS, Android, and AR/VR",
+  "packageManager": "npm@9.8.1",
   "workspaces": [
     "apps/*",
     "packages/*"
