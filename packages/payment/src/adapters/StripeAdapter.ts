@@ -22,7 +22,7 @@ export class StripeAdapter implements IPaymentGateway {
 
   async initialize(config: PaymentGatewayConfig): Promise<void> {
     this.stripe = new Stripe(config.apiKey, {
-      apiVersion: '2024-11-20.acacia',
+      apiVersion: '2023-10-16',
     });
     this.webhookSecret = config.webhookSecret;
   }
