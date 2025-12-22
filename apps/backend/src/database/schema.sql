@@ -240,3 +240,102 @@ BEGIN
     RETURN R * c;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ============================================================================
+-- AP2 (Agent Payments Protocol) Tables
+-- ============================================================================
+
+-- Intent Mandates
+CREATE TABLE IF NOT EXISTS intent_mandates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mandate_id VARCHAR(100) UNIQUE NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    request TEXT NOT NULL,
+    max_price DECIMAL(10,2) NOT NULL,
+    min_price DECIMAL(10,2),
+    valid_until TIMESTAMP NOT NULL,
+    approved_merchants TEXT[],
+    blocked_merchants TEXT[],
+    categories TEXT[],
+    shipping_constraints JSONB,
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'expired', 'completed', 'revoked')),
+    signature TEXT NOT NULL,
+    public_key TEXT NOT NULL,
+    algorithm VARCHAR(20) DEFAULT 'ed25519',
+    signed_at TIMESTAMP NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Cart Mandates
+CREATE TABLE IF NOT EXISTS cart_mandates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mandate_id VARCHAR(100) UNIQUE NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    intent_mandate_id VARCHAR(100) REFERENCES intent_mandates(mandate_id) ON DELETE CASCADE,
+    items JSONB NOT NULL,
+    total_price DECIMAL(10,2) NOT NULL,
+    merchant_id VARCHAR(255) NOT NULL,
+    merchant_name VARCHAR(255) NOT NULL,
+    merchant_info JSONB,
+    payment_method_id VARCHAR(255),
+    shipping_address JSONB,
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'expired', 'completed', 'revoked')),
+    signature TEXT NOT NULL,
+    public_key TEXT NOT NULL,
+    algorithm VARCHAR(20) DEFAULT 'ed25519',
+    signed_at TIMESTAMP NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Mandate Audit Events
+CREATE TABLE IF NOT EXISTS mandate_audit_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id VARCHAR(100) UNIQUE NOT NULL,
+    mandate_id VARCHAR(100) NOT NULL,
+    mandate_type VARCHAR(20) NOT NULL CHECK (mandate_type IN ('intent', 'cart')),
+    event_type VARCHAR(20) NOT NULL CHECK (event_type IN ('created', 'signed', 'verified', 'executed', 'revoked', 'expired')),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    metadata JSONB,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- AP2 Transactions
+CREATE TABLE IF NOT EXISTS ap2_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    transaction_id VARCHAR(100) UNIQUE NOT NULL,
+    mandate_id VARCHAR(100) REFERENCES cart_mandates(mandate_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('success', 'failed', 'pending', 'requires_action')),
+    amount DECIMAL(10,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'USD',
+    merchant_id VARCHAR(255) NOT NULL,
+    merchant_name VARCHAR(255) NOT NULL,
+    payment_provider VARCHAR(50),
+    payment_method_id VARCHAR(255),
+    authorization_data JSONB,
+    receipt_url TEXT,
+    error_code VARCHAR(50),
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for AP2 tables
+CREATE INDEX IF NOT EXISTS idx_intent_mandates_user ON intent_mandates(user_id);
+CREATE INDEX IF NOT EXISTS idx_intent_mandates_status ON intent_mandates(status);
+CREATE INDEX IF NOT EXISTS idx_intent_mandates_valid_until ON intent_mandates(valid_until);
+CREATE INDEX IF NOT EXISTS idx_cart_mandates_user ON cart_mandates(user_id);
+CREATE INDEX IF NOT EXISTS idx_cart_mandates_intent ON cart_mandates(intent_mandate_id);
+CREATE INDEX IF NOT EXISTS idx_cart_mandates_status ON cart_mandates(status);
+CREATE INDEX IF NOT EXISTS idx_mandate_audit_mandate ON mandate_audit_events(mandate_id);
+CREATE INDEX IF NOT EXISTS idx_mandate_audit_user ON mandate_audit_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_mandate_audit_type ON mandate_audit_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_user ON ap2_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_mandate ON ap2_transactions(mandate_id);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_status ON ap2_transactions(status);

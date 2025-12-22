@@ -1,6 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { AgentMessage, AgentContext, Product } from '@agentic-commerce/shared';
+import {
+  AgentMessage,
+  AgentContext,
+  Product,
+  SignedMandate,
+  IntentMandate,
+  CartMandate,
+} from '@agentic-commerce/shared';
 import { MCPClient } from '@agentic-commerce/mcp-client';
+import { MandateManager } from '@agentic-commerce/ap2-mandate';
 
 export interface AgentConfig {
   apiKey: string;
@@ -13,19 +21,28 @@ export interface ChatResponse {
   products?: Product[];
   suggestions?: string[];
   action?: string;
+  intentMandate?: SignedMandate<IntentMandate>;
+  cartMandate?: SignedMandate<CartMandate>;
 }
 
 export class ShoppingAgent {
   private client: Anthropic;
   private mcpClient: MCPClient;
+  private mandateManager: MandateManager;
   private model: string;
   private maxTokens: number;
+  private currentIntentMandate?: SignedMandate<IntentMandate>;
 
-  constructor(config: AgentConfig, mcpClient: MCPClient) {
+  constructor(
+    config: AgentConfig,
+    mcpClient: MCPClient,
+    mandateManager?: MandateManager
+  ) {
     this.client = new Anthropic({
       apiKey: config.apiKey,
     });
     this.mcpClient = mcpClient;
+    this.mandateManager = mandateManager || new MandateManager();
     this.model = config.model || 'claude-3-5-sonnet-20241022';
     this.maxTokens = config.maxTokens || 4096;
   }
@@ -162,6 +179,116 @@ Guidelines:
     suggestions.push('When can it be delivered?');
 
     return suggestions.slice(0, 3);
+  }
+
+  /**
+   * AP2: Create Intent Mandate for a shopping request
+   */
+  async createIntentMandate(
+    userId: string,
+    request: string,
+    context?: AgentContext
+  ): Promise<SignedMandate<IntentMandate>> {
+    const maxPrice = context?.budget || 1000; // Default max price
+    const minPrice = context?.minBudget;
+    const timeLimitHours = 24; // Intent mandate valid for 24 hours
+
+    const intentMandate = this.mandateManager.createIntentMandate({
+      user_id: userId,
+      request,
+      max_price: maxPrice,
+      min_price: minPrice,
+      time_limit_hours: timeLimitHours,
+      approved_merchants: context?.preferredRetailers,
+      categories: context?.category ? [context.category] : undefined,
+    });
+
+    this.currentIntentMandate = intentMandate;
+    return intentMandate;
+  }
+
+  /**
+   * AP2: Create Cart Mandate for purchase
+   */
+  async createCartMandate(
+    userId: string,
+    selectedProducts: Product[],
+    merchant: { id: string; name: string },
+    paymentMethodId?: string,
+    shippingAddress?: any
+  ): Promise<SignedMandate<CartMandate>> {
+    if (!this.currentIntentMandate) {
+      throw new Error('No active Intent Mandate found. Create an Intent Mandate first.');
+    }
+
+    const items = selectedProducts.map((product) => ({
+      product_id: product.id,
+      name: product.name,
+      description: product.description,
+      quantity: 1,
+      unit_price: product.price,
+      total_price: product.price,
+      merchant_sku: product.sku,
+    }));
+
+    const totalPrice = items.reduce((sum, item) => sum + item.total_price, 0);
+
+    const cartMandate = this.mandateManager.createCartMandate({
+      user_id: userId,
+      intent_mandate_id: this.currentIntentMandate.mandate.mandate_id,
+      items,
+      total_price: totalPrice,
+      merchant: {
+        merchant_id: merchant.id,
+        name: merchant.name,
+      },
+      payment_method_id: paymentMethodId,
+      shipping_address: shippingAddress,
+    });
+
+    // Validate cart mandate against intent mandate
+    const validation = this.mandateManager.validateCartAgainstIntent(
+      cartMandate,
+      this.currentIntentMandate
+    );
+
+    if (!validation.is_valid) {
+      throw new Error(
+        `Cart Mandate validation failed: ${validation.errors?.join(', ')}`
+      );
+    }
+
+    return cartMandate;
+  }
+
+  /**
+   * AP2: Get current Intent Mandate
+   */
+  getCurrentIntentMandate(): SignedMandate<IntentMandate> | undefined {
+    return this.currentIntentMandate;
+  }
+
+  /**
+   * AP2: Verify a mandate
+   */
+  verifyMandate<T extends IntentMandate | CartMandate>(
+    mandate: SignedMandate<T>
+  ): boolean {
+    const result = this.mandateManager.verifyMandate(mandate);
+    return result.is_valid;
+  }
+
+  /**
+   * AP2: Revoke current Intent Mandate
+   */
+  revokeIntentMandate(): SignedMandate<IntentMandate> | null {
+    if (!this.currentIntentMandate) {
+      return null;
+    }
+
+    const revokedMandate = this.mandateManager.revokeMandate(this.currentIntentMandate);
+    this.currentIntentMandate = undefined;
+    return revokedMandate;
   }
 }
 

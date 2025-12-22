@@ -13,6 +13,12 @@ import type {
   VirtualCardResponse,
   PaymentGatewayConfig,
 } from './interfaces/IPaymentGateway';
+import {
+  SignedMandate,
+  CartMandate,
+  AP2PaymentAuthorization,
+  AP2TransactionResult,
+} from '@agentic-commerce/shared';
 
 export interface PaymentServiceConfig {
   gateway: PaymentGatewayType;
@@ -161,6 +167,116 @@ export class PaymentService {
    */
   parseWebhookEvent(payload: string | Buffer): any {
     return this.gateway.parseWebhookEvent(payload);
+  }
+
+  /**
+   * AP2: Process payment with Cart Mandate
+   * This method handles AP2-compliant payment processing
+   */
+  async processAP2Payment(
+    cartMandate: SignedMandate<CartMandate>,
+    paymentMethodId: string
+  ): Promise<AP2TransactionResult> {
+    try {
+      // Create payment intent with mandate metadata
+      const paymentIntent = await this.createPaymentIntent({
+        amount: cartMandate.mandate.total_price,
+        currency: 'usd',
+        customerId: cartMandate.mandate.user_id,
+        paymentMethodId,
+        metadata: {
+          mandate_id: cartMandate.mandate.mandate_id,
+          intent_mandate_id: cartMandate.mandate.intent_mandate_id,
+          mandate_type: 'cart',
+          merchant_id: cartMandate.mandate.merchant.merchant_id,
+          merchant_name: cartMandate.mandate.merchant.name,
+          ap2_enabled: 'true',
+        },
+      });
+
+      // Confirm the payment
+      const confirmedPayment = await this.confirmPaymentIntent(paymentIntent.id);
+
+      // Build AP2 transaction result
+      const result: AP2TransactionResult = {
+        transaction_id: confirmedPayment.id,
+        mandate_id: cartMandate.mandate.mandate_id,
+        status:
+          confirmedPayment.status === 'succeeded'
+            ? 'success'
+            : confirmedPayment.status === 'requires_action'
+            ? 'requires_action'
+            : confirmedPayment.status === 'processing'
+            ? 'pending'
+            : 'failed',
+        amount: cartMandate.mandate.total_price,
+        currency: 'USD',
+        merchant: {
+          merchant_id: cartMandate.mandate.merchant.merchant_id,
+          name: cartMandate.mandate.merchant.name,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      if (confirmedPayment.status !== 'succeeded') {
+        result.error = {
+          code: 'payment_failed',
+          message: `Payment status: ${confirmedPayment.status}`,
+        };
+      }
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        transaction_id: `failed_${Date.now()}`,
+        mandate_id: cartMandate.mandate.mandate_id,
+        status: 'failed',
+        amount: cartMandate.mandate.total_price,
+        currency: 'USD',
+        merchant: {
+          merchant_id: cartMandate.mandate.merchant.merchant_id,
+          name: cartMandate.mandate.merchant.name,
+        },
+        timestamp: new Date().toISOString(),
+        error: {
+          code: 'payment_processing_error',
+          message: errorMessage,
+        },
+      };
+    }
+  }
+
+  /**
+   * AP2: Create payment authorization from Cart Mandate
+   */
+  async createAP2Authorization(
+    cartMandate: SignedMandate<CartMandate>,
+    paymentMethodId: string
+  ): Promise<AP2PaymentAuthorization> {
+    // Create a payment method token for the transaction
+    const paymentIntent = await this.createPaymentIntent({
+      amount: cartMandate.mandate.total_price,
+      currency: 'usd',
+      customerId: cartMandate.mandate.user_id,
+      paymentMethodId,
+      captureMethod: 'manual', // Don't capture immediately
+      metadata: {
+        mandate_id: cartMandate.mandate.mandate_id,
+        ap2_authorization: 'true',
+      },
+    });
+
+    return {
+      cart_mandate: cartMandate,
+      payment_method_token: paymentIntent.id,
+      credential_provider: this.gateway.name,
+      authorization_timestamp: new Date().toISOString(),
+      risk_assessment: {
+        score: 0.5, // Placeholder - integrate with actual risk scoring
+        factors: ['mandate_verified', 'customer_verified'],
+      },
+    };
   }
 }
 

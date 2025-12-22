@@ -3,7 +3,10 @@ import { MCPClient, MCPServerConfig } from '@agentic-commerce/mcp-client';
 import { PaymentService, PaymentGatewayType } from '@agentic-commerce/payment';
 import { ProductSearchService, ProductSearchSource } from '@agentic-commerce/product-search';
 import { VisualSearchService, VisualSearchProvider } from '@agentic-commerce/visual-search';
+import { MandateManager } from '@agentic-commerce/ap2-mandate';
+import { Pool } from 'pg';
 import { logger } from '../utils/logger';
+import { MandateController } from '../controllers/mandate.controller';
 
 // Initialize Product Search Service
 const productDataSource = (process.env.PRODUCT_DATA_SOURCE || 'rapidapi') as ProductSearchSource;
@@ -69,3 +72,29 @@ paymentService.init().then(() => {
 }).catch((error) => {
   logger.error('Failed to initialize payment service:', error);
 });
+
+// Initialize Database Pool for AP2
+export const dbPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+
+dbPool.on('error', (err) => {
+  logger.error('Unexpected database pool error:', err);
+});
+
+logger.info('Database pool initialized');
+
+// Initialize AP2 Mandate Manager
+export const mandateManager = new MandateManager();
+logger.info('AP2 Mandate Manager initialized');
+
+// Initialize Mandate Controller
+export const mandateController = new MandateController(
+  mandateManager,
+  dbPool,
+  paymentService
+);
+logger.info('Mandate Controller initialized');
