@@ -3,6 +3,7 @@ import { IVisualSearchProvider, VisualSearchResult, DetectedObject } from '../in
 export interface GoogleVisionConfig {
   keyFilePath?: string;
   credentials?: any;
+  [key: string]: any;
 }
 
 export class GoogleVisionProvider implements IVisualSearchProvider {
