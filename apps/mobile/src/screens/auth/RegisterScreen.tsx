@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { TextInput, Button, Text, Surface } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
 import { setCredentials } from '../../store/slices/authSlice';
 import { authService } from '../../services/authService';
 
@@ -13,6 +14,7 @@ const RegisterScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const dispatch = useDispatch();
+  const navigation = useNavigation();
 
   const handleRegister = async () => {
     try {
@@ -20,11 +22,17 @@ const RegisterScreen: React.FC = () => {
       setError('');
       const response = await authService.register({ email, password, firstName, lastName });
       dispatch(setCredentials(response));
+      // Navigate back to the screen that triggered registration
+      navigation.goBack();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Registration failed');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleNavigateToLogin = () => {
+    navigation.navigate('Login' as never);
   };
 
   return (
@@ -67,6 +75,9 @@ const RegisterScreen: React.FC = () => {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button mode="contained" onPress={handleRegister} loading={loading} style={styles.button}>
           Register
+        </Button>
+        <Button mode="text" onPress={handleNavigateToLogin} style={styles.button}>
+          Already have an account? Sign In
         </Button>
       </Surface>
     </ScrollView>
