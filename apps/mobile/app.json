@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Agentic Commerce",
-    "slug": "agentic-commerce",
+    "slug": "agenticai",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "45567df4-f424-41fd-982c-141be033f0a5"
       }
     }
   }

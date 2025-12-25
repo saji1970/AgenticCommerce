@@ -11,4 +11,22 @@
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
+# React Native core
+-keep class com.facebook.react.** { *; }
+-keep class com.facebook.hermes.unicode.** { *; }
+-keep class com.facebook.jni.** { *; }
+
+# React Native views
+-keep class com.facebook.react.views.** { *; }
+-keep class com.facebook.react.uimanager.** { *; }
+-keep class com.facebook.react.bridge.** { *; }
+
+# View managers
+-keepclassmembers class * extends com.facebook.react.uimanager.ViewManager {
+    <methods>;
+}
+-keepclassmembers class * extends com.facebook.react.bridge.NativeModule {
+    <methods>;
+}
+
 # Add any project specific keep options here:
