@@ -12,7 +12,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
     "@agentic-commerce/shared": "*",
-    "@agentic-commerce/mcp-client": "*"
+    "@agentic-commerce/mcp-client": "*",
+    "@agentic-commerce/ap2-mandate": "*"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

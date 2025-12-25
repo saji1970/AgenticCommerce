@@ -308,7 +308,7 @@ export class MandateController {
       const { reason } = req.body;
 
       // Get mandate
-      let mandate = await this.getIntentMandateById(mandateId);
+      let mandate: SignedMandate<IntentMandate> | SignedMandate<CartMandate> | null = await this.getIntentMandateById(mandateId);
       let mandateType: 'intent' | 'cart' = 'intent';
 
       if (!mandate) {
@@ -334,7 +334,9 @@ export class MandateController {
       }
 
       // Revoke mandate
-      const revokedMandate = this.mandateManager.revokeMandate(mandate);
+      const revokedMandate = mandateType === 'intent'
+        ? this.mandateManager.revokeMandate(mandate as SignedMandate<IntentMandate>)
+        : this.mandateManager.revokeMandate(mandate as SignedMandate<CartMandate>);
 
       // Update database
       await this.updateMandateStatus(mandateId, 'revoked');

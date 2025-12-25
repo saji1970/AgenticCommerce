@@ -190,7 +190,7 @@ Guidelines:
     context?: AgentContext
   ): Promise<SignedMandate<IntentMandate>> {
     const maxPrice = context?.budget || 1000; // Default max price
-    const minPrice = context?.minBudget;
+    const minPrice = undefined; // No minimum price constraint
     const timeLimitHours = 24; // Intent mandate valid for 24 hours
 
     const intentMandate = this.mandateManager.createIntentMandate({
@@ -228,7 +228,7 @@ Guidelines:
       quantity: 1,
       unit_price: product.price,
       total_price: product.price,
-      merchant_sku: product.sku,
+      merchant_sku: product.externalId,
     }));
 
     const totalPrice = items.reduce((sum, item) => sum + item.total_price, 0);
