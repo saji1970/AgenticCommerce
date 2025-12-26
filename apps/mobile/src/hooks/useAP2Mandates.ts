@@ -14,6 +14,7 @@ import {
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import ReactNativeBiometrics from 'react-native-biometrics';
+import { API_BASE_URL } from '../config/api';
 
 interface UseAP2MandatesReturn {
   // State
@@ -57,8 +58,7 @@ export const useAP2Mandates = (): UseAP2MandatesReturn => {
         console.log('AP2 Mandate Manager initialized');
       });
 
-      const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
-      const api = new AP2ApiService(baseUrl, authToken);
+      const api = new AP2ApiService(API_BASE_URL, authToken);
       setApiService(api);
     }
   }, [user?.id, authToken]);
