@@ -40,7 +40,8 @@ npm install --workspaces
 # Copy environment files
 cp .env.example .env
 cp apps/backend/.env.example apps/backend/.env
-cp apps/mobile/.env.example apps/mobile/.env
+# Mobile app uses Expo managed workflow - no .env file needed
+# Configuration is done in apps/mobile-new/src/config/api.ts
 
 # Build shared packages
 npm run build --workspace=@agentic-commerce/shared
@@ -70,11 +71,12 @@ PORT=3000
 LOG_LEVEL=info
 ```
 
-### 2. Mobile App Configuration (`apps/mobile/.env`)
+### 2. Mobile App Configuration
 
-```env
-EXPO_PUBLIC_API_URL=http://localhost:3000/api/v1
-EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxxxx
+The mobile app uses Expo managed workflow. Update the API URL in `apps/mobile-new/src/config/api.ts`:
+
+```typescript
+const RAILWAY_API_URL = 'http://localhost:3000/api/v1'; // or your production URL
 ```
 
 ## Database Setup
@@ -161,7 +163,7 @@ curl http://localhost:3000/health
 agentic-commerce/
 ├── apps/
 │   ├── backend/          # Node.js/Express backend
-│   ├── mobile/           # React Native app
+│   ├── mobile-new/       # React Native app
 │   └── vr/               # AR/VR app (Phase 3)
 ├── packages/
 │   ├── shared/           # Shared types and utilities

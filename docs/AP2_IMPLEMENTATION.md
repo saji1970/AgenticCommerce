@@ -81,7 +81,7 @@ REST API endpoints for mandate management:
 - `POST /api/v1/mandates/:mandateId/revoke` - Revoke mandate
 - `GET /api/v1/mandates/:mandateId/audit` - Get audit trail
 
-### 6. Mobile App (`apps/mobile/`)
+### 6. Mobile App (`apps/mobile-new/`)
 
 React Native implementation:
 - `AP2MandateManager` - Mobile mandate creation and signing

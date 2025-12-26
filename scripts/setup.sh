@@ -38,10 +38,10 @@ if [ ! -f apps/backend/.env ]; then
     echo "⚠️  Please update apps/backend/.env with your API keys"
 fi
 
-if [ ! -f apps/mobile/.env ]; then
+if [ ! -f apps/mobile-new/.env ] && [ -f apps/mobile-new/.env.example ]; then
     echo "📝 Creating mobile .env file..."
-    cp apps/mobile/.env.example apps/mobile/.env
-    echo "⚠️  Please update apps/mobile/.env with your API keys"
+    cp apps/mobile-new/.env.example apps/mobile-new/.env
+    echo "⚠️  Please update apps/mobile-new/.env with your API keys"
 fi
 
 # Build shared packages

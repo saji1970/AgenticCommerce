@@ -239,9 +239,8 @@ await razorpayService.init();
 Update the mobile app to use the selected gateway:
 
 ```typescript
-// apps/mobile/.env
-EXPO_PUBLIC_PAYMENT_GATEWAY=stripe
-EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxxxx
+// apps/mobile-new/src/config/api.ts
+// Update API configuration directly in the source file
 ```
 
 For React Native, install the appropriate SDK:

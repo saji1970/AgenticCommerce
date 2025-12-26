@@ -14,7 +14,7 @@ This project uses a monorepo architecture managed with npm workspaces and Turbo 
 agentic-commerce/
 ├── apps/
 │   ├── backend/              # Express.js REST API
-│   ├── mobile/               # React Native (iOS & Android)
+│   ├── mobile-new/           # React Native (iOS & Android)
 │   └── vr/                   # AR/VR Experience (Phase 3)
 │
 ├── packages/
@@ -39,7 +39,7 @@ agentic-commerce/
 - Authentication: JWT with bcrypt
 - Validation: Zod schemas
 
-**Mobile (apps/mobile)**
+**Mobile (apps/mobile-new)**
 - Framework: React Native with Expo
 - Language: TypeScript
 - State: Redux Toolkit

@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Agentic Commerce",
+    "slug": "agentic-commerce",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sajipillai70.agenticcommerce",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "We need camera access for visual product search and scanning",
+        "NSPhotoLibraryUsageDescription": "We need photo library access to search products by image",
+        "NSLocationWhenInUseDescription": "We need location access to find nearby stores and provide location-based recommendations",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need location access to find nearby stores and provide location-based recommendations",
+        "NSFaceIDUsageDescription": "We use Face ID to securely authenticate and protect your account"
+      }
+    },
+    "android": {
+      "package": "com.sajipillai70.agenticcommerce",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "*.agenticcommerce.com"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "5dec5d69-b20f-4e87-adfb-ad053d4741a5"
+      }
+    }
+  }
+}

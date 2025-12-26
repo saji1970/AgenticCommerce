@@ -214,7 +214,7 @@ Now that you're running:
 
 2. **Explore the Code**
    - Backend API: `apps/backend/src/`
-   - Mobile App: `apps/mobile/src/`
+   - Mobile App: `apps/mobile-new/src/`
    - AI Agent: `packages/ai-agent/src/`
 
 3. **Read Documentation**

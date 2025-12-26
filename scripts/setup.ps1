@@ -32,10 +32,10 @@ if (!(Test-Path apps\backend\.env)) {
     Write-Host "⚠️  Please update apps\backend\.env with your API keys" -ForegroundColor Yellow
 }
 
-if (!(Test-Path apps\mobile\.env)) {
+if (!(Test-Path apps\mobile-new\.env) -and (Test-Path apps\mobile-new\.env.example)) {
     Write-Host "📝 Creating mobile .env file..." -ForegroundColor Yellow
-    Copy-Item apps\mobile\.env.example apps\mobile\.env
-    Write-Host "⚠️  Please update apps\mobile\.env with your API keys" -ForegroundColor Yellow
+    Copy-Item apps\mobile-new\.env.example apps\mobile-new\.env
+    Write-Host "⚠️  Please update apps\mobile-new\.env with your API keys" -ForegroundColor Yellow
 }
 
 # Build shared packages

@@ -17,7 +17,7 @@ AI-powered autonomous shopping platform that enables intelligent product discove
 agentic-commerce/
 ├── apps/
 │   ├── backend/          # Node.js/TypeScript backend API
-│   ├── mobile/           # React Native app (iOS & Android)
+│   ├── mobile-new/       # React Native app (iOS & Android)
 │   └── vr/               # React Native VR app
 ├── packages/
 │   ├── shared/           # Shared TypeScript types and utilities

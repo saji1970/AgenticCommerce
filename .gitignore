@@ -82,3 +82,21 @@ ios/Pods/
 
 # Redis
 dump.rdb
+
+# Build artifacts
+*.apk
+*.aab
+*.ipa
+build-output.txt
+full-log.txt
+
+# Screenshots and test images
+*.png
+*.jpg
+*.jpeg
+!apps/**/assets/**/*.png
+!apps/**/assets/**/*.jpg
+!apps/**/assets/**/*.jpeg
+
+# Windows special files
+nul

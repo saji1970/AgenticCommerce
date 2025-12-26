@@ -39,8 +39,8 @@ Google's Agent Payments Protocol (AP2) has been fully integrated into Agentic Co
 - `apps/backend/src/database/schema.sql` - Database schema
 
 ### Mobile App
-- `apps/mobile/src/services/AP2MandateManager.ts` - Mobile mandate manager
-- `apps/mobile/src/hooks/useAP2Mandates.ts` - React hook
+- `apps/mobile-new/src/services/AP2MandateManager.ts` - Mobile mandate manager (if implemented)
+- `apps/mobile-new/src/hooks/useAP2Mandates.ts` - React hook (if implemented)
 
 ### Documentation
 - `docs/AP2_IMPLEMENTATION.md` - Complete implementation guide
@@ -225,7 +225,7 @@ npx expo start
 2. Set up environment variables in `.env`
 3. Run database migrations
 4. Start backend: `cd apps/backend && npm run dev`
-5. Start mobile app: `cd apps/mobile && npx expo start`
+5. Start mobile app: `cd apps/mobile-new && npx expo start`
 
 ### For Production
 1. Replace placeholder crypto with proper Ed25519 implementation
@@ -276,7 +276,7 @@ AP2_REQUIRE_BIOMETRIC=true
 - AP2 Protocol: https://github.com/google-agentic-commerce/AP2
 - Database Schema: `apps/backend/src/database/schema.sql`
 - API Controller: `apps/backend/src/controllers/mandate.controller.ts`
-- Mobile Hook: `apps/mobile/src/hooks/useAP2Mandates.ts`
+- Mobile Hook: `apps/mobile-new/src/hooks/useAP2Mandates.ts` (if implemented)
 
 ---
 

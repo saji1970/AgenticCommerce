@@ -12,7 +12,7 @@ Your Agentic Commerce AI App is now fully configured with **flexible payment gat
 AgenticCommerce/
 ├── apps/
 │   ├── backend/              ✅ Node.js/Express API
-│   ├── mobile/               ✅ React Native (iOS & Android)
+│   ├── mobile-new/           ✅ React Native (iOS & Android)
 │   └── vr/                   ✅ AR/VR foundation
 ├── packages/
 │   ├── shared/               ✅ TypeScript types & utils
@@ -81,7 +81,7 @@ PRODUCT_DATA_SOURCE=rapidapi  # or serpapi, mcp
 ---
 
 ### 4. Mobile App ✅
-**Location:** `apps/mobile/`
+**Location:** `apps/mobile-new/`
 
 **Platforms:**
 - iOS (via Expo)
