@@ -3,6 +3,10 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Button } from 'react-native-paper';
 
 const HomeScreen: React.FC = () => {
+  React.useEffect(() => {
+    console.log('HomeScreen mounted and rendering');
+  }, []);
+
   return (
     <ScrollView style={styles.container}>
       <Text variant="headlineMedium" style={styles.title}>

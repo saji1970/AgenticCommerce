@@ -67,20 +67,32 @@ export const useAP2Mandates = (): UseAP2MandatesReturn => {
    * Request biometric authentication before sensitive operations
    */
   const authenticateWithBiometrics = async (): Promise<boolean> => {
-    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
-    if (!hasHardware || !isEnrolled) {
-      // Biometrics not available, proceed anyway (in production, you might want to require it)
+      if (!hasHardware || !isEnrolled) {
+        // Biometrics not available, proceed anyway (in production, you might want to require it)
+        return true;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authenticate to approve mandate',
+        fallbackLabel: 'Use passcode',
+        cancelLabel: 'Cancel',
+      });
+
+      // Check if result exists and has success property
+      if (!result) {
+        return false;
+      }
+
+      return result.success ?? false;
+    } catch (error) {
+      console.error('Biometric authentication error:', error);
+      // On error, allow the operation to proceed (or return false if you want to block it)
       return true;
     }
-
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Authenticate to approve mandate',
-      fallbackLabel: 'Use passcode',
-    });
-
-    return result.success;
   };
 
   /**

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Image, ScrollView, Alert } from 'react-native';
 import { Button, Text, Card, Chip, ActivityIndicator } from 'react-native-paper';
 import { Camera, CameraType } from 'expo-camera';
@@ -13,55 +13,105 @@ const VisualSearchScreen: React.FC = () => {
   const [results, setResults] = useState<any>(null);
   const cameraRef = useRef<Camera>(null);
   const navigation = useNavigation();
+  const isMountedRef = useRef(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    isMountedRef.current = true;
+    let permissionRequested = false;
+
     (async () => {
-      const cameraStatus = await Camera.requestCameraPermissionsAsync();
-      const galleryStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      setHasPermission(cameraStatus.status === 'granted' && galleryStatus.status === 'granted');
+      if (permissionRequested) return;
+      permissionRequested = true;
+
+      try {
+        const cameraStatus = await Camera.requestCameraPermissionsAsync();
+        const galleryStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        
+        if (isMountedRef.current) {
+          setHasPermission(cameraStatus.status === 'granted' && galleryStatus.status === 'granted');
+        }
+      } catch (error) {
+        console.error('Permission request error:', error);
+        if (isMountedRef.current) {
+          setHasPermission(false);
+        }
+      }
     })();
+
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const takePicture = async () => {
-    if (cameraRef.current) {
+    if (!cameraRef.current || !isMountedRef.current) return;
+    
+    try {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: true,
       });
-      setImageUri(photo.uri);
-      if (photo.base64) {
-        analyzeImage(photo.base64);
+      
+      if (!isMountedRef.current) return;
+      
+      if (photo?.uri) {
+        setImageUri(photo.uri);
+        if (photo.base64) {
+          analyzeImage(photo.base64);
+        }
       }
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take picture. Please try again.');
     }
   };
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-      base64: true,
-    });
+    if (!isMountedRef.current) return;
+    
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        base64: true,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
-      if (result.assets[0].base64) {
-        analyzeImage(result.assets[0].base64);
+      if (!isMountedRef.current) return;
+
+      if (!result.canceled && result.assets?.[0]) {
+        setImageUri(result.assets[0].uri);
+        if (result.assets[0].base64) {
+          analyzeImage(result.assets[0].base64);
+        }
       }
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
 
   const analyzeImage = async (base64: string) => {
+    if (!isMountedRef.current) return;
+    
     try {
       setAnalyzing(true);
       const analysisResults = await visualSearchService.analyzeImage(base64);
-      setResults(analysisResults);
+      
+      if (isMountedRef.current) {
+        setResults(analysisResults);
+      }
     } catch (error) {
+      if (!isMountedRef.current) return;
       console.error('Image analysis error:', error);
       Alert.alert('Error', 'Failed to analyze image. Please try again.');
     } finally {
-      setAnalyzing(false);
+      if (isMountedRef.current) {
+        setAnalyzing(false);
+      }
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, FlatList, ScrollView } from 'react-native';
 import { Text, Card, Chip, Button, Searchbar, SegmentedButtons, Menu } from 'react-native-paper';
 import { useRoute } from '@react-navigation/native';
@@ -26,9 +26,23 @@ const SearchResultsScreen: React.FC = () => {
   // UI State
   const [filterMenuVisible, setFilterMenuVisible] = useState(false);
 
+  const isMountedRef = React.useRef(true);
+
   useEffect(() => {
-    getLocation();
-    searchProducts();
+    isMountedRef.current = true;
+
+    const initialize = async () => {
+      await getLocation();
+      if (isMountedRef.current) {
+        await searchProducts();
+      }
+    };
+
+    initialize();
+
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [query]);
 
   useEffect(() => {
@@ -36,14 +50,31 @@ const SearchResultsScreen: React.FC = () => {
   }, [sortBy, availability, priceRange, minRating, storeFilter]);
 
   const getLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === 'granted') {
-      const loc = await Location.getCurrentPositionAsync({});
-      setLocation(loc);
+    if (!isMountedRef.current) return;
+    
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (!isMountedRef.current) return;
+      
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        
+        if (isMountedRef.current) {
+          setLocation(loc);
+        }
+      }
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      console.error('Location error:', error);
+      // Continue without location
     }
   };
 
   const searchProducts = async () => {
+    if (!isMountedRef.current) return;
+    
     try {
       setLoading(true);
       const results = await productService.searchProducts({
@@ -51,11 +82,17 @@ const SearchResultsScreen: React.FC = () => {
         latitude: location?.coords.latitude,
         longitude: location?.coords.longitude,
       });
-      setProducts(results);
+      
+      if (isMountedRef.current) {
+        setProducts(results);
+      }
     } catch (error) {
+      if (!isMountedRef.current) return;
       console.error('Search error:', error);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

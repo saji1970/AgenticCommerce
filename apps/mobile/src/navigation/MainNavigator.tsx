@@ -16,6 +16,10 @@ export type MainTabParamList = {
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const MainNavigator: React.FC = () => {
+  React.useEffect(() => {
+    console.log('MainNavigator mounted');
+  }, []);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({

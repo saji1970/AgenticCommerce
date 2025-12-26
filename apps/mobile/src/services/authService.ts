@@ -26,24 +26,47 @@ interface AuthResponse {
 class AuthService {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const response = await apiService.post<AuthResponse>('/auth/login', credentials);
-    await SecureStore.setItemAsync('authToken', response.token);
+    try {
+      await SecureStore.setItemAsync('authToken', response.token);
+    } catch (error) {
+      console.warn('Failed to store auth token:', error);
+      // Continue even if storage fails
+    }
     return response;
   }
 
   async register(data: RegisterData): Promise<AuthResponse> {
     const response = await apiService.post<AuthResponse>('/auth/register', data);
-    await SecureStore.setItemAsync('authToken', response.token);
+    try {
+      await SecureStore.setItemAsync('authToken', response.token);
+    } catch (error) {
+      console.warn('Failed to store auth token:', error);
+      // Continue even if storage fails
+    }
     return response;
   }
 
   async logout(): Promise<void> {
-    await apiService.post('/auth/logout');
-    await SecureStore.deleteItemAsync('authToken');
+    try {
+      await apiService.post('/auth/logout');
+    } catch (error) {
+      console.warn('Logout API call failed:', error);
+    }
+    try {
+      await SecureStore.deleteItemAsync('authToken');
+    } catch (error) {
+      console.warn('Failed to delete auth token:', error);
+    }
   }
 
   async refreshToken(): Promise<string> {
     const response = await apiService.post<{ token: string }>('/auth/refresh');
-    await SecureStore.setItemAsync('authToken', response.token);
+    try {
+      await SecureStore.setItemAsync('authToken', response.token);
+    } catch (error) {
+      console.warn('Failed to store refreshed token:', error);
+      // Continue even if storage fails
+    }
     return response.token;
   }
 }

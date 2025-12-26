@@ -17,11 +17,17 @@ export default function App() {
       <Provider store={store}>
         <SafeAreaProvider>
           <PaperProvider theme={theme}>
-            <StripeProvider publishableKey={stripePublishableKey}>
+            {stripePublishableKey ? (
+              <StripeProvider publishableKey={stripePublishableKey}>
+                <NavigationContainer>
+                  <RootNavigator />
+                </NavigationContainer>
+              </StripeProvider>
+            ) : (
               <NavigationContainer>
                 <RootNavigator />
               </NavigationContainer>
-            </StripeProvider>
+            )}
           </PaperProvider>
         </SafeAreaProvider>
       </Provider>

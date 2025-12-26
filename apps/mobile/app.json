@@ -1,31 +1,4 @@
 {
-  "expo": {
-    "name": "Agentic Commerce",
-    "slug": "agenticai",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.agenticcommerce.app"
-    },
-    "android": {
-      "package": "com.agenticcommerce.app",
-      "permissions": [
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
-      ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "45567df4-f424-41fd-982c-141be033f0a5"
-      }
-    }
-  }
+  "name": "AgenticCommerce",
+  "displayName": "Agentic Commerce"
 }

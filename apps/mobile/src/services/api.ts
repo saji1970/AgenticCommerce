@@ -22,9 +22,14 @@ class ApiService {
     // Request interceptor - add auth token
     this.client.interceptors.request.use(
       async (config) => {
-        const token = await SecureStore.getItemAsync('authToken');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        try {
+          const token = await SecureStore.getItemAsync('authToken');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (error) {
+          // Silently fail if SecureStore is unavailable
+          console.warn('Failed to get auth token from SecureStore:', error);
         }
         return config;
       },
@@ -38,9 +43,14 @@ class ApiService {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
-          // Token expired, logout user
-          await SecureStore.deleteItemAsync('authToken');
-          // Dispatch logout action or navigate to login
+          try {
+            // Token expired, logout user
+            await SecureStore.deleteItemAsync('authToken');
+            // Dispatch logout action or navigate to login
+          } catch (storeError) {
+            // Silently fail if SecureStore is unavailable
+            console.warn('Failed to delete auth token from SecureStore:', storeError);
+          }
         }
         return Promise.reject(error);
       }
