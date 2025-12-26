@@ -3,7 +3,7 @@
  * Handles mandate creation, signing, and verification on mobile devices
  */
 
-import * as SecureStore from 'expo-secure-store';
+import * as Keychain from 'react-native-keychain';
 import { v4 as uuidv4 } from 'uuid';
 import {
   IntentMandate,
@@ -216,11 +216,11 @@ export class AP2MandateManager {
   private async loadOrGenerateKeyPair(): Promise<void> {
     try {
       // Try to load existing key pair from secure storage
-      const privateKey = await SecureStore.getItemAsync(`ap2_private_key_${this.userId}`);
-      const publicKey = await SecureStore.getItemAsync(`ap2_public_key_${this.userId}`);
+      const privateKeyCreds = await Keychain.getInternetCredentials(`ap2_private_key_${this.userId}`);
+      const publicKeyCreds = await Keychain.getInternetCredentials(`ap2_public_key_${this.userId}`);
 
-      if (privateKey && publicKey) {
-        this.keyPair = { privateKey, publicKey };
+      if (privateKeyCreds?.password && publicKeyCreds?.password) {
+        this.keyPair = { privateKey: privateKeyCreds.password, publicKey: publicKeyCreds.password };
         console.log('Loaded existing AP2 key pair');
       } else {
         // Generate new key pair
@@ -246,8 +246,8 @@ export class AP2MandateManager {
     const publicKey = uuidv4() + uuidv4(); // Placeholder
 
     // Store in secure storage
-    await SecureStore.setItemAsync(`ap2_private_key_${this.userId}`, privateKey);
-    await SecureStore.setItemAsync(`ap2_public_key_${this.userId}`, publicKey);
+    await Keychain.setInternetCredentials(`ap2_private_key_${this.userId}`, 'privateKey', privateKey);
+    await Keychain.setInternetCredentials(`ap2_public_key_${this.userId}`, 'publicKey', publicKey);
 
     this.keyPair = { privateKey, publicKey };
     console.log('Generated new AP2 key pair');
@@ -264,8 +264,8 @@ export class AP2MandateManager {
    * Clear keys (for logout)
    */
   async clearKeys(): Promise<void> {
-    await SecureStore.deleteItemAsync(`ap2_private_key_${this.userId}`);
-    await SecureStore.deleteItemAsync(`ap2_public_key_${this.userId}`);
+    await Keychain.resetInternetCredentials(`ap2_private_key_${this.userId}`);
+    await Keychain.resetInternetCredentials(`ap2_public_key_${this.userId}`);
     this.keyPair = null;
   }
 }

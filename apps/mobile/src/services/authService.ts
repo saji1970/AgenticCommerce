@@ -1,5 +1,5 @@
 import { apiService } from './api';
-import * as SecureStore from 'expo-secure-store';
+import * as Keychain from 'react-native-keychain';
 
 interface LoginCredentials {
   email: string;
@@ -27,7 +27,7 @@ class AuthService {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const response = await apiService.post<AuthResponse>('/auth/login', credentials);
     try {
-      await SecureStore.setItemAsync('authToken', response.token);
+      await Keychain.setGenericPassword('authToken', response.token);
     } catch (error) {
       console.warn('Failed to store auth token:', error);
       // Continue even if storage fails
@@ -38,7 +38,7 @@ class AuthService {
   async register(data: RegisterData): Promise<AuthResponse> {
     const response = await apiService.post<AuthResponse>('/auth/register', data);
     try {
-      await SecureStore.setItemAsync('authToken', response.token);
+      await Keychain.setGenericPassword('authToken', response.token);
     } catch (error) {
       console.warn('Failed to store auth token:', error);
       // Continue even if storage fails
@@ -53,7 +53,7 @@ class AuthService {
       console.warn('Logout API call failed:', error);
     }
     try {
-      await SecureStore.deleteItemAsync('authToken');
+      await Keychain.resetGenericPassword();
     } catch (error) {
       console.warn('Failed to delete auth token:', error);
     }
@@ -62,7 +62,7 @@ class AuthService {
   async refreshToken(): Promise<string> {
     const response = await apiService.post<{ token: string }>('/auth/refresh');
     try {
-      await SecureStore.setItemAsync('authToken', response.token);
+      await Keychain.setGenericPassword('authToken', response.token);
     } catch (error) {
       console.warn('Failed to store refreshed token:', error);
       // Continue even if storage fails

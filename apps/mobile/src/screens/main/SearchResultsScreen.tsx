@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, FlatList, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, ScrollView, PermissionsAndroid, Platform } from 'react-native';
 import { Text, Card, Chip, Button, Searchbar, SegmentedButtons, Menu } from 'react-native-paper';
 import { useRoute } from '@react-navigation/native';
-import * as Location from 'expo-location';
+import Geolocation from '@react-native-community/geolocation';
 import { productService } from '../../services/productService';
 
 type SortOption = 'price-low' | 'price-high' | 'distance' | 'rating' | 'relevance';
@@ -14,7 +14,7 @@ const SearchResultsScreen: React.FC = () => {
 
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [location, setLocation] = useState<{ coords: { latitude: number; longitude: number } } | null>(null);
 
   // Filters and sorting
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
@@ -53,18 +53,31 @@ const SearchResultsScreen: React.FC = () => {
     if (!isMountedRef.current) return;
     
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (!isMountedRef.current) return;
-      
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        
-        if (isMountedRef.current) {
-          setLocation(loc);
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          return;
         }
       }
+      
+      Geolocation.getCurrentPosition(
+        (position) => {
+          if (isMountedRef.current) {
+            setLocation({
+              coords: {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              },
+            });
+          }
+        },
+        (error) => {
+          console.error('Location error:', error);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
     } catch (error) {
       if (!isMountedRef.current) return;
       console.error('Location error:', error);

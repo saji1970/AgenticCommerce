@@ -1,4 +1,7 @@
 {
   "name": "AgenticCommerce",
-  "displayName": "Agentic Commerce"
+  "displayName": "Agentic Commerce",
+  "android": {
+    "package": "com.sajipillai70.agenticcommerce"
+  }
 }

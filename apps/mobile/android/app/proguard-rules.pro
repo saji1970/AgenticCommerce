@@ -7,22 +7,8 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
+# react-native-reanimated
+-keep class com.swmansion.reanimated.** { *; }
+-keep class com.facebook.react.turbomodule.** { *; }
+
 # Add any project specific keep options here:
-
-# React Native
--keep,allowobfuscation @interface com.facebook.proguard.annotations.DoNotStrip
--keep,allowobfuscation @interface com.facebook.proguard.annotations.KeepGettersAndSetters
--keep @com.facebook.proguard.annotations.DoNotStrip class *
--keepclassmembers class * {
-    @com.facebook.proguard.annotations.DoNotStrip *;
-}
-
-# react-native-safe-area-context
--keep class com.th3rdwave.safeareacontext.** { *; }
--keep class com.facebook.react.viewmanagers.RNCSafeAreaProviderManager { *; }
--keep class com.facebook.react.viewmanagers.RNCSafeAreaViewManager { *; }
-
-# Keep native methods
--keepclasseswithmembernames class * {
-    native <methods>;
-}

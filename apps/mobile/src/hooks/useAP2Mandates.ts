@@ -13,7 +13,7 @@ import {
 } from '@agentic-commerce/shared';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
-import * as LocalAuthentication from 'expo-local-authentication';
+import ReactNativeBiometrics from 'react-native-biometrics';
 
 interface UseAP2MandatesReturn {
   // State
@@ -68,26 +68,20 @@ export const useAP2Mandates = (): UseAP2MandatesReturn => {
    */
   const authenticateWithBiometrics = async (): Promise<boolean> => {
     try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      const rnBiometrics = new ReactNativeBiometrics();
+      const { available, biometryType } = await rnBiometrics.isSensorAvailable();
 
-      if (!hasHardware || !isEnrolled) {
+      if (!available) {
         // Biometrics not available, proceed anyway (in production, you might want to require it)
         return true;
       }
 
-      const result = await LocalAuthentication.authenticateAsync({
+      const { success } = await rnBiometrics.simplePrompt({
         promptMessage: 'Authenticate to approve mandate',
-        fallbackLabel: 'Use passcode',
-        cancelLabel: 'Cancel',
+        fallbackPromptMessage: 'Use passcode',
       });
 
-      // Check if result exists and has success property
-      if (!result) {
-        return false;
-      }
-
-      return result.success ?? false;
+      return success;
     } catch (error) {
       console.error('Biometric authentication error:', error);
       // On error, allow the operation to proceed (or return false if you want to block it)

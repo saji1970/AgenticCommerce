@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Image, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, Image, ScrollView, Alert, PermissionsAndroid, Platform } from 'react-native';
 import { Button, Text, Card, Chip, ActivityIndicator } from 'react-native-paper';
-import { Camera, CameraType } from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { visualSearchService } from '../../services/visualSearchService';
 
@@ -14,6 +14,9 @@ const VisualSearchScreen: React.FC = () => {
   const cameraRef = useRef<Camera>(null);
   const navigation = useNavigation();
   const isMountedRef = useRef(true);
+  
+  const device = useCameraDevice('back');
+  const { hasPermission: cameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -24,11 +27,32 @@ const VisualSearchScreen: React.FC = () => {
       permissionRequested = true;
 
       try {
-        const cameraStatus = await Camera.requestCameraPermissionsAsync();
-        const galleryStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        
-        if (isMountedRef.current) {
-          setHasPermission(cameraStatus.status === 'granted' && galleryStatus.status === 'granted');
+        if (Platform.OS === 'android') {
+          const cameraStatus = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.CAMERA
+          );
+          const storageStatus = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE
+          );
+          
+          if (isMountedRef.current) {
+            setHasPermission(
+              cameraStatus === PermissionsAndroid.RESULTS.GRANTED &&
+              storageStatus === PermissionsAndroid.RESULTS.GRANTED
+            );
+          }
+        } else {
+          // iOS permissions are handled by react-native-vision-camera
+          if (!cameraPermission) {
+            const granted = await requestCameraPermission();
+            if (isMountedRef.current) {
+              setHasPermission(granted);
+            }
+          } else {
+            if (isMountedRef.current) {
+              setHasPermission(true);
+            }
+          }
         }
       } catch (error) {
         console.error('Permission request error:', error);
@@ -41,23 +65,25 @@ const VisualSearchScreen: React.FC = () => {
     return () => {
       isMountedRef.current = false;
     };
-  }, []);
+  }, [cameraPermission, requestCameraPermission]);
 
   const takePicture = async () => {
-    if (!cameraRef.current || !isMountedRef.current) return;
+    if (!cameraRef.current || !isMountedRef.current || !device) return;
     
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        base64: true,
+      const photo = await cameraRef.current.takePhoto({
+        qualityPrioritization: 'speed',
+        flash: 'off',
       });
       
       if (!isMountedRef.current) return;
       
-      if (photo?.uri) {
-        setImageUri(photo.uri);
-        if (photo.base64) {
-          analyzeImage(photo.base64);
+      if (photo?.path) {
+        setImageUri(`file://${photo.path}`);
+        // Convert to base64 for analysis
+        const base64 = await convertImageToBase64(`file://${photo.path}`);
+        if (base64) {
+          analyzeImage(base64);
         }
       }
     } catch (error) {
@@ -67,22 +93,44 @@ const VisualSearchScreen: React.FC = () => {
     }
   };
 
+  const convertImageToBase64 = async (uri: string): Promise<string | null> => {
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          resolve(base64String.split(',')[1]); // Remove data:image/...;base64, prefix
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error converting image to base64:', error);
+      return null;
+    }
+  };
+
   const pickImage = async () => {
     if (!isMountedRef.current) return;
     
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-        base64: true,
+      const result: ImagePickerResponse = await new Promise((resolve) => {
+        launchImageLibrary(
+          {
+            mediaType: 'photo' as MediaType,
+            quality: 0.8,
+            includeBase64: true,
+          },
+          resolve
+        );
       });
 
       if (!isMountedRef.current) return;
 
-      if (!result.canceled && result.assets?.[0]) {
-        setImageUri(result.assets[0].uri);
+      if (!result.didCancel && result.assets?.[0]) {
+        setImageUri(result.assets[0].uri || null);
         if (result.assets[0].base64) {
           analyzeImage(result.assets[0].base64);
         }
@@ -133,7 +181,7 @@ const VisualSearchScreen: React.FC = () => {
     return (
       <View style={styles.container}>
         <Text>Camera permission is required to use this feature.</Text>
-        <Button mode="contained" onPress={() => Camera.requestCameraPermissionsAsync()}>
+        <Button mode="contained" onPress={requestCameraPermission}>
           Grant Permission
         </Button>
       </View>
@@ -144,11 +192,15 @@ const VisualSearchScreen: React.FC = () => {
     <ScrollView style={styles.container}>
       {!imageUri ? (
         <View style={styles.cameraContainer}>
-          <Camera
-            ref={cameraRef}
-            style={styles.camera}
-            type={CameraType.back}
-          />
+          {device && (
+            <Camera
+              ref={cameraRef}
+              style={styles.camera}
+              device={device}
+              isActive={true}
+              photo={true}
+            />
+          )}
           <View style={styles.buttonContainer}>
             <Button mode="contained" onPress={takePicture} icon="camera" style={styles.button}>
               Take Photo

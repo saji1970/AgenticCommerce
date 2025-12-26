@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import * as Keychain from 'react-native-keychain';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+const API_URL = process.env.API_URL || 'http://localhost:3000/api/v1';
 
 class ApiService {
   private client: AxiosInstance;
@@ -23,13 +23,13 @@ class ApiService {
     this.client.interceptors.request.use(
       async (config) => {
         try {
-          const token = await SecureStore.getItemAsync('authToken');
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+          const credentials = await Keychain.getGenericPassword();
+          if (credentials && credentials.password) {
+            config.headers.Authorization = `Bearer ${credentials.password}`;
           }
         } catch (error) {
-          // Silently fail if SecureStore is unavailable
-          console.warn('Failed to get auth token from SecureStore:', error);
+          // Silently fail if Keychain is unavailable
+          console.warn('Failed to get auth token from Keychain:', error);
         }
         return config;
       },
@@ -45,11 +45,11 @@ class ApiService {
         if (error.response?.status === 401) {
           try {
             // Token expired, logout user
-            await SecureStore.deleteItemAsync('authToken');
+            await Keychain.resetGenericPassword();
             // Dispatch logout action or navigate to login
           } catch (storeError) {
-            // Silently fail if SecureStore is unavailable
-            console.warn('Failed to delete auth token from SecureStore:', storeError);
+            // Silently fail if Keychain is unavailable
+            console.warn('Failed to delete auth token from Keychain:', storeError);
           }
         }
         return Promise.reject(error);
