@@ -73,3 +73,5 @@ When you're ready to add plugins back to `app.json`:
 
 The plugin issue doesn't affect EAS builds since they handle plugins in the cloud environment.
 
+
+
