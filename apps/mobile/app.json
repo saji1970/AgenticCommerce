@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Agentic Commerce",
+    "slug": "agentic-commerce-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.agenticcommerce.mobile",
+      "buildNumber": "1.0.0"
+    },
+    "android": {
+      "package": "com.agenticcommerce.mobile",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "5dec5d69-b20f-4e87-adfb-ad053d4741a5"
+      }
+    }
+  }
+}
+

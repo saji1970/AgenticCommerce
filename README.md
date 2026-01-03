@@ -17,7 +17,6 @@ AI-powered autonomous shopping platform that enables intelligent product discove
 agentic-commerce/
 ├── apps/
 │   ├── backend/          # Node.js/TypeScript backend API
-│   ├── mobile-new/       # React Native app (iOS & Android)
 │   └── vr/               # React Native VR app
 ├── packages/
 │   ├── shared/           # Shared TypeScript types and utilities
@@ -37,13 +36,6 @@ agentic-commerce/
 - **Payments**: Configurable (Stripe, Razorpay, PayPal, Square)
 - **Search**: Elasticsearch
 - **Message Queue**: RabbitMQ
-
-### Mobile
-- **Framework**: React Native (Expo)
-- **Language**: TypeScript
-- **State Management**: Redux Toolkit
-- **Navigation**: React Navigation
-- **UI**: React Native Paper (Material Design 3)
 
 ### AR/VR
 - **Framework**: React Native VR / React 360
@@ -78,9 +70,6 @@ npm run dev
 ```bash
 # Run backend only
 npm run backend
-
-# Run mobile app
-npm run mobile
 
 # Run all services
 npm run dev

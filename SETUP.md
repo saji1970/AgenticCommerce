@@ -40,8 +40,6 @@ npm install --workspaces
 # Copy environment files
 cp .env.example .env
 cp apps/backend/.env.example apps/backend/.env
-# Mobile app uses Expo managed workflow - no .env file needed
-# Configuration is done in apps/mobile-new/src/config/api.ts
 
 # Build shared packages
 npm run build --workspace=@agentic-commerce/shared
@@ -69,14 +67,6 @@ JWT_SECRET=your-secure-random-secret-key
 NODE_ENV=development
 PORT=3000
 LOG_LEVEL=info
-```
-
-### 2. Mobile App Configuration
-
-The mobile app uses Expo managed workflow. Update the API URL in `apps/mobile-new/src/config/api.ts`:
-
-```typescript
-const RAILWAY_API_URL = 'http://localhost:3000/api/v1'; // or your production URL
 ```
 
 ## Database Setup
@@ -130,12 +120,7 @@ docker-compose up -d
 npm run backend
 ```
 
-**Terminal 2 - Mobile App:**
-```bash
-npm run mobile
-```
-
-The backend will run on `http://localhost:3000` and the mobile app will open in Expo.
+The backend will run on `http://localhost:3000`.
 
 ### Testing the Backend
 
@@ -147,23 +132,12 @@ curl http://localhost:3000/health
 # {"status":"healthy","timestamp":"...","uptime":...}
 ```
 
-### Testing the Mobile App
-
-1. Install Expo Go on your phone:
-   - [iOS](https://apps.apple.com/app/expo-go/id982107779)
-   - [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)
-
-2. Scan the QR code shown in the terminal
-
-3. The app should load on your device
-
 ## Project Structure
 
 ```
 agentic-commerce/
 ├── apps/
 │   ├── backend/          # Node.js/Express backend
-│   ├── mobile-new/       # React Native app
 │   └── vr/               # AR/VR app (Phase 3)
 ├── packages/
 │   ├── shared/           # Shared types and utilities
@@ -214,9 +188,8 @@ npm run build
 
 1. ✅ Complete environment configuration
 2. ✅ Verify backend is running
-3. ✅ Test mobile app on device/simulator
-4. 📖 Read [DEPLOYMENT.md](./DEPLOYMENT.md) for production deployment
-5. 📖 Explore the [API documentation](./API.md) (coming soon)
+3. 📖 Read [DEPLOYMENT.md](./DEPLOYMENT.md) for production deployment
+4. 📖 Explore the [API documentation](./API.md) (coming soon)
 
 ## Getting Help
 
@@ -229,7 +202,6 @@ npm run build
 ### Hot Reload
 
 - Backend: Uses `tsx watch` for automatic restarts
-- Mobile: Expo provides fast refresh automatically
 
 ### Debugging
 
@@ -238,11 +210,6 @@ npm run build
 # Enable debug logging
 LOG_LEVEL=debug npm run backend
 ```
-
-**Mobile:**
-- Shake device to open developer menu
-- Enable Remote JS Debugging
-- Use React DevTools
 
 ### Testing
 

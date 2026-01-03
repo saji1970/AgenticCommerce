@@ -122,18 +122,6 @@ You should see:
 
 Test it: http://localhost:3000/health
 
-## Step 7: Start Mobile App (Optional - 2 minutes)
-
-```bash
-# Terminal 2 - Start mobile app
-cd apps/mobile
-npm start
-```
-
-Scan QR code with Expo Go app on your phone:
-- iOS: https://apps.apple.com/app/expo-go/id982107779
-- Android: https://play.google.com/store/apps/details?id=host.exp.exponent
-
 ## Testing the API
 
 ### Test 1: Health Check
@@ -214,7 +202,6 @@ Now that you're running:
 
 2. **Explore the Code**
    - Backend API: `apps/backend/src/`
-   - Mobile App: `apps/mobile-new/src/`
    - AI Agent: `packages/ai-agent/src/`
 
 3. **Read Documentation**
@@ -247,4 +234,4 @@ With free tiers, you can:
 
 **Congratulations!** 🎉 You now have a working AI-powered shopping app!
 
-Next: Try asking the AI agent to find products for you through the mobile app or API.
+Next: Try asking the AI agent to find products for you through the API.

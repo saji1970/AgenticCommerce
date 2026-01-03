@@ -14,7 +14,6 @@ This project uses a monorepo architecture managed with npm workspaces and Turbo 
 agentic-commerce/
 ├── apps/
 │   ├── backend/              # Express.js REST API
-│   ├── mobile-new/           # React Native (iOS & Android)
 │   └── vr/                   # AR/VR Experience (Phase 3)
 │
 ├── packages/
@@ -38,15 +37,6 @@ agentic-commerce/
 - MCP: Model Context Protocol for retailer integration
 - Authentication: JWT with bcrypt
 - Validation: Zod schemas
-
-**Mobile (apps/mobile-new)**
-- Framework: React Native with Expo
-- Language: TypeScript
-- State: Redux Toolkit
-- UI: React Native Paper (Material Design 3)
-- Navigation: React Navigation
-- Payments: @stripe/stripe-react-native
-- Security: Expo Secure Store + Local Authentication
 
 **Shared Packages**
 - `@agentic-commerce/shared`: Common types, constants, utilities
@@ -130,7 +120,6 @@ agentic-commerce/
 
 ### Data Protection
 - Environment variable management
-- Secure credential storage (Expo Secure Store)
 - HTTPS enforcement
 - Input validation with Zod
 - SQL injection prevention
@@ -143,7 +132,6 @@ agentic-commerce/
 # Start all services locally
 docker-compose up -d          # Start PostgreSQL & Redis
 npm run backend              # Start API server
-npm run mobile               # Start React Native app
 ```
 
 ### Production (Railway)
@@ -214,7 +202,6 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
 ### Phase 1: MVP (Months 1-4) ✅ CURRENT
 - ✅ Backend API with core routes
-- ✅ React Native mobile app
 - ✅ AI agent integration (Claude)
 - ✅ MCP client for retailers
 - ✅ Stripe payment integration
@@ -231,7 +218,6 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
 ### Phase 3: AR/VR Launch (Months 9-12)
 - VR app for Meta Quest
-- AR features for mobile
 - 3D product visualization
 - Virtual try-on
 - Immersive shopping environments
@@ -280,12 +266,6 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 - MCP integration
 - Payment processing
 
-### Mobile Team
-- React Native development
-- UI/UX implementation
-- State management
-- Mobile security
-
 ### VR Team (Phase 3)
 - 3D asset creation
 - VR interaction design
@@ -301,7 +281,6 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
 ### Technical KPIs
 - API response time < 200ms
-- Mobile app startup < 2s
 - 99.9% uptime
 - Zero critical security vulnerabilities
 
@@ -316,7 +295,6 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 ### Technologies Used
 - [TypeScript Documentation](https://www.typescriptlang.org/docs/)
 - [Express.js Guide](https://expressjs.com/en/guide/routing.html)
-- [React Native Docs](https://reactnative.dev/docs/getting-started)
 - [Anthropic Claude API](https://docs.anthropic.com/)
 - [Stripe API Reference](https://stripe.com/docs/api)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
