@@ -108,6 +108,93 @@ To find your IP address:
 
 Example: `http://192.168.1.100:3000/api`
 
+## Deployment
+
+### Deploy Backend to Railway
+
+Railway provides an easy way to deploy your Node.js backend with PostgreSQL.
+
+#### Step 1: Create Railway Account
+
+1. Go to [railway.app](https://railway.app)
+2. Sign up with GitHub
+3. Create a new project
+
+#### Step 2: Add PostgreSQL Database
+
+1. In your Railway project, click **"+ New"**
+2. Select **"Database"** → **"Add PostgreSQL"**
+3. Railway will automatically create a PostgreSQL database
+4. The `DATABASE_URL` environment variable will be automatically set
+
+#### Step 3: Deploy Backend
+
+1. Click **"+ New"** → **"GitHub Repo"**
+2. Select your `AgenticCommerce` repository
+3. Railway will auto-detect the project and start building
+
+#### Step 4: Configure Environment Variables
+
+In your Railway backend service, add these environment variables:
+
+```env
+NODE_ENV=production
+JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters-long
+JWT_EXPIRES_IN=7d
+CORS_ORIGIN=exp://your-expo-url,http://localhost:8081
+```
+
+**Note**: Railway automatically provides `DATABASE_URL` and `PORT`. The backend will parse the `DATABASE_URL` automatically.
+
+#### Step 5: Run Database Migration
+
+1. In Railway, open your PostgreSQL database
+2. Click **"Query"** tab
+3. Copy and paste the contents of `apps/backend/migrations/001_create_users_table.sql`
+4. Execute the query
+
+#### Step 6: Update Mobile App API URL
+
+After deployment, Railway will give you a URL like `https://your-app.up.railway.app`
+
+Update `apps/mobile/src/services/api.ts`:
+
+```typescript
+const API_URL = 'https://your-app.up.railway.app/api';
+```
+
+#### Step 7: Test Your Deployment
+
+Visit your Railway URL + `/api/health`:
+```
+https://your-app.up.railway.app/api/health
+```
+
+You should see:
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-04T12:00:00.000Z"
+}
+```
+
+### Railway Configuration Files
+
+The project includes Railway-specific configuration:
+
+- `nixpacks.toml` - Build configuration
+- `Procfile` - Process configuration
+- `apps/backend/railway.json` - Service configuration
+
+### Environment Variables for Railway
+
+The backend automatically supports Railway's `DATABASE_URL` format:
+```
+postgresql://user:password@host:port/database
+```
+
+No need to set individual DB_HOST, DB_PORT, etc. when using Railway.
+
 ## Running the Application
 
 ### Option 1: Run Everything Concurrently

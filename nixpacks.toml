@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs-18_x", "pnpm"]
+
+[phases.install]
+cmds = ["pnpm install"]
+
+[phases.build]
+cmds = ["pnpm run build:shared", "cd apps/backend && pnpm run build"]
+
+[start]
+cmd = "cd apps/backend && node dist/server.js"

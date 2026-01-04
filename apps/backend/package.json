@@ -6,6 +6,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "postinstall": "cd ../.. && pnpm run build:shared",
+    "railway:build": "cd ../.. && pnpm install && pnpm run build:shared && cd apps/backend && pnpm run build",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts"
   },

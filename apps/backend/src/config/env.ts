@@ -3,12 +3,33 @@ import path from 'path';
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
+// Parse Railway's DATABASE_URL if available
+const parseDatabaseUrl = (url?: string) => {
+  if (!url) return null;
+
+  try {
+    const dbUrl = new URL(url);
+    return {
+      host: dbUrl.hostname,
+      port: parseInt(dbUrl.port || '5432', 10),
+      name: dbUrl.pathname.slice(1), // Remove leading '/'
+      user: dbUrl.username,
+      password: dbUrl.password,
+    };
+  } catch (error) {
+    console.error('Failed to parse DATABASE_URL:', error);
+    return null;
+  }
+};
+
+const railwayDb = parseDatabaseUrl(process.env.DATABASE_URL);
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
   apiUrl: process.env.API_URL || 'http://localhost:3000',
 
-  db: {
+  db: railwayDb || {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     name: process.env.DB_NAME || 'agentic_commerce',
@@ -22,6 +43,9 @@ export const config = {
   },
 
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:8081',
+    // Allow multiple origins for Railway deployment
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+      : ['http://localhost:8081'],
   },
 };
