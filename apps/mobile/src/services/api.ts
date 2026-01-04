@@ -2,7 +2,15 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import { ApiResponse } from '@agentic-commerce/shared-types';
 import { storageService } from './storage.service';
 
-const API_URL = 'http://localhost:3000/api'; // Change for production or use your machine's IP for physical devices
+// IMPORTANT: Update this with your Railway URL after deployment
+// Get it from Railway > Your Service > Settings > Domains
+const RAILWAY_URL = 'https://your-app.up.railway.app/api'; // Replace with your actual Railway URL
+const LOCAL_URL = 'http://localhost:3000/api';
+
+// Toggle between Railway (production) and local development
+const USE_RAILWAY = false; // Set to true to use Railway backend
+
+const API_URL = USE_RAILWAY ? RAILWAY_URL : LOCAL_URL;
 
 class ApiClient {
   private client: AxiosInstance;
