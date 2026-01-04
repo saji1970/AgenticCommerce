@@ -8,14 +8,16 @@ const startServer = async () => {
   try {
     // Test database connection
     await pool.query('SELECT NOW()');
-    console.log('Database connected successfully');
+    console.log('✅ Database connected successfully');
+    console.log('🚀 AgenticCommerce Mobile Shopping API v1.0');
 
     app.listen(config.port, () => {
-      console.log(`Server running on ${config.apiUrl}`);
-      console.log(`Environment: ${config.env}`);
+      console.log(`🌐 Server running on ${config.apiUrl}`);
+      console.log(`📦 Environment: ${config.env}`);
+      console.log(`✨ Ready to accept requests`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 };

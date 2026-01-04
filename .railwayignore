@@ -1,0 +1,5 @@
+# Railway ignore file - force fresh build
+node_modules/
+dist/
+.git/
+*.log
