@@ -3,8 +3,15 @@ export type AuthStackParamList = {
   Register: undefined;
 };
 
+export type ProductsStackParamList = {
+  ProductSearch: undefined;
+  ProductList: { searchQueryId: string };
+  ProductDetails: { productId: string };
+};
+
 export type AppStackParamList = {
   Home: undefined;
+  Products: undefined;
   Profile: undefined;
   EditProfile: undefined;
 };

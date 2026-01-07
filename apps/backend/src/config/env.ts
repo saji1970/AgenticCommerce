@@ -48,4 +48,18 @@ export const config = {
       ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
       : ['http://localhost:8081'],
   },
+
+  anthropic: {
+    apiKey: process.env.ANTHROPIC_API_KEY || '',
+    defaultModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4.5-20250929',
+  },
+
+  googleSearch: {
+    apiKey: process.env.GOOGLE_API_KEY || '',
+    searchEngineId: process.env.GOOGLE_SEARCH_ENGINE_ID || '',
+  },
+
+  mcp: {
+    configPath: process.env.MCP_CONFIG_PATH || './config/mcp-servers.json',
+  },
 };

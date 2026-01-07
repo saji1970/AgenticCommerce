@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn type-check:*)",
+      "Bash(yarn install)",
+      "Bash(yarn run build:shared:*)",
+      "Bash(tree:*)",
+      "Bash(psql:*)",
+      "Bash(yarn workspace:*)",
+      "Bash(cat:*)"
+    ]
+  }
+}

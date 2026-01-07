@@ -1,13 +1,13 @@
 # AgenticCommerce - Mobile Shopping App
 
-A full-stack mobile shopping application built with React Native (Expo) and Node.js/Express, featuring user authentication and profile management.
+A full-stack mobile shopping application built with React Native and Node.js/Express, featuring user authentication and profile management.
 
 ## Tech Stack
 
-- **Frontend**: React Native with Expo, TypeScript
+- **Frontend**: React Native (bare), TypeScript
 - **Backend**: Node.js, Express, TypeScript
 - **Database**: PostgreSQL
-- **Monorepo**: pnpm workspaces
+- **Monorepo**: Yarn workspaces
 - **Authentication**: JWT tokens with bcrypt password hashing
 - **Validation**: Zod schemas (shared between frontend and backend)
 
@@ -21,7 +21,7 @@ AgenticCommerce/
 ├── packages/
 │   ├── shared-types/     # Shared TypeScript types
 │   └── validation/       # Shared Zod validation schemas
-└── pnpm-workspace.yaml
+└── package.json
 ```
 
 ## Prerequisites
@@ -29,9 +29,9 @@ AgenticCommerce/
 Before you begin, ensure you have the following installed:
 
 - **Node.js** (v18 or higher)
-- **pnpm** (v8 or higher) - `npm install -g pnpm`
+- **Yarn** (v1.22 or higher) - `npm install -g yarn`
 - **PostgreSQL** (v14 or higher)
-- **Expo Go** app on your phone (for testing the mobile app)
+- **Android Studio** or **Xcode** (for running the mobile app)
 
 ## Getting Started
 
@@ -39,14 +39,14 @@ Before you begin, ensure you have the following installed:
 
 ```bash
 # Install all workspace dependencies
-pnpm install
+yarn install
 ```
 
 ### 2. Build Shared Packages
 
 ```bash
 # Build shared TypeScript packages
-pnpm run build:shared
+yarn run build:shared
 ```
 
 ### 3. Set Up PostgreSQL Database
@@ -95,11 +95,14 @@ CORS_ORIGIN=http://localhost:8081
 
 ### 5. Configure Mobile API URL
 
-For testing on a physical device, update the API URL in `apps/mobile/src/services/api.ts`:
+The API URL is automatically configured based on the environment:
+- **Development** (__DEV__ = true): Uses `http://localhost:3000/api`
+- **Production** (__DEV__ = false): Uses Railway production URL
+
+For testing on a physical device with development build, update `DEVELOPMENT_URL` in `apps/mobile/src/services/api.ts`:
 
 ```typescript
-// Replace localhost with your machine's IP address
-const API_URL = 'http://YOUR_MACHINE_IP:3000/api';
+const DEVELOPMENT_URL = 'http://YOUR_MACHINE_IP:3000/api';
 ```
 
 To find your IP address:
@@ -155,19 +158,21 @@ CORS_ORIGIN=exp://your-expo-url,http://localhost:8081
 
 #### Step 6: Update Mobile App API URL
 
-After deployment, Railway will give you a URL like `https://your-app.up.railway.app`
+After deployment, Railway will give you a URL like `https://agenticcommerce-production.up.railway.app`
 
-Update `apps/mobile/src/services/api.ts`:
+Update `PRODUCTION_URL` in `apps/mobile/src/services/api.ts`:
 
 ```typescript
-const API_URL = 'https://your-app.up.railway.app/api';
+const PRODUCTION_URL = 'https://agenticcommerce-production.up.railway.app/api';
 ```
+
+The app will automatically use this URL when built for production (__DEV__ = false).
 
 #### Step 7: Test Your Deployment
 
 Visit your Railway URL + `/api/health`:
 ```
-https://your-app.up.railway.app/api/health
+https://agenticcommerce-production.up.railway.app/api/health
 ```
 
 You should see:
@@ -201,7 +206,7 @@ No need to set individual DB_HOST, DB_PORT, etc. when using Railway.
 
 ```bash
 # From project root
-pnpm run dev
+yarn run dev
 ```
 
 This starts both the backend server and mobile app.
@@ -210,22 +215,31 @@ This starts both the backend server and mobile app.
 
 **Terminal 1 - Backend:**
 ```bash
-pnpm run dev:backend
+yarn run dev:backend
 ```
 
 **Terminal 2 - Mobile App:**
 ```bash
-pnpm run dev:mobile
+yarn run dev:mobile
 ```
 
 ### Testing the Mobile App
 
-1. Install **Expo Go** from your app store (iOS/Android)
-2. Run `pnpm run dev:mobile`
-3. Scan the QR code with:
-   - **iOS**: Camera app
-   - **Android**: Expo Go app
-4. The app will load on your phone
+For bare React Native, you need to run the app on an emulator or physical device:
+
+**Android:**
+```bash
+cd apps/mobile
+yarn run android
+```
+
+**iOS (macOS only):**
+```bash
+cd apps/mobile
+yarn run ios
+```
+
+For physical devices, ensure USB debugging is enabled (Android) or device is registered in Xcode (iOS).
 
 ## API Endpoints
 
@@ -247,7 +261,7 @@ pnpm run dev:mobile
 - ✅ User login with JWT authentication
 - ✅ Secure password hashing (bcrypt)
 - ✅ User profile management
-- ✅ Secure token storage (expo-secure-store)
+- ✅ Secure token storage (react-native-keychain)
 - ✅ Input validation (Zod schemas)
 - ✅ Error handling
 - ✅ Navigation (Auth flow + App flow)
@@ -288,13 +302,13 @@ users (
 cd apps/backend
 
 # Start development server with hot reload
-pnpm run dev
+yarn run dev
 
 # Build for production
-pnpm run build
+yarn run build
 
 # Type check
-pnpm run type-check
+yarn run type-check
 ```
 
 ### Mobile Development
@@ -302,17 +316,17 @@ pnpm run type-check
 ```bash
 cd apps/mobile
 
-# Start Expo development server
-pnpm start
+# Start React Native packager
+yarn start
 
 # Run on Android
-pnpm run android
+yarn run android
 
 # Run on iOS (macOS only)
-pnpm run ios
+yarn run ios
 
 # Type check
-pnpm run type-check
+yarn run type-check
 ```
 
 ### Shared Packages
@@ -321,7 +335,7 @@ When you modify shared types or validation schemas:
 
 ```bash
 # Rebuild shared packages
-pnpm run build:shared
+yarn run build:shared
 ```
 
 ## Troubleshooting
@@ -338,38 +352,38 @@ psql -U postgres -l | grep agentic_commerce
 
 ### Mobile App Can't Connect to Backend
 
-1. Ensure backend is running: `pnpm run dev:backend`
+1. Ensure backend is running: `yarn run dev:backend`
 2. Check health endpoint: `http://localhost:3000/api/health`
-3. Update API URL in `apps/mobile/src/services/api.ts` with your machine's IP
-4. Ensure your phone and computer are on the same WiFi network
+3. For physical devices, update `DEVELOPMENT_URL` in `apps/mobile/src/services/api.ts` with your machine's IP
+4. Ensure your phone and computer are on the same WiFi network (for physical devices)
 
 ### Build Errors
 
 ```bash
 # Clean install
 rm -rf node_modules apps/*/node_modules packages/*/node_modules
-pnpm install
+yarn install
 
 # Rebuild shared packages
-pnpm run build:shared
+yarn run build:shared
 ```
 
 ## Project Scripts
 
 ### Root Level
 
-- `pnpm run dev` - Run backend and mobile concurrently
-- `pnpm run dev:backend` - Run backend only
-- `pnpm run dev:mobile` - Run mobile only
-- `pnpm run build` - Build all packages
-- `pnpm run build:shared` - Build shared packages only
-- `pnpm run type-check` - Type check all packages
+- `yarn run dev` - Run backend and mobile concurrently
+- `yarn run dev:backend` - Run backend only
+- `yarn run dev:mobile` - Run mobile only
+- `yarn run build` - Build all packages
+- `yarn run build:shared` - Build shared packages only
+- `yarn run type-check` - Type check all packages
 
 ## Security Features
 
 - Password hashing with bcrypt (10 salt rounds)
 - JWT token authentication with expiration
-- Secure token storage on mobile (expo-secure-store)
+- Secure token storage on mobile (react-native-keychain with native keychain/keystore)
 - Input validation on frontend and backend
 - CORS configuration
 - Helmet security headers

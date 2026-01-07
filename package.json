@@ -2,14 +2,18 @@
   "name": "agentic-commerce",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "concurrently \"pnpm --filter backend dev\" \"pnpm --filter mobile start\"",
-    "dev:backend": "pnpm --filter backend dev",
-    "dev:mobile": "pnpm --filter mobile start",
-    "build": "pnpm --filter shared-types build && pnpm --filter validation build && pnpm --filter backend build",
-    "build:shared": "pnpm --filter shared-types build && pnpm --filter validation build",
-    "type-check": "pnpm -r type-check",
-    "lint": "pnpm -r lint"
+    "dev": "concurrently \"yarn workspace @agentic-commerce/backend dev\" \"yarn workspace @agentic-commerce/mobile start\"",
+    "dev:backend": "yarn workspace @agentic-commerce/backend dev",
+    "dev:mobile": "yarn workspace @agentic-commerce/mobile start",
+    "build": "yarn workspace @agentic-commerce/shared-types build && yarn workspace @agentic-commerce/validation build && yarn workspace @agentic-commerce/backend build",
+    "build:shared": "yarn workspace @agentic-commerce/shared-types build && yarn workspace @agentic-commerce/validation build",
+    "type-check": "yarn workspaces run type-check",
+    "lint": "yarn workspaces run lint"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

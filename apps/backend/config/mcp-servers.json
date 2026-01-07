@@ -1,0 +1,28 @@
+{
+  "servers": [
+    {
+      "name": "brave-search",
+      "serverType": "search",
+      "description": "Brave Search MCP Server for web and product search",
+      "config": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "env": {
+          "BRAVE_API_KEY": "your-brave-api-key-here"
+        }
+      },
+      "isActive": false
+    },
+    {
+      "name": "fetch",
+      "serverType": "utility",
+      "description": "Fetch MCP Server for retrieving web content",
+      "config": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-fetch"],
+        "env": {}
+      },
+      "isActive": true
+    }
+  ]
+}

@@ -1,11 +1,11 @@
 [phases.setup]
-nixPkgs = ["nodejs-18_x", "pnpm"]
+nixPkgs = ["nodejs-18_x", "yarn"]
 
 [phases.install]
-cmds = ["pnpm install"]
+cmds = ["yarn install"]
 
 [phases.build]
-cmds = ["pnpm run build:shared", "cd apps/backend && pnpm run build"]
+cmds = ["yarn run build:shared", "cd apps/backend && yarn run build"]
 
 [start]
 cmd = "cd apps/backend && node dist/server.js"
