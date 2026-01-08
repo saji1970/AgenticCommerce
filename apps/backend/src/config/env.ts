@@ -22,7 +22,20 @@ const parseDatabaseUrl = (url?: string) => {
   }
 };
 
+// Debug: Log DATABASE_URL to help diagnose connection issues
+console.log('🔍 DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('🔍 DATABASE_URL value:', process.env.DATABASE_URL ? `${process.env.DATABASE_URL.substring(0, 20)}...` : 'NOT SET');
+
 const railwayDb = parseDatabaseUrl(process.env.DATABASE_URL);
+
+if (railwayDb) {
+  console.log('✅ Using Railway DATABASE_URL');
+  console.log('   Host:', railwayDb.host);
+  console.log('   Port:', railwayDb.port);
+  console.log('   Database:', railwayDb.name);
+} else {
+  console.log('⚠️  DATABASE_URL not found, using environment variables or defaults');
+}
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
