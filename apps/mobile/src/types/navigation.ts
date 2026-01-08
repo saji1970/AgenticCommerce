@@ -9,9 +9,16 @@ export type ProductsStackParamList = {
   ProductDetails: { productId: string };
 };
 
+export type CartStackParamList = {
+  Cart: undefined;
+  Checkout: undefined;
+  OrderHistory: undefined;
+};
+
 export type AppStackParamList = {
   Home: undefined;
   Products: undefined;
+  Cart: undefined;
   Profile: undefined;
   EditProfile: undefined;
 };

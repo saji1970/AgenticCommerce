@@ -4,6 +4,7 @@ import { AppStackParamList } from '../types/navigation';
 import { HomeScreen } from '../screens/home';
 import { ProfileScreen } from '../screens/profile';
 import { ProductsNavigator } from './ProductsNavigator';
+import { CartNavigator } from './CartNavigator';
 
 const Tab = createBottomTabNavigator<AppStackParamList>();
 
@@ -19,6 +20,11 @@ export const AppNavigator = () => {
         name="Products"
         component={ProductsNavigator}
         options={{ title: 'Products' }}
+      />
+      <Tab.Screen
+        name="Cart"
+        component={CartNavigator}
+        options={{ title: 'Cart' }}
       />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: true }} />
     </Tab.Navigator>
