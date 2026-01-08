@@ -7,13 +7,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"yarn workspace @agentic-commerce/backend dev\" \"yarn workspace @agentic-commerce/mobile start\"",
-    "dev:backend": "yarn workspace @agentic-commerce/backend dev",
-    "dev:mobile": "yarn workspace @agentic-commerce/mobile start",
-    "build": "yarn workspace @agentic-commerce/shared-types build && yarn workspace @agentic-commerce/validation build && yarn workspace @agentic-commerce/backend build",
-    "build:shared": "yarn workspace @agentic-commerce/shared-types build && yarn workspace @agentic-commerce/validation build",
-    "type-check": "yarn workspaces run type-check",
-    "lint": "yarn workspaces run lint"
+    "dev": "concurrently \"pnpm --filter @agentic-commerce/backend dev\" \"pnpm --filter @agentic-commerce/mobile start\"",
+    "dev:backend": "pnpm --filter @agentic-commerce/backend dev",
+    "dev:mobile": "pnpm --filter @agentic-commerce/mobile start",
+    "build": "pnpm --filter @agentic-commerce/shared-types build && pnpm --filter @agentic-commerce/validation build && pnpm --filter @agentic-commerce/backend build",
+    "build:shared": "pnpm --filter @agentic-commerce/shared-types build && pnpm --filter @agentic-commerce/validation build",
+    "type-check": "pnpm -r run type-check",
+    "lint": "pnpm -r run lint"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

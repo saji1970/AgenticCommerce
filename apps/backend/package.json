@@ -6,8 +6,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "postinstall": "cd ../.. && yarn workspace @agentic-commerce/shared-types build && yarn workspace @agentic-commerce/validation build",
-    "railway:build": "cd ../.. && yarn install && yarn build:shared && cd apps/backend && yarn build",
+    "postinstall": "cd ../.. && pnpm build:shared",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts"
   },
