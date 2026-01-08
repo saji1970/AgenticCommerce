@@ -5,3 +5,4 @@ export * from './product.types';
 export * from './ai.types';
 export * from './cart.types';
 export * from './payment.types';
+export * from './agentic-commerce.types';
