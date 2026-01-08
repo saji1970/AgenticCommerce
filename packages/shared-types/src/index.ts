@@ -6,3 +6,5 @@ export * from './ai.types';
 export * from './cart.types';
 export * from './payment.types';
 export * from './agentic-commerce.types';
+export * from './ap2.types';
+export * from './mandate-config.types';
