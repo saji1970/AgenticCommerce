@@ -43,7 +43,10 @@
       "Bash(railway login:*)",
       "Bash(ls:*)",
       "Bash(xargs:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(for:*)",
+      "Bash(do echo \"Attempt $i:\")",
+      "Bash(done)"
     ]
   }
 }
