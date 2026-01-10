@@ -48,26 +48,24 @@ export async function runMigrations(pool: Pool): Promise<void> {
       return;
     }
 
-    // Check if database tables actually exist
-    const tablesExist = await pool.query(`
-      SELECT COUNT(*) as count FROM information_schema.tables
-      WHERE table_schema = 'public'
-      AND table_name IN ('users', 'products', 'cart_items', 'mandates')
-    `);
-
-    const hasCoreTables = parseInt(tablesExist.rows[0].count) >= 3;
-
     // Get already executed migrations
     const executedResult = await pool.query(
       'SELECT filename FROM schema_migrations ORDER BY filename'
     );
-    const executedMigrations = new Set(executedResult.rows.map(r => r.filename));
+    let executedMigrations = new Set(executedResult.rows.map(r => r.filename));
 
-    // If we have migration records but no actual tables, reset migration tracking
-    if (executedMigrations.size > 0 && !hasCoreTables) {
-      console.log('⚠️  Migration tracking out of sync - resetting...');
-      await pool.query('DELETE FROM schema_migrations');
-      executedMigrations.clear();
+    // Safety check: If we have migration records, verify the users table exists
+    if (executedMigrations.size > 0) {
+      try {
+        await pool.query('SELECT 1 FROM users LIMIT 1');
+        console.log('✅ Migration tracking verified - users table exists');
+      } catch (error) {
+        // Users table doesn't exist but migrations are recorded - reset
+        console.log('⚠️  Migration tracking out of sync! Users table missing.');
+        console.log('🔄 Clearing migration history to re-run all migrations...');
+        await pool.query('DELETE FROM schema_migrations');
+        executedMigrations = new Set(); // Clear the set to re-run all migrations
+      }
     }
 
     // Read and prepare migrations
