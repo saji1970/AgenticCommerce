@@ -48,11 +48,27 @@ export async function runMigrations(pool: Pool): Promise<void> {
       return;
     }
 
+    // Check if database tables actually exist
+    const tablesExist = await pool.query(`
+      SELECT COUNT(*) as count FROM information_schema.tables
+      WHERE table_schema = 'public'
+      AND table_name IN ('users', 'products', 'cart_items', 'mandates')
+    `);
+
+    const hasCoreTables = parseInt(tablesExist.rows[0].count) >= 3;
+
     // Get already executed migrations
     const executedResult = await pool.query(
       'SELECT filename FROM schema_migrations ORDER BY filename'
     );
     const executedMigrations = new Set(executedResult.rows.map(r => r.filename));
+
+    // If we have migration records but no actual tables, reset migration tracking
+    if (executedMigrations.size > 0 && !hasCoreTables) {
+      console.log('⚠️  Migration tracking out of sync - resetting...');
+      await pool.query('DELETE FROM schema_migrations');
+      executedMigrations.clear();
+    }
 
     // Read and prepare migrations
     const migrations: Migration[] = files
