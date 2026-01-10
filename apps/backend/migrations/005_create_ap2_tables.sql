@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS ap2_transactions (
   merchant_id UUID NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   agent_id VARCHAR(255) NOT NULL,
-  mandate_id UUID NOT NULL REFERENCES mandates(id) ON DELETE CASCADE,
+  mandate_id UUID NOT NULL REFERENCES agent_mandates(id) ON DELETE CASCADE,
 
   type VARCHAR(50) NOT NULL,
   status VARCHAR(50) NOT NULL DEFAULT 'pending',
@@ -138,19 +138,19 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers for updated_at
-DROP TRIGGER IF EXISTS update_merchants_updated_at ON users; DROP TRIGGER IF EXISTS update_merchants_updated_at ON products; DROP TRIGGER IF EXISTS update_merchants_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_merchants_updated_at ON orders; DROP TRIGGER IF EXISTS update_merchants_updated_at ON mandates; DROP TRIGGER IF EXISTS update_merchants_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_merchants_updated_at ON mcp_server_configs;
+DROP TRIGGER IF EXISTS update_merchants_updated_at ON merchants;
 CREATE TRIGGER update_merchants_updated_at
   BEFORE UPDATE ON merchants
   FOR EACH ROW
   EXECUTE FUNCTION update_ap2_updated_at();
 
-DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON users; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON products; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON orders; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON mandates; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON mcp_server_configs;
+DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON ap2_transactions;
 CREATE TRIGGER update_ap2_transactions_updated_at
   BEFORE UPDATE ON ap2_transactions
   FOR EACH ROW
   EXECUTE FUNCTION update_ap2_updated_at();
 
-DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON users; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON products; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON orders; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON mandates; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON mcp_server_configs;
+DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON ap2_webhook_deliveries;
 CREATE TRIGGER update_ap2_webhooks_updated_at
   BEFORE UPDATE ON ap2_webhook_deliveries
   FOR EACH ROW

@@ -23,7 +23,7 @@ END;
 $$ language 'plpgsql';
 
 -- Create trigger to automatically update updated_at
-DROP TRIGGER IF EXISTS update_users_updated_at ON users; DROP TRIGGER IF EXISTS update_users_updated_at ON products; DROP TRIGGER IF EXISTS update_users_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_users_updated_at ON orders; DROP TRIGGER IF EXISTS update_users_updated_at ON mandates; DROP TRIGGER IF EXISTS update_users_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_users_updated_at ON mcp_server_configs;
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at
   BEFORE UPDATE ON users
   FOR EACH ROW

@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_products_price ON products(price);
 CREATE INDEX IF NOT EXISTS idx_products_source ON products(source);
 
-DROP TRIGGER IF EXISTS update_products_updated_at ON users; DROP TRIGGER IF EXISTS update_products_updated_at ON products; DROP TRIGGER IF EXISTS update_products_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_products_updated_at ON orders; DROP TRIGGER IF EXISTS update_products_updated_at ON mandates; DROP TRIGGER IF EXISTS update_products_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_products_updated_at ON mcp_server_configs;
+DROP TRIGGER IF EXISTS update_products_updated_at ON products;
 CREATE TRIGGER update_products_updated_at
   BEFORE UPDATE ON products
   FOR EACH ROW
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS mcp_server_configs (
 CREATE INDEX IF NOT EXISTS idx_mcp_configs_active ON mcp_server_configs(is_active);
 CREATE INDEX IF NOT EXISTS idx_mcp_configs_name ON mcp_server_configs(name);
 
-DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON users; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON products; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON orders; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON mandates; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON mcp_server_configs;
+DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_mcp_configs_updated_at
   BEFORE UPDATE ON mcp_server_configs
   FOR EACH ROW

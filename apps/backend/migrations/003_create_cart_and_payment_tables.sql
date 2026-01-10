@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_cart_items_user_id ON cart_items(user_id);
 CREATE INDEX IF NOT EXISTS idx_cart_items_product_id ON cart_items(product_id);
 CREATE INDEX IF NOT EXISTS idx_cart_items_created_at ON cart_items(created_at DESC);
 
-DROP TRIGGER IF EXISTS update_cart_items_updated_at ON users; DROP TRIGGER IF EXISTS update_cart_items_updated_at ON products; DROP TRIGGER IF EXISTS update_cart_items_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_cart_items_updated_at ON orders; DROP TRIGGER IF EXISTS update_cart_items_updated_at ON mandates; DROP TRIGGER IF EXISTS update_cart_items_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_cart_items_updated_at ON mcp_server_configs;
+DROP TRIGGER IF EXISTS update_cart_items_updated_at ON cart_items;
 CREATE TRIGGER update_cart_items_updated_at
   BEFORE UPDATE ON cart_items
   FOR EACH ROW
@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_payment_id ON orders(payment_id);
 
-DROP TRIGGER IF EXISTS update_orders_updated_at ON users; DROP TRIGGER IF EXISTS update_orders_updated_at ON products; DROP TRIGGER IF EXISTS update_orders_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_orders_updated_at ON orders; DROP TRIGGER IF EXISTS update_orders_updated_at ON mandates; DROP TRIGGER IF EXISTS update_orders_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_orders_updated_at ON mcp_server_configs;
+DROP TRIGGER IF EXISTS update_orders_updated_at ON orders;
 CREATE TRIGGER update_orders_updated_at
   BEFORE UPDATE ON orders
   FOR EACH ROW
@@ -69,7 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments(transaction_id);
 
-DROP TRIGGER IF EXISTS update_payments_updated_at ON users; DROP TRIGGER IF EXISTS update_payments_updated_at ON products; DROP TRIGGER IF EXISTS update_payments_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_payments_updated_at ON orders; DROP TRIGGER IF EXISTS update_payments_updated_at ON mandates; DROP TRIGGER IF EXISTS update_payments_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_payments_updated_at ON mcp_server_configs;
+DROP TRIGGER IF EXISTS update_payments_updated_at ON payments;
 CREATE TRIGGER update_payments_updated_at
   BEFORE UPDATE ON payments
   FOR EACH ROW
