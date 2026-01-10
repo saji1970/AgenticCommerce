@@ -55,7 +55,7 @@ export async function runMigrations(pool: Pool): Promise<void> {
     let executedMigrations = new Set(executedResult.rows.map(r => r.filename));
 
     // Safety check: Verify all core tables exist
-    const requiredTables = ['users', 'products', 'cart_items', 'mandates'];
+    const requiredTables = ['users', 'products', 'cart_items', 'agent_mandates'];
     const missingTables: string[] = [];
 
     for (const table of requiredTables) {
