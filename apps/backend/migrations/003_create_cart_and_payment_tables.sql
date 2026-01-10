@@ -75,7 +75,14 @@ CREATE TRIGGER update_payments_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Add foreign key constraint to orders table
-ALTER TABLE orders
-  ADD CONSTRAINT fk_orders_payment_id
-  FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE SET NULL;
+-- Add foreign key constraint to orders table (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_orders_payment_id'
+  ) THEN
+    ALTER TABLE orders
+      ADD CONSTRAINT fk_orders_payment_id
+      FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE SET NULL;
+  END IF;
+END $$;
