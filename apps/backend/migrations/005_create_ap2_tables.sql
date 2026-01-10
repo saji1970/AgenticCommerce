@@ -103,25 +103,25 @@ CREATE TABLE IF NOT EXISTS ap2_webhook_deliveries (
 -- ============================================================================
 
 -- Merchant indexes
-CREATE INDEX idx_merchants_status ON merchants(status);
-CREATE INDEX idx_merchants_tier ON merchants(tier);
-CREATE INDEX idx_merchants_api_key ON merchants(api_key);
-CREATE INDEX idx_merchants_email ON merchants(email);
+CREATE INDEX IF NOT EXISTS idx_merchants_status ON merchants(status);
+CREATE INDEX IF NOT EXISTS idx_merchants_tier ON merchants(tier);
+CREATE INDEX IF NOT EXISTS idx_merchants_api_key ON merchants(api_key);
+CREATE INDEX IF NOT EXISTS idx_merchants_email ON merchants(email);
 
 -- AP2 Transaction indexes
-CREATE INDEX idx_ap2_transactions_merchant_id ON ap2_transactions(merchant_id);
-CREATE INDEX idx_ap2_transactions_user_id ON ap2_transactions(user_id);
-CREATE INDEX idx_ap2_transactions_mandate_id ON ap2_transactions(mandate_id);
-CREATE INDEX idx_ap2_transactions_type ON ap2_transactions(type);
-CREATE INDEX idx_ap2_transactions_status ON ap2_transactions(status);
-CREATE INDEX idx_ap2_transactions_requested_at ON ap2_transactions(requested_at DESC);
-CREATE INDEX idx_ap2_transactions_merchant_status ON ap2_transactions(merchant_id, status);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_merchant_id ON ap2_transactions(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_user_id ON ap2_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_mandate_id ON ap2_transactions(mandate_id);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_type ON ap2_transactions(type);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_status ON ap2_transactions(status);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_requested_at ON ap2_transactions(requested_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ap2_transactions_merchant_status ON ap2_transactions(merchant_id, status);
 
 -- AP2 Webhook indexes
-CREATE INDEX idx_ap2_webhooks_merchant_id ON ap2_webhook_deliveries(merchant_id);
-CREATE INDEX idx_ap2_webhooks_event ON ap2_webhook_deliveries(event);
-CREATE INDEX idx_ap2_webhooks_delivered ON ap2_webhook_deliveries(delivered_at) WHERE delivered_at IS NOT NULL;
-CREATE INDEX idx_ap2_webhooks_pending ON ap2_webhook_deliveries(next_attempt_at)
+CREATE INDEX IF NOT EXISTS idx_ap2_webhooks_merchant_id ON ap2_webhook_deliveries(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_ap2_webhooks_event ON ap2_webhook_deliveries(event);
+CREATE INDEX IF NOT EXISTS idx_ap2_webhooks_delivered ON ap2_webhook_deliveries(delivered_at) WHERE delivered_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ap2_webhooks_pending ON ap2_webhook_deliveries(next_attempt_at)
   WHERE delivered_at IS NULL AND failed_at IS NULL;
 
 -- ============================================================================
@@ -138,16 +138,19 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_merchants_updated_at ON users; DROP TRIGGER IF EXISTS update_merchants_updated_at ON products; DROP TRIGGER IF EXISTS update_merchants_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_merchants_updated_at ON orders; DROP TRIGGER IF EXISTS update_merchants_updated_at ON mandates; DROP TRIGGER IF EXISTS update_merchants_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_merchants_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_merchants_updated_at
   BEFORE UPDATE ON merchants
   FOR EACH ROW
   EXECUTE FUNCTION update_ap2_updated_at();
 
+DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON users; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON products; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON orders; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON mandates; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_ap2_transactions_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_ap2_transactions_updated_at
   BEFORE UPDATE ON ap2_transactions
   FOR EACH ROW
   EXECUTE FUNCTION update_ap2_updated_at();
 
+DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON users; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON products; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON orders; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON mandates; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_ap2_webhooks_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_ap2_webhooks_updated_at
   BEFORE UPDATE ON ap2_webhook_deliveries
   FOR EACH ROW

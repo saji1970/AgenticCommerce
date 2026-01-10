@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Create index on email for faster lookups
-CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -23,6 +23,7 @@ END;
 $$ language 'plpgsql';
 
 -- Create trigger to automatically update updated_at
+DROP TRIGGER IF EXISTS update_users_updated_at ON users; DROP TRIGGER IF EXISTS update_users_updated_at ON products; DROP TRIGGER IF EXISTS update_users_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_users_updated_at ON orders; DROP TRIGGER IF EXISTS update_users_updated_at ON mandates; DROP TRIGGER IF EXISTS update_users_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_users_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_users_updated_at
   BEFORE UPDATE ON users
   FOR EACH ROW

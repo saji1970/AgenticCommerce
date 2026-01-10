@@ -15,11 +15,12 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_products_user_id ON products(user_id);
-CREATE INDEX idx_products_created_at ON products(created_at DESC);
-CREATE INDEX idx_products_price ON products(price);
-CREATE INDEX idx_products_source ON products(source);
+CREATE INDEX IF NOT EXISTS idx_products_user_id ON products(user_id);
+CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_price ON products(price);
+CREATE INDEX IF NOT EXISTS idx_products_source ON products(source);
 
+DROP TRIGGER IF EXISTS update_products_updated_at ON users; DROP TRIGGER IF EXISTS update_products_updated_at ON products; DROP TRIGGER IF EXISTS update_products_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_products_updated_at ON orders; DROP TRIGGER IF EXISTS update_products_updated_at ON mandates; DROP TRIGGER IF EXISTS update_products_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_products_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_products_updated_at
   BEFORE UPDATE ON products
   FOR EACH ROW
@@ -38,9 +39,9 @@ CREATE TABLE IF NOT EXISTS search_queries (
   completed_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_search_queries_user_id ON search_queries(user_id);
-CREATE INDEX idx_search_queries_created_at ON search_queries(created_at DESC);
-CREATE INDEX idx_search_queries_status ON search_queries(status);
+CREATE INDEX IF NOT EXISTS idx_search_queries_user_id ON search_queries(user_id);
+CREATE INDEX IF NOT EXISTS idx_search_queries_created_at ON search_queries(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_search_queries_status ON search_queries(status);
 
 -- Create product_filters table
 CREATE TABLE IF NOT EXISTS product_filters (
@@ -53,8 +54,8 @@ CREATE TABLE IF NOT EXISTS product_filters (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_product_filters_search_query_id ON product_filters(search_query_id);
-CREATE INDEX idx_product_filters_type ON product_filters(filter_type);
+CREATE INDEX IF NOT EXISTS idx_product_filters_search_query_id ON product_filters(search_query_id);
+CREATE INDEX IF NOT EXISTS idx_product_filters_type ON product_filters(filter_type);
 
 -- Create mcp_server_configs table
 CREATE TABLE IF NOT EXISTS mcp_server_configs (
@@ -68,9 +69,10 @@ CREATE TABLE IF NOT EXISTS mcp_server_configs (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_mcp_configs_active ON mcp_server_configs(is_active);
-CREATE INDEX idx_mcp_configs_name ON mcp_server_configs(name);
+CREATE INDEX IF NOT EXISTS idx_mcp_configs_active ON mcp_server_configs(is_active);
+CREATE INDEX IF NOT EXISTS idx_mcp_configs_name ON mcp_server_configs(name);
 
+DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON users; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON products; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON orders; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON mandates; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_mcp_configs_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_mcp_configs_updated_at
   BEFORE UPDATE ON mcp_server_configs
   FOR EACH ROW
@@ -89,6 +91,6 @@ CREATE TABLE IF NOT EXISTS ai_processing_logs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_ai_logs_search_query_id ON ai_processing_logs(search_query_id);
-CREATE INDEX idx_ai_logs_created_at ON ai_processing_logs(created_at DESC);
-CREATE INDEX idx_ai_logs_operation_type ON ai_processing_logs(operation_type);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_search_query_id ON ai_processing_logs(search_query_id);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_created_at ON ai_processing_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_operation_type ON ai_processing_logs(operation_type);

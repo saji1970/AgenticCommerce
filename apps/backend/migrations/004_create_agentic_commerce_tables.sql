@@ -15,11 +15,12 @@ CREATE TABLE IF NOT EXISTS agent_mandates (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_agent_mandates_user_id ON agent_mandates(user_id);
-CREATE INDEX idx_agent_mandates_agent_id ON agent_mandates(agent_id);
-CREATE INDEX idx_agent_mandates_status ON agent_mandates(status);
-CREATE INDEX idx_agent_mandates_type ON agent_mandates(type);
+CREATE INDEX IF NOT EXISTS idx_agent_mandates_user_id ON agent_mandates(user_id);
+CREATE INDEX IF NOT EXISTS idx_agent_mandates_agent_id ON agent_mandates(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_mandates_status ON agent_mandates(status);
+CREATE INDEX IF NOT EXISTS idx_agent_mandates_type ON agent_mandates(type);
 
+DROP TRIGGER IF EXISTS update_agent_mandates_updated_at ON users; DROP TRIGGER IF EXISTS update_agent_mandates_updated_at ON products; DROP TRIGGER IF EXISTS update_agent_mandates_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_agent_mandates_updated_at ON orders; DROP TRIGGER IF EXISTS update_agent_mandates_updated_at ON mandates; DROP TRIGGER IF EXISTS update_agent_mandates_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_agent_mandates_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_agent_mandates_updated_at
   BEFORE UPDATE ON agent_mandates
   FOR EACH ROW
@@ -46,12 +47,13 @@ CREATE TABLE IF NOT EXISTS purchase_intents (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_purchase_intents_user_id ON purchase_intents(user_id);
-CREATE INDEX idx_purchase_intents_agent_id ON purchase_intents(agent_id);
-CREATE INDEX idx_purchase_intents_mandate_id ON purchase_intents(mandate_id);
-CREATE INDEX idx_purchase_intents_status ON purchase_intents(status);
-CREATE INDEX idx_purchase_intents_expires_at ON purchase_intents(expires_at);
+CREATE INDEX IF NOT EXISTS idx_purchase_intents_user_id ON purchase_intents(user_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_intents_agent_id ON purchase_intents(agent_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_intents_mandate_id ON purchase_intents(mandate_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_intents_status ON purchase_intents(status);
+CREATE INDEX IF NOT EXISTS idx_purchase_intents_expires_at ON purchase_intents(expires_at);
 
+DROP TRIGGER IF EXISTS update_purchase_intents_updated_at ON users; DROP TRIGGER IF EXISTS update_purchase_intents_updated_at ON products; DROP TRIGGER IF EXISTS update_purchase_intents_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_purchase_intents_updated_at ON orders; DROP TRIGGER IF EXISTS update_purchase_intents_updated_at ON mandates; DROP TRIGGER IF EXISTS update_purchase_intents_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_purchase_intents_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_purchase_intents_updated_at
   BEFORE UPDATE ON purchase_intents
   FOR EACH ROW
@@ -72,11 +74,11 @@ CREATE TABLE IF NOT EXISTS agent_actions (
   timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_agent_actions_user_id ON agent_actions(user_id);
-CREATE INDEX idx_agent_actions_agent_id ON agent_actions(agent_id);
-CREATE INDEX idx_agent_actions_mandate_id ON agent_actions(mandate_id);
-CREATE INDEX idx_agent_actions_timestamp ON agent_actions(timestamp DESC);
-CREATE INDEX idx_agent_actions_action ON agent_actions(action);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_user_id ON agent_actions(user_id);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_agent_id ON agent_actions(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_mandate_id ON agent_actions(mandate_id);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_timestamp ON agent_actions(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_action ON agent_actions(action);
 
 -- Create mandate_usage_stats table
 CREATE TABLE IF NOT EXISTS mandate_usage_stats (
@@ -91,9 +93,10 @@ CREATE TABLE IF NOT EXISTS mandate_usage_stats (
   UNIQUE(mandate_id, date)
 );
 
-CREATE INDEX idx_mandate_usage_stats_mandate_id ON mandate_usage_stats(mandate_id);
-CREATE INDEX idx_mandate_usage_stats_date ON mandate_usage_stats(date DESC);
+CREATE INDEX IF NOT EXISTS idx_mandate_usage_stats_mandate_id ON mandate_usage_stats(mandate_id);
+CREATE INDEX IF NOT EXISTS idx_mandate_usage_stats_date ON mandate_usage_stats(date DESC);
 
+DROP TRIGGER IF EXISTS update_mandate_usage_stats_updated_at ON users; DROP TRIGGER IF EXISTS update_mandate_usage_stats_updated_at ON products; DROP TRIGGER IF EXISTS update_mandate_usage_stats_updated_at ON cart_items; DROP TRIGGER IF EXISTS update_mandate_usage_stats_updated_at ON orders; DROP TRIGGER IF EXISTS update_mandate_usage_stats_updated_at ON mandates; DROP TRIGGER IF EXISTS update_mandate_usage_stats_updated_at ON purchase_intents; DROP TRIGGER IF EXISTS update_mandate_usage_stats_updated_at ON mcp_server_configs;
 CREATE TRIGGER update_mandate_usage_stats_updated_at
   BEFORE UPDATE ON mandate_usage_stats
   FOR EACH ROW
