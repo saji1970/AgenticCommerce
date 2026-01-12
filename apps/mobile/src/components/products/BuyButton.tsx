@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Product, MandateType, AgentCartRequest } from '@agentic-commerce/shared-types';
 import { useMandate } from '../../contexts/MandateContext';
-import { useCart } from '../../hooks/useCart';
+import { useCart } from '../../contexts/CartContext';
 import { acpService } from '../../services/acp.service';
 import { AppConfig } from '../../config/app.config';
 import { MandateFlowManager } from '../mandate/MandateFlowManager';
