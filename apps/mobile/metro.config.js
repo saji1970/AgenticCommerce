@@ -17,6 +17,12 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+// Map workspace packages to their source directories
+config.resolver.extraNodeModules = {
+  '@agentic-commerce/shared-types': path.resolve(workspaceRoot, 'packages/shared-types'),
+  '@agentic-commerce/validation': path.resolve(workspaceRoot, 'packages/validation'),
+};
+
 // Support pnpm's symlinked node_modules
 config.resolver.disableHierarchicalLookup = false;
 
