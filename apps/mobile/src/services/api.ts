@@ -4,13 +4,12 @@ import { storageService } from './storage.service';
 
 // API Configuration
 // For production: Update PRODUCTION_URL with your Railway domain
-// For development: Uses localhost by default
+// For development: Use 10.0.2.2 for Android emulator (maps to host machine's localhost)
 const PRODUCTION_URL = 'https://agenticcommerce-production.up.railway.app/api';
-const DEVELOPMENT_URL = 'http://localhost:3000/api';
+const DEVELOPMENT_URL = 'http://10.0.2.2:3000/api';
 
-// Environment detection - defaults to development
-// Set __DEV__ to false when building for production
-const API_URL = __DEV__ ? DEVELOPMENT_URL : PRODUCTION_URL;
+// Using Railway backend for all environments
+const API_URL = PRODUCTION_URL;
 
 class ApiClient {
   private client: AxiosInstance;

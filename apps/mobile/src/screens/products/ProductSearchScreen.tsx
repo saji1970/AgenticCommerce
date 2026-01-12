@@ -32,8 +32,12 @@ export const ProductSearchScreen = () => {
   const loadHistory = async () => {
     try {
       await getSearchHistory();
-    } catch (err) {
-      console.error('Failed to load search history:', err);
+    } catch (err: any) {
+      // Silently fail if user is not authenticated (401) or other errors
+      // This is expected when the user hasn't logged in yet
+      if (err.response?.status !== 401) {
+        console.error('Failed to load search history:', err);
+      }
     }
   };
 

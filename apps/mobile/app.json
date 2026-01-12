@@ -23,13 +23,24 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.agentic.commerce"
+      "package": "com.agentic.commerce",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "44873f97-59bb-4a78-98e5-4fa591847942"
+      }
+    },
+    "owner": "sajipillai1970"
   }
 }

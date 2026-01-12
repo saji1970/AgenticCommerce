@@ -149,8 +149,12 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
       const history = await productService.getSearchHistory(10);
       setSearchHistory(history);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error?.message || err.message || 'Failed to fetch search history';
-      setError(errorMessage);
+      // Don't set error state for authentication issues
+      // This is expected when user is not logged in
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        const errorMessage = err.response?.data?.error?.message || err.message || 'Failed to fetch search history';
+        setError(errorMessage);
+      }
       throw err;
     } finally {
       setLoading(false);
