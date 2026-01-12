@@ -17,6 +17,7 @@ import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorMessage } from '../../components/common/ErrorMessage';
 import { Product } from '@agentic-commerce/shared-types';
 import { productService } from '../../services/product.service';
+import { BuyButton } from '../../components/products/BuyButton';
 
 type ProductDetailsScreenNavigationProp = StackNavigationProp<
   ProductsStackParamList,
@@ -175,6 +176,12 @@ export const ProductDetailsScreen = () => {
           </View>
         )}
 
+        {/* Primary Action - Buy with Agent */}
+        <View style={styles.primaryAction}>
+          <BuyButton product={product} variant="full" />
+        </View>
+
+        {/* Secondary Actions */}
         <View style={styles.actionButtons}>
           <Button
             title="View on Website"
@@ -306,9 +313,12 @@ const styles = StyleSheet.create({
     color: '#28a745',
     fontWeight: '500',
   },
+  primaryAction: {
+    marginBottom: 16,
+    marginTop: 8,
+  },
   actionButtons: {
     gap: 12,
-    marginTop: 8,
   },
   viewButton: {
     width: '100%',
