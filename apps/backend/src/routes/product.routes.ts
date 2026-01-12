@@ -14,13 +14,13 @@ router.use(authenticateToken);
 // AI Search
 router.post('/ai-search', validate(aiSearchSchema), productController.aiSearch);
 
+// Search History (must come before /:id to avoid route conflicts)
+router.get('/search-history', productController.getSearchHistory);
+router.get('/search-history/:id', productController.getSearchQueryById);
+
 // Products
 router.get('/', productController.getProducts);
 router.get('/:id', productController.getProductById);
 router.delete('/:id', productController.deleteProduct);
-
-// Search History
-router.get('/search-history', productController.getSearchHistory);
-router.get('/search-history/:id', productController.getSearchQueryById);
 
 export default router;
