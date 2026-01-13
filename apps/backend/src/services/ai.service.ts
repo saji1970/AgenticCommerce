@@ -25,6 +25,29 @@ export class AIService {
     this.model = config.anthropic.defaultModel;
   }
 
+  /**
+   * Strip markdown code fences from Claude's response
+   * Claude sometimes wraps JSON in ```json ... ```
+   */
+  private stripMarkdownCodeFences(text: string): string {
+    // Remove ```json or ``` from start and end
+    let cleaned = text.trim();
+
+    // Remove opening fence (```json or ```)
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.substring(7);
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.substring(3);
+    }
+
+    // Remove closing fence (```)
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.substring(0, cleaned.length - 3);
+    }
+
+    return cleaned.trim();
+  }
+
   async filterShoppableProducts(searchResults: SearchResult[]): Promise<FilteredResult[]> {
     if (searchResults.length === 0) {
       return [];
@@ -47,7 +70,8 @@ export class AIService {
         throw new Error('Unexpected response type from Claude');
       }
 
-      const filtered = JSON.parse(response.text);
+      const cleanedText = this.stripMarkdownCodeFences(response.text);
+      const filtered = JSON.parse(cleanedText);
 
       await this.logUsage(
         'filter',
@@ -85,7 +109,8 @@ export class AIService {
         throw new Error('Unexpected response type from Claude');
       }
 
-      const data = JSON.parse(response.text);
+      const cleanedText = this.stripMarkdownCodeFences(response.text);
+      const data = JSON.parse(cleanedText);
 
       await this.logUsage(
         'extract',
@@ -122,7 +147,8 @@ export class AIService {
         throw new Error('Unexpected response type from Claude');
       }
 
-      const filters = JSON.parse(response.text);
+      const cleanedText = this.stripMarkdownCodeFences(response.text);
+      const filters = JSON.parse(cleanedText);
 
       await this.logUsage(
         'generate_filters',
