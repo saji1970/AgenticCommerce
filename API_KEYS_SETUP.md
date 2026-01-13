@@ -66,7 +66,7 @@ Edit `apps/backend/.env` and add your keys:
 ```bash
 # Anthropic (Claude AI)
 ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxx
-ANTHROPIC_MODEL=claude-sonnet-4.5-20250929
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
 
 # Google Custom Search API
 GOOGLE_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -105,7 +105,7 @@ railway link
 
 # Set variables
 railway variables set ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxx
-railway variables set ANTHROPIC_MODEL=claude-sonnet-4.5-20250929
+railway variables set ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
 railway variables set GOOGLE_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxx
 railway variables set GOOGLE_SEARCH_ENGINE_ID=0123456789abcdefg
 
