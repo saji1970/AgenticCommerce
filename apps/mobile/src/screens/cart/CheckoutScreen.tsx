@@ -211,7 +211,7 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
               onChangeText={setCvv}
               keyboardType="numeric"
               maxLength={4}
-              secureTextEntry
+              secureTextEntry={true}
             />
           </View>
         </View>

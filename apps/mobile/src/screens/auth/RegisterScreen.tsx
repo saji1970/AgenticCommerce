@@ -94,7 +94,7 @@ export const RegisterScreen = () => {
           value={formData.password}
           onChangeText={(text) => setFormData({ ...formData, password: text })}
           placeholder="Enter your password"
-          secureTextEntry
+          secureTextEntry={true}
         />
 
         <Button
