@@ -97,6 +97,12 @@ export class ProductService {
             return null;
           }
 
+          // Skip products without required fields (name is required in database)
+          if (!productData.name || !productData.name.trim()) {
+            console.warn(`Skipping product with no name from ${result.url}`);
+            return null;
+          }
+
           return {
             userId,
             name: productData.name,
