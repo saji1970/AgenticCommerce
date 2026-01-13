@@ -13,6 +13,7 @@ import { ProductFilterRepository } from '../repositories/product-filter.reposito
 import { SearchService } from './search.service';
 import { AIService } from './ai.service';
 import { MCPService } from './mcp.service';
+import { NLPService, ParsedSearchQuery } from './nlp.service';
 import { AppError } from '../middleware/errorHandler';
 
 export class ProductService {
@@ -22,6 +23,7 @@ export class ProductService {
   private searchService: SearchService;
   private aiService: AIService;
   private mcpService: MCPService;
+  private nlpService: NLPService;
 
   constructor() {
     this.productRepository = new ProductRepository();
@@ -30,6 +32,7 @@ export class ProductService {
     this.searchService = new SearchService();
     this.aiService = new AIService();
     this.mcpService = new MCPService();
+    this.nlpService = new NLPService();
   }
 
   async performAISearch(userId: string, request: AISearchRequest): Promise<AISearchResponse> {
@@ -181,6 +184,84 @@ export class ProductService {
       await this.searchQueryRepository.setError(searchQuery.id, error.message);
       throw error;
     }
+  }
+
+  /**
+   * Perform NLP-powered natural language search
+   * Parses natural language query, extracts intent and constraints,
+   * performs intelligent search with filters, and optionally creates purchase intent
+   */
+  async performNLPSearch(
+    userId: string,
+    naturalLanguageQuery: string
+  ): Promise<{
+    searchResponse: AISearchResponse;
+    parsedQuery: ParsedSearchQuery;
+    intentCreated?: any;
+  }> {
+    console.log(`🧠 Starting NLP-powered search for: "${naturalLanguageQuery}"`);
+
+    // Step 1: Parse natural language query with Claude
+    const parsedQuery = await this.nlpService.parseSearchQuery(naturalLanguageQuery);
+
+    console.log(`✅ NLP parsing complete:`, {
+      searchQuery: parsedQuery.searchQuery,
+      productType: parsedQuery.productType,
+      maxPrice: parsedQuery.maxPrice,
+      shouldCreateIntent: parsedQuery.shouldCreateIntent,
+      confidence: parsedQuery.confidence,
+    });
+
+    // Step 2: Perform AI search with extracted search query and constraints
+    const searchRequest: AISearchRequest = {
+      query: parsedQuery.searchQuery,
+      filters: {
+        priceRange:
+          parsedQuery.maxPrice || parsedQuery.minPrice
+            ? {
+                max: parsedQuery.maxPrice,
+                min: parsedQuery.minPrice,
+              }
+            : undefined,
+      },
+    };
+
+    const searchResponse = await this.performAISearch(userId, searchRequest);
+
+    // Step 3: Auto-create intent if requested and confidence is high
+    let intentCreated = null;
+    if (parsedQuery.shouldCreateIntent && parsedQuery.confidence >= 70) {
+      try {
+        console.log(`🎯 Auto-creating purchase intent based on NLP parsing`);
+
+        // Note: Intent creation would happen here
+        // For now, we return the intent data structure that should be created
+        // The mobile app or controller can handle actual creation with mandate
+
+        intentCreated = {
+          type: parsedQuery.intentType,
+          reasoning: parsedQuery.intentReasoning,
+          productType: parsedQuery.productType,
+          maxPrice: parsedQuery.maxPrice,
+          startDate: parsedQuery.startDate,
+          endDate: parsedQuery.endDate,
+          origin: parsedQuery.origin,
+          destination: parsedQuery.destination,
+          specifications: parsedQuery.specifications,
+        };
+
+        console.log(`✅ Intent data prepared for creation:`, intentCreated);
+      } catch (error) {
+        console.error('Failed to prepare intent:', error);
+        // Don't fail the search if intent preparation fails
+      }
+    }
+
+    return {
+      searchResponse,
+      parsedQuery,
+      intentCreated,
+    };
   }
 
   async getProducts(userId: string, filters?: ProductFilters): Promise<PaginatedProducts> {

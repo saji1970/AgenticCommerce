@@ -13,6 +13,14 @@ export const productService = {
     return apiClient.post<AISearchResponse>('/products/ai-search', request);
   },
 
+  async nlpSearch(naturalLanguageQuery: string): Promise<{
+    searchResponse: AISearchResponse;
+    parsedQuery: any;
+    intentCreated?: any;
+  }> {
+    return apiClient.post('/products/nlp-search', { query: naturalLanguageQuery });
+  },
+
   async getProducts(filters?: ProductFilters): Promise<PaginatedProducts> {
     const params = new URLSearchParams();
 

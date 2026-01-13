@@ -25,6 +25,34 @@ export class ProductController {
     }
   };
 
+  nlpSearch = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.userId;
+      const { query: naturalLanguageQuery } = req.body;
+
+      if (!naturalLanguageQuery || typeof naturalLanguageQuery !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Natural language query is required',
+            code: 'INVALID_REQUEST',
+          },
+        });
+      }
+
+      console.log(`🧠 NLP Search request from user ${userId}: "${naturalLanguageQuery}"`);
+
+      const result = await this.productService.performNLPSearch(userId, naturalLanguageQuery);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user!.userId;

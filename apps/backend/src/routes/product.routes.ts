@@ -14,6 +14,9 @@ router.use(authenticateToken);
 // AI Search
 router.post('/ai-search', validate(aiSearchSchema), productController.aiSearch);
 
+// NLP Search (Natural Language)
+router.post('/nlp-search', productController.nlpSearch);
+
 // Search History (must come before /:id to avoid route conflicts)
 router.get('/search-history', productController.getSearchHistory);
 router.get('/search-history/:id', productController.getSearchQueryById);

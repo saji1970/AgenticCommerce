@@ -8,10 +8,17 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
+const DEFAULT_PLACEHOLDER = `Tell me what you're looking for...
+
+Examples:
+• "An ergonomic office chair under $200"
+• "Notify me when PS5 is back in stock"
+• "Book a flight from Atlanta to Pune on 1/28/2026, return 2/2/2026, under $1000"`;
+
 export const SearchBar: React.FC<SearchBarProps> = ({
   onSearch,
   loading = false,
-  placeholder = 'Describe the product you want to buy...\n\nExample: "A comfortable ergonomic office chair under $300"',
+  placeholder = DEFAULT_PLACEHOLDER,
 }) => {
   const [query, setQuery] = useState('');
 

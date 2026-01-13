@@ -27,6 +27,11 @@ interface ProductContextType {
 
   // Methods
   performAISearch: (request: AISearchRequest) => Promise<AISearchResponse>;
+  performNLPSearch: (naturalLanguageQuery: string) => Promise<{
+    searchResponse: AISearchResponse;
+    parsedQuery: any;
+    intentCreated?: any;
+  }>;
   fetchProducts: (filters?: ProductFilters) => Promise<void>;
   refreshProducts: () => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
@@ -76,6 +81,34 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
       return response;
     } catch (err: any) {
       const errorMessage = err.response?.data?.error?.message || err.message || 'Failed to perform AI search';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const performNLPSearch = async (naturalLanguageQuery: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const result = await productService.nlpSearch(naturalLanguageQuery);
+
+      // Update products and filters from search response
+      setProducts(result.searchResponse.products);
+      setFilters(result.searchResponse.filters);
+      setCurrentSearchQueryId(result.searchResponse.searchQueryId);
+      setPaginationInfo({
+        total: result.searchResponse.metadata.totalResults,
+        page: 1,
+        limit: result.searchResponse.products.length,
+        hasMore: false,
+      });
+
+      return result;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error?.message || err.message || 'Failed to perform NLP search';
       setError(errorMessage);
       throw err;
     } finally {
@@ -184,6 +217,7 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
         currentSearchQueryId,
         paginationInfo,
         performAISearch,
+        performNLPSearch,
         fetchProducts,
         refreshProducts,
         deleteProduct,

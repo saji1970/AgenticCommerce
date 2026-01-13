@@ -18,6 +18,7 @@ export const ProductSearchScreen = () => {
   const navigation = useNavigation<ProductSearchScreenNavigationProp>();
   const {
     performAISearch,
+    performNLPSearch,
     getSearchHistory,
     searchHistory,
     loading,
@@ -44,11 +45,37 @@ export const ProductSearchScreen = () => {
   const handleSearch = async (query: string) => {
     try {
       clearError();
-      const response = await performAISearch({ query });
+
+      // Use NLP search for natural language queries
+      const result = await performNLPSearch(query);
+      const response = result.searchResponse;
+
+      // Build result message
+      let message = `Found ${response.products.length} products`;
+
+      // Add parsed query info if available
+      if (result.parsedQuery) {
+        const { productType, maxPrice, confidence } = result.parsedQuery;
+        if (productType) {
+          message += `\n\n📦 Looking for: ${productType}`;
+        }
+        if (maxPrice) {
+          message += `\n💰 Max price: $${maxPrice}`;
+        }
+        if (confidence) {
+          message += `\n✅ Confidence: ${confidence}%`;
+        }
+      }
+
+      // Add intent info if created
+      if (result.intentCreated) {
+        message += `\n\n🎯 Purchase intent ready to create!`;
+        message += `\nType: ${result.intentCreated.type}`;
+      }
 
       Alert.alert(
         'Search Complete!',
-        `Found ${response.products.length} products in ${(response.metadata.processingTimeMs / 1000).toFixed(1)}s`,
+        message,
         [
           {
             text: 'View Results',
