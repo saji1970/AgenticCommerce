@@ -186,7 +186,7 @@ export const IntentCreationModal: React.FC<IntentCreationModalProps> = ({
       <TextInput
         style={[styles.textArea]}
         placeholder="E.g., Waiting for a sale, comparing options, etc."
-        multiline
+        multiline={true}
         numberOfLines={4}
         value={conditions.customReasoning || ''}
         onChangeText={(text) => {

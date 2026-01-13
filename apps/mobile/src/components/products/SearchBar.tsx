@@ -36,7 +36,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         onChangeText={setQuery}
         placeholder={placeholder}
         placeholderTextColor="#999"
-        multiline
+        multiline={true}
         numberOfLines={4}
         textAlignVertical="top"
         editable={!loading}

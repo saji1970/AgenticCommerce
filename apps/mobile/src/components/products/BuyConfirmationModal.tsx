@@ -95,7 +95,7 @@ export const BuyConfirmationModal: React.FC<BuyConfirmationModalProps> = ({
                 placeholder="Why are you buying this?"
                 value={reasoning}
                 onChangeText={setReasoning}
-                multiline
+                multiline={true}
                 numberOfLines={3}
                 editable={!loading}
               />
