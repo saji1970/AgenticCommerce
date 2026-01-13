@@ -1,0 +1,279 @@
+import React, { useState } from 'react';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import {
+  Product,
+  MandateType,
+  CreateIntentRequest,
+  PurchaseIntentItem,
+} from '@agentic-commerce/shared-types';
+import { useMandate } from '../../contexts/MandateContext';
+import { useIntent } from '../../contexts/IntentContext';
+import { AppConfig } from '../../config/app.config';
+import { MandateFlowManager } from '../mandate/MandateFlowManager';
+import { IntentCreationModal } from './IntentCreationModal';
+import { IntentConditions } from '../../types/intent.types';
+
+interface IntentButtonProps {
+  product: Product;
+  variant?: 'full' | 'compact' | 'icon';
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+}
+
+/**
+ * IntentButton
+ * Handles purchase intent creation with mandate flow
+ */
+export const IntentButton: React.FC<IntentButtonProps> = ({
+  product,
+  variant = 'full',
+  onSuccess,
+  onError,
+}) => {
+  const { getActiveMandateByType } = useMandate();
+  const { createIntent } = useIntent();
+  const [showMandateFlow, setShowMandateFlow] = useState(false);
+  const [showIntentModal, setShowIntentModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  /**
+   * Handle intent button press
+   */
+  const handlePress = () => {
+    const mandate = getActiveMandateByType(MandateType.INTENT);
+
+    if (mandate) {
+      // Show intent creation modal
+      setShowIntentModal(true);
+    } else {
+      // No mandate, start mandate flow
+      setShowMandateFlow(true);
+    }
+  };
+
+  /**
+   * Handle mandate ready (created or already exists)
+   */
+  const handleMandateReady = () => {
+    setShowMandateFlow(false);
+    const mandate = getActiveMandateByType(MandateType.INTENT);
+    if (mandate) {
+      setShowIntentModal(true);
+    }
+  };
+
+  /**
+   * Handle mandate flow cancellation
+   */
+  const handleMandateCancel = () => {
+    setShowMandateFlow(false);
+  };
+
+  /**
+   * Handle intent confirmation and creation
+   */
+  const handleConfirm = async (reasoning: string, conditions: IntentConditions) => {
+    setLoading(true);
+
+    try {
+      const mandate = getActiveMandateByType(MandateType.INTENT);
+      if (!mandate) {
+        throw new Error('Intent mandate not found');
+      }
+
+      const defaultAgent = AppConfig.getDefaultAgent();
+
+      const item: PurchaseIntentItem = {
+        productId: product.id,
+        productName: product.name,
+        quantity: 1,
+        price: product.price,
+      };
+
+      const request: CreateIntentRequest = {
+        mandateId: mandate.id,
+        agentId: defaultAgent.id,
+        items: [item],
+        reasoning,
+        metadata: conditions,
+      };
+
+      await createIntent(request);
+
+      setShowIntentModal(false);
+      Alert.alert(
+        'Intent Created',
+        `Your purchase intent for ${product.name} has been created successfully!`
+      );
+
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error: any) {
+      console.error('Failed to create intent:', error);
+      const errorMessage =
+        error.response?.data?.error?.message || error.message || 'Failed to create intent';
+      Alert.alert('Error', errorMessage);
+
+      if (onError) {
+        onError(error);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Handle intent creation cancellation
+   */
+  const handleCancel = () => {
+    setShowIntentModal(false);
+  };
+
+  /**
+   * Render button based on variant
+   */
+  const renderButton = () => {
+    if (variant === 'icon') {
+      return (
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={handlePress}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#007AFF" />
+          ) : (
+            <Text style={styles.iconText}>⭐</Text>
+          )}
+        </TouchableOpacity>
+      );
+    }
+
+    if (variant === 'compact') {
+      return (
+        <TouchableOpacity
+          style={[styles.compactButton, loading && styles.buttonDisabled]}
+          onPress={handlePress}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.compactButtonText}>Intent</Text>
+          )}
+        </TouchableOpacity>
+      );
+    }
+
+    // Full variant (default)
+    return (
+      <TouchableOpacity
+        style={[styles.fullButton, loading && styles.buttonDisabled]}
+        onPress={handlePress}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Text style={styles.fullButtonIcon}>⭐</Text>
+            <Text style={styles.fullButtonText}>Create Intent</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const mandate = getActiveMandateByType(MandateType.INTENT);
+
+  return (
+    <>
+      {renderButton()}
+
+      {/* Mandate Flow Manager */}
+      {showMandateFlow && (
+        <MandateFlowManager
+          mandateType={MandateType.INTENT}
+          onMandateReady={handleMandateReady}
+          onCancel={handleMandateCancel}
+          autoCheck={true}
+        />
+      )}
+
+      {/* Intent Creation Modal */}
+      {showIntentModal && (
+        <IntentCreationModal
+          visible={showIntentModal}
+          product={product}
+          mandate={mandate}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+          loading={loading}
+        />
+      )}
+    </>
+  );
+};
+
+const styles = StyleSheet.create({
+  // Full Button (default)
+  fullButton: {
+    flexDirection: 'row',
+    backgroundColor: '#FF9500',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fullButtonIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  fullButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  // Compact Button
+  compactButton: {
+    backgroundColor: '#FF9500',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  // Icon Button
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff5e6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FF9500',
+  },
+  iconText: {
+    fontSize: 20,
+  },
+
+  // Common
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+});

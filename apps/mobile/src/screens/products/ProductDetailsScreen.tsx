@@ -18,6 +18,7 @@ import { ErrorMessage } from '../../components/common/ErrorMessage';
 import { Product } from '@agentic-commerce/shared-types';
 import { productService } from '../../services/product.service';
 import { BuyButton } from '../../components/products/BuyButton';
+import { IntentButton } from '../../components/products/IntentButton';
 
 type ProductDetailsScreenNavigationProp = StackNavigationProp<
   ProductsStackParamList,
@@ -176,9 +177,14 @@ export const ProductDetailsScreen = () => {
           </View>
         )}
 
-        {/* Primary Action - Buy with Agent */}
-        <View style={styles.primaryAction}>
-          <BuyButton product={product} variant="full" />
+        {/* Primary Actions - Buy & Intent */}
+        <View style={styles.primaryActions}>
+          <View style={styles.primaryActionButton}>
+            <BuyButton product={product} variant="full" />
+          </View>
+          <View style={styles.primaryActionButton}>
+            <IntentButton product={product} variant="full" />
+          </View>
         </View>
 
         {/* Secondary Actions */}
@@ -313,9 +319,14 @@ const styles = StyleSheet.create({
     color: '#28a745',
     fontWeight: '500',
   },
-  primaryAction: {
+  primaryActions: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 16,
     marginTop: 8,
+  },
+  primaryActionButton: {
+    flex: 1,
   },
   actionButtons: {
     gap: 12,
