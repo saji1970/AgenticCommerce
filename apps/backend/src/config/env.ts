@@ -64,7 +64,7 @@ export const config = {
 
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY || '',
-    defaultModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4.5-20250929',
+    defaultModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929',
   },
 
   googleSearch: {
