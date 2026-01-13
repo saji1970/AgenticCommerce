@@ -1,314 +1,334 @@
-# AgenticCommerce - Mobile Shopping App
+# AgenticCommerce - AI-Powered Mobile Shopping Platform
 
-A full-stack mobile shopping application built with React Native and Node.js/Express, featuring user authentication and profile management.
+A full-stack mobile shopping application with AI-powered product search, agent-assisted purchasing, and autonomous commerce capabilities. Built with React Native and Node.js/Express, featuring mandate-based agent authorization, intelligent product discovery, and intent-based shopping.
+
+## 🌟 Key Features
+
+### ✅ Implemented & Live
+
+#### 🤖 Agent-Assisted Shopping
+- **Buy with Agent** - One-click agent-assisted cart additions with mandate authorization
+- **Purchase Intents** - Create smart purchase intents with 4 types:
+  - 💰 **Price Drop Alert** - Get notified when price drops below target
+  - 📦 **Back in Stock** - Alert when product becomes available
+  - ⏰ **Scheduled Purchase** - Schedule purchases for future dates
+  - ⭐ **General Interest** - Express interest without specific conditions
+
+#### 🔐 Mandate System (Agentic Commerce Protocol)
+- Cart mandates with configurable constraints
+- Intent mandates with daily limits
+- Payment mandates for secure transactions
+- Full audit trail of agent actions
+- User approval workflow for agent decisions
+
+#### 🔍 AI-Powered Search
+- **Google Custom Search** integration for product discovery
+- **Claude AI** (Anthropic) for:
+  - Filtering shoppable products from search results
+  - Extracting product data (name, price, specs, images)
+  - Generating smart product filters
+- Real-time search history tracking
+
+#### 🛒 Shopping Features
+- User authentication (JWT with secure token storage)
+- Product catalog with AI-extracted details
+- Shopping cart management
+- User profiles and order history
+- Product search with filters
+
+#### 🔗 MCP (Model Context Protocol) Integration
+- Extensible server architecture for e-commerce integration
+- Custom server support for various shopping platforms
 
 ## Tech Stack
 
-- **Frontend**: React Native (bare), TypeScript
-- **Backend**: Node.js, Express, TypeScript
-- **Database**: PostgreSQL
-- **Monorepo**: Yarn workspaces
-- **Authentication**: JWT tokens with bcrypt password hashing
-- **Validation**: Zod schemas (shared between frontend and backend)
+### Frontend (Mobile)
+- **React Native** 0.81.5 with Expo 54
+- **TypeScript** for type safety
+- **React Navigation** for routing
+- **React Context API** for state management
+- **Axios** for API calls
+- **React Native Keychain** for secure storage
+- **EAS Build** for production builds
+
+### Backend (API)
+- **Node.js** with Express
+- **TypeScript**
+- **PostgreSQL** database
+- **Anthropic Claude API** (Sonnet 4.5) for AI processing
+- **Google Custom Search API** for product discovery
+- **JWT Authentication** with bcrypt
+- **Zod** for validation
+- **Deployed on Railway**
+
+### Architecture
+- **Monorepo** with pnpm workspaces
+- **Shared packages** for types and validation
+- **Clean architecture** with repositories, services, controllers
+- **RESTful API** design
 
 ## Project Structure
 
 ```
 AgenticCommerce/
 ├── apps/
-│   ├── backend/          # Express API server
-│   └── mobile/           # React Native mobile app
+│   ├── backend/              # Express API server
+│   │   ├── src/
+│   │   │   ├── config/      # Configuration (env, database)
+│   │   │   ├── controllers/ # Route handlers
+│   │   │   ├── services/    # Business logic (AI, Search, MCP)
+│   │   │   ├── repositories/# Data access layer
+│   │   │   ├── middleware/  # Auth, validation, error handling
+│   │   │   └── routes/      # API routes
+│   │   └── migrations/      # Database migrations
+│   └── mobile/              # React Native app
+│       ├── src/
+│       │   ├── components/  # Reusable UI components
+│       │   │   ├── products/# Buy/Intent buttons, modals
+│       │   │   ├── mandate/ # Mandate flow components
+│       │   │   └── common/  # Common UI components
+│       │   ├── contexts/    # React Context providers
+│       │   ├── screens/     # App screens
+│       │   ├── services/    # API clients
+│       │   ├── utils/       # Helper functions
+│       │   └── types/       # TypeScript types
 ├── packages/
-│   ├── shared-types/     # Shared TypeScript types
-│   └── validation/       # Shared Zod validation schemas
+│   ├── shared-types/        # Shared TypeScript types
+│   └── validation/          # Shared Zod validation schemas
 └── package.json
 ```
 
-## Prerequisites
+## 🚀 Quick Start
 
-Before you begin, ensure you have the following installed:
+### Prerequisites
 
-- **Node.js** (v18 or higher)
-- **Yarn** (v1.22 or higher) - `npm install -g yarn`
-- **PostgreSQL** (v14 or higher)
-- **Android Studio** or **Xcode** (for running the mobile app)
+- **Node.js** v20 or higher
+- **pnpm** v8 or higher - `npm install -g pnpm`
+- **PostgreSQL** v14 or higher (for local development)
+- **Android Studio** or **Xcode** (for mobile development)
+- **Expo CLI** - `npm install -g eas-cli` (for building)
 
-## Getting Started
-
-### 1. Install Dependencies
+### 1. Clone and Install
 
 ```bash
-# Install all workspace dependencies
-yarn install
+# Clone repository
+git clone https://github.com/saji1970/AgenticCommerce.git
+cd AgenticCommerce
+
+# Install dependencies with hoisted mode (required for Windows path length limits)
+pnpm install
 ```
 
-### 2. Build Shared Packages
+### 2. Backend Setup (Local Development)
 
 ```bash
-# Build shared TypeScript packages
-yarn run build:shared
-```
-
-### 3. Set Up PostgreSQL Database
-
-#### Create Database
-
-```bash
-# Using psql
-psql -U postgres
-CREATE DATABASE agentic_commerce;
-\q
-```
-
-Or use a GUI tool like pgAdmin.
-
-#### Run Migration
-
-```bash
-# Navigate to backend directory
 cd apps/backend
 
-# Run the migration script
+# Copy environment variables
+cp .env.example .env
+
+# Update .env with your credentials:
+# - PostgreSQL credentials
+# - Anthropic API key (get from https://console.anthropic.com)
+# - Google Custom Search API credentials
+
+# Run migrations
 psql -U postgres -d agentic_commerce -f migrations/001_create_users_table.sql
+# ... run other migrations
+
+# Start backend
+pnpm dev
 ```
 
-This will create the `users` table with all necessary fields and indexes.
+Backend will run at `http://localhost:3000`
 
-### 4. Configure Environment Variables
+### 3. Mobile App Setup
 
-The backend `.env` file is already created at `apps/backend/.env` with default values:
-
-```env
-NODE_ENV=development
-PORT=3000
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=agentic_commerce
-DB_USER=postgres
-DB_PASSWORD=postgres
-JWT_SECRET=agentic-commerce-super-secret-jwt-key-minimum-32-characters-long
-JWT_EXPIRES_IN=7d
-CORS_ORIGIN=http://localhost:8081
-```
-
-**Important**: Update `DB_PASSWORD` with your PostgreSQL password.
-
-### 5. Configure Mobile API URL
-
-The API URL is automatically configured based on the environment:
-- **Development** (__DEV__ = true): Uses `http://localhost:3000/api`
-- **Production** (__DEV__ = false): Uses Railway production URL
-
-For testing on a physical device with development build, update `DEVELOPMENT_URL` in `apps/mobile/src/services/api.ts`:
-
-```typescript
-const DEVELOPMENT_URL = 'http://YOUR_MACHINE_IP:3000/api';
-```
-
-To find your IP address:
-- **Windows**: Run `ipconfig` in terminal
-- **macOS/Linux**: Run `ifconfig` in terminal
-
-Example: `http://192.168.1.100:3000/api`
-
-## Deployment
-
-### Deploy Backend to Railway
-
-Railway provides an easy way to deploy your Node.js backend with PostgreSQL.
-
-#### Step 1: Create Railway Account
-
-1. Go to [railway.app](https://railway.app)
-2. Sign up with GitHub
-3. Create a new project
-
-#### Step 2: Add PostgreSQL Database
-
-1. In your Railway project, click **"+ New"**
-2. Select **"Database"** → **"Add PostgreSQL"**
-3. Railway will automatically create a PostgreSQL database
-4. The `DATABASE_URL` environment variable will be automatically set
-
-#### Step 3: Deploy Backend
-
-1. Click **"+ New"** → **"GitHub Repo"**
-2. Select your `AgenticCommerce` repository
-3. Railway will auto-detect the project and start building
-
-#### Step 4: Configure Environment Variables
-
-In your Railway backend service, add these environment variables:
-
-```env
-NODE_ENV=production
-JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters-long
-JWT_EXPIRES_IN=7d
-CORS_ORIGIN=exp://your-expo-url,http://localhost:8081
-```
-
-**Note**: Railway automatically provides `DATABASE_URL` and `PORT`. The backend will parse the `DATABASE_URL` automatically.
-
-#### Step 5: Run Database Migration
-
-1. In Railway, open your PostgreSQL database
-2. Click **"Query"** tab
-3. Copy and paste the contents of `apps/backend/migrations/001_create_users_table.sql`
-4. Execute the query
-
-#### Step 6: Update Mobile App API URL
-
-After deployment, Railway will give you a URL like `https://agenticcommerce-production.up.railway.app`
-
-Update `PRODUCTION_URL` in `apps/mobile/src/services/api.ts`:
-
-```typescript
-const PRODUCTION_URL = 'https://agenticcommerce-production.up.railway.app/api';
-```
-
-The app will automatically use this URL when built for production (__DEV__ = false).
-
-#### Step 7: Test Your Deployment
-
-Visit your Railway URL + `/api/health`:
-```
-https://agenticcommerce-production.up.railway.app/api/health
-```
-
-You should see:
-```json
-{
-  "status": "ok",
-  "timestamp": "2024-01-04T12:00:00.000Z"
-}
-```
-
-### Railway Configuration Files
-
-The project includes Railway-specific configuration:
-
-- `nixpacks.toml` - Build configuration
-- `Procfile` - Process configuration
-- `apps/backend/railway.json` - Service configuration
-
-### Environment Variables for Railway
-
-The backend automatically supports Railway's `DATABASE_URL` format:
-```
-postgresql://user:password@host:port/database
-```
-
-No need to set individual DB_HOST, DB_PORT, etc. when using Railway.
-
-## Running the Application
-
-### Option 1: Run Everything Concurrently
-
-```bash
-# From project root
-yarn run dev
-```
-
-This starts both the backend server and mobile app.
-
-### Option 2: Run Separately
-
-**Terminal 1 - Backend:**
-```bash
-yarn run dev:backend
-```
-
-**Terminal 2 - Mobile App:**
-```bash
-yarn run dev:mobile
-```
-
-### Testing the Mobile App
-
-For bare React Native, you need to run the app on an emulator or physical device:
-
-**Android:**
 ```bash
 cd apps/mobile
-yarn run android
+
+# Start Expo development server
+pnpm start
+
+# For Android emulator
+pnpm android
+
+# For iOS simulator (macOS only)
+pnpm ios
 ```
 
-**iOS (macOS only):**
+### 4. Build Production APK
+
 ```bash
 cd apps/mobile
-yarn run ios
+
+# Build with EAS (requires Expo account)
+eas build --platform android --profile production
+
+# Download APK from build page
+# Install to device/emulator
 ```
 
-For physical devices, ensure USB debugging is enabled (Android) or device is registered in Xcode (iOS).
+## 🔑 API Keys Configuration
 
-## API Endpoints
+The app requires two API services for AI-powered search:
+
+### 1. Anthropic Claude API
+- Get API key: https://console.anthropic.com/settings/keys
+- Free tier: $5 credit
+- Used for: Product filtering, data extraction, filter generation
+- Cost: ~$0.03-$0.15 per search
+
+### 2. Google Custom Search API
+- API Key: https://console.cloud.google.com/apis/credentials
+- Search Engine ID: https://programmablesearchengine.google.com/
+- Free tier: 100 queries/day
+- Used for: Product search on the web
+
+**Set in Railway (Production):**
+```bash
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxx
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
+GOOGLE_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxx
+GOOGLE_SEARCH_ENGINE_ID=0123456789abcdefg
+```
+
+See `API_KEYS_SETUP.md` for detailed configuration guide.
+
+## 📱 Live Deployment
+
+### Backend (Railway)
+- **URL**: https://agenticcommerce-production.up.railway.app
+- **Health Check**: https://agenticcommerce-production.up.railway.app/api/health
+- **Status**: ✅ Live
+- **Database**: PostgreSQL on Railway
+- **Auto-deploy**: Enabled (pushes to master branch)
+
+### Mobile App
+- **Platform**: Android (iOS coming soon)
+- **Build System**: EAS Build (Expo)
+- **Latest Build**: Check releases or EAS dashboard
+- **Status**: ✅ Production builds available
+
+## 🎯 How It Works
+
+### Buy Flow
+1. User browses products (AI-extracted from web)
+2. Clicks **"Buy Now"** on product detail screen
+3. System checks for active **cart mandate**
+4. If no mandate → User signs mandate with constraints
+5. If mandate exists → Shows confirmation modal
+6. User confirms → Agent adds product to cart via **ACP**
+7. Success notification + cart updates
+
+### Intent Flow
+1. User views a product
+2. Clicks **"Create Intent"** button
+3. System checks for active **intent mandate**
+4. If no mandate → User signs mandate
+5. User selects intent type (Price Drop, Availability, Time-Based, General)
+6. Fills type-specific form (e.g., target price for price drop)
+7. System generates reasoning via AI
+8. Creates intent via **ACP (Agentic Commerce Protocol)**
+9. Intent tracked for future action
+
+### AI Search Flow
+1. User enters search query
+2. Backend calls **Google Custom Search** API
+3. Returns 10 URLs with snippets
+4. **Claude AI** filters for shoppable products
+5. Fetches HTML from shoppable URLs
+6. **Claude AI** extracts product data (name, price, image, specs)
+7. Saves products to database
+8. Returns results with generated filters
+
+## 🗄️ Database Schema
+
+### Core Tables
+- `users` - User accounts and profiles
+- `products` - Product catalog (AI-extracted)
+- `search_queries` - Search history and status
+- `product_filters` - AI-generated search filters
+- `cart_items` - Shopping cart
+- `orders` - Order history
+- `order_items` - Order line items
+
+### Mandate Tables
+- `mandates` - Agent authorization mandates
+- `purchase_intents` - User purchase intentions
+- `agent_actions` - Audit log of agent activities
+
+## 🌐 API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - Register a new user
+- `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login user
+- `GET /api/users/profile` - Get user profile (protected)
+- `PUT /api/users/profile` - Update profile (protected)
 
-### User (Protected)
-- `GET /api/users/profile` - Get current user profile
-- `PUT /api/users/profile` - Update user profile
+### Products
+- `POST /api/products/ai-search` - AI-powered product search
+- `GET /api/products` - List products
+- `GET /api/products/:id` - Get product details
+- `GET /api/products/search-history` - Get search history
+- `DELETE /api/products/:id` - Delete product
 
-### Health
-- `GET /api/health` - Health check endpoint
+### Cart
+- `GET /api/cart` - Get cart items
+- `POST /api/cart` - Add to cart
+- `PUT /api/cart/:id` - Update cart item
+- `DELETE /api/cart/:id` - Remove from cart
+- `DELETE /api/cart` - Clear cart
 
-## Features
+### Orders
+- `POST /api/orders` - Create order
+- `GET /api/orders` - List orders
+- `GET /api/orders/:id` - Get order details
 
-### Implemented
-- ✅ User registration with validation
-- ✅ User login with JWT authentication
-- ✅ Secure password hashing (bcrypt)
-- ✅ User profile management
-- ✅ Secure token storage (react-native-keychain)
-- ✅ Input validation (Zod schemas)
-- ✅ Error handling
-- ✅ Navigation (Auth flow + App flow)
-- ✅ Responsive UI components
+### Mandates (ACP)
+- `POST /api/mandates` - Create mandate
+- `GET /api/mandates` - List mandates
+- `POST /api/mandates/:id/approve` - Approve mandate
+- `POST /api/mandates/:id/revoke` - Revoke mandate
 
-### Planned
-- ⏳ Product catalog browsing
-- ⏳ Shopping cart functionality
-- ⏳ Order management
-- ⏳ Payment integration
-- ⏳ Push notifications
-- ⏳ Password reset
-- ⏳ Email verification
-- ⏳ Profile picture upload
+### Agentic Commerce Protocol (ACP)
+- `POST /api/acp/cart/add` - Agent adds to cart (requires cart mandate)
+- `POST /api/acp/intents` - Create purchase intent (requires intent mandate)
+- `GET /api/acp/intents` - List user intents
+- `POST /api/acp/intents/:id/approve` - Approve intent
+- `POST /api/acp/intents/:id/reject` - Reject intent
+- `GET /api/acp/actions` - Get agent action history
 
-## Database Schema
+## 🔐 Security Features
 
-### Users Table
+- **bcrypt** password hashing (10 rounds)
+- **JWT** authentication with expiration
+- **React Native Keychain** for secure token storage
+- **Helmet** security headers
+- **CORS** configuration
+- **Input validation** with Zod schemas
+- **SQL injection protection** (parameterized queries)
+- **Mandate-based authorization** for agent actions
+- **Audit logging** for all agent activities
 
-```sql
-users (
-  id UUID PRIMARY KEY,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  first_name VARCHAR(50) NOT NULL,
-  last_name VARCHAR(50) NOT NULL,
-  phone_number VARCHAR(20),
-  created_at TIMESTAMP WITH TIME ZONE,
-  updated_at TIMESTAMP WITH TIME ZONE
-)
-```
-
-## Development
+## 🛠️ Development
 
 ### Backend Development
 
 ```bash
 cd apps/backend
 
-# Start development server with hot reload
-yarn run dev
+# Start with hot reload
+pnpm dev
 
 # Build for production
-yarn run build
+pnpm build
+
+# Start production server
+pnpm start
 
 # Type check
-yarn run type-check
+pnpm type-check
 ```
 
 ### Mobile Development
@@ -316,98 +336,124 @@ yarn run type-check
 ```bash
 cd apps/mobile
 
-# Start React Native packager
-yarn start
+# Start Expo dev server
+pnpm start
 
 # Run on Android
-yarn run android
+pnpm android
 
 # Run on iOS (macOS only)
-yarn run ios
+pnpm ios
 
-# Type check
-yarn run type-check
+# Build production APK
+eas build --platform android --profile production
 ```
 
 ### Shared Packages
 
-When you modify shared types or validation schemas:
-
 ```bash
-# Rebuild shared packages
-yarn run build:shared
+# Build shared types and validation
+pnpm --filter @agentic-commerce/shared-types build
+pnpm --filter @agentic-commerce/validation build
+
+# Or build all shared packages
+pnpm build:shared
 ```
 
-## Troubleshooting
+## 📚 Additional Documentation
+
+- `API_KEYS_SETUP.md` - API keys configuration guide
+- `CHECK_API_KEYS.md` - API key verification guide
+- `BUY_INTENT_IMPLEMENTATION.md` - Buy & Intent feature documentation
+- `MANDATE_SYSTEM_SUMMARY.md` - Mandate system overview
+- `BUILD_ANDROID_APK.md` - Android build instructions
+- `DEPLOYMENT_STATUS.md` - Current deployment status
+
+## 🐛 Troubleshooting
+
+### Windows Path Length Issues
+If you encounter path length errors during Android build:
+```bash
+# Use hoisted node-linker (already in .npmrc)
+pnpm install
+
+# Verify .npmrc contains:
+# node-linker=hoisted
+# shamefully-hoist=true
+```
+
+### AI Search Not Working
+1. Check API keys are set in Railway environment variables
+2. Verify Anthropic model name: `claude-sonnet-4-5-20250929` (with hyphens, not dots)
+3. Check Railway logs for errors
+4. Test API keys with curl commands (see `API_KEYS_SETUP.md`)
+
+### Mobile App Build Fails
+```bash
+# Clear cache and rebuild
+cd apps/mobile
+rm -rf node_modules .expo
+pnpm install
+eas build --clear-cache --platform android
+```
 
 ### Database Connection Issues
-
 ```bash
-# Check if PostgreSQL is running
+# Check PostgreSQL is running
 pg_isready
 
 # Verify database exists
 psql -U postgres -l | grep agentic_commerce
+
+# Check Railway database connection
+# Railway provides DATABASE_URL automatically
 ```
 
-### Mobile App Can't Connect to Backend
+## 🎯 Roadmap
 
-1. Ensure backend is running: `yarn run dev:backend`
-2. Check health endpoint: `http://localhost:3000/api/health`
-3. For physical devices, update `DEVELOPMENT_URL` in `apps/mobile/src/services/api.ts` with your machine's IP
-4. Ensure your phone and computer are on the same WiFi network (for physical devices)
+### Completed ✅
+- User authentication and profiles
+- AI-powered product search
+- Product catalog management
+- Shopping cart
+- Order management
+- Mandate system (ACP)
+- Buy with agent
+- Purchase intents (4 types)
+- Agent action audit logs
+- Railway deployment
+- EAS mobile builds
 
-### Build Errors
+### In Progress 🚧
+- Intent execution (price monitoring, availability checks)
+- Push notifications for intents
+- Payment integration
+- Multi-agent support
 
-```bash
-# Clean install
-rm -rf node_modules apps/*/node_modules packages/*/node_modules
-yarn install
+### Planned 📋
+- iOS app build
+- Email/SMS notifications
+- Product recommendations
+- Wishlist functionality
+- Social sharing
+- Multiple payment methods
+- Subscription management
 
-# Rebuild shared packages
-yarn run build:shared
-```
-
-## Project Scripts
-
-### Root Level
-
-- `yarn run dev` - Run backend and mobile concurrently
-- `yarn run dev:backend` - Run backend only
-- `yarn run dev:mobile` - Run mobile only
-- `yarn run build` - Build all packages
-- `yarn run build:shared` - Build shared packages only
-- `yarn run type-check` - Type check all packages
-
-## Security Features
-
-- Password hashing with bcrypt (10 salt rounds)
-- JWT token authentication with expiration
-- Secure token storage on mobile (react-native-keychain with native keychain/keystore)
-- Input validation on frontend and backend
-- CORS configuration
-- Helmet security headers
-- SQL injection protection (parameterized queries)
-- Error handling without exposing sensitive information
-
-## Architecture Highlights
-
-### Monorepo Benefits
-- Shared TypeScript types between frontend and backend
-- Centralized dependency management
-- Consistent tooling and standards
-- Easy code sharing and reuse
-
-### Clean Architecture
-- **Backend**: Repository → Service → Controller → Routes
-- **Mobile**: Services → Context → Hooks → Components → Screens
-- Clear separation of concerns
-- Easy to test and maintain
-
-## Contributing
-
-This is a personal project. Feel free to fork and modify for your own use.
-
-## License
+## 📄 License
 
 MIT
+
+## 👨‍💻 Author
+
+Saji Pillai
+
+## 🤝 Contributing
+
+This is a demonstration project. Feel free to fork and adapt for your own use.
+
+## 🔗 Links
+
+- **Live Backend**: https://agenticcommerce-production.up.railway.app
+- **GitHub**: https://github.com/saji1970/AgenticCommerce
+- **Railway Dashboard**: https://railway.app
+- **Expo Dashboard**: https://expo.dev
