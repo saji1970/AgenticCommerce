@@ -36,16 +36,10 @@ export const ProductListScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadProducts();
+    // Products are already loaded in context from the search
+    // They are now filtered by searchQueryId in the backend
+    console.log('ProductListScreen mounted with searchQueryId:', searchQueryId);
   }, [searchQueryId]);
-
-  const loadProducts = async () => {
-    try {
-      await fetchProducts();
-    } catch (err) {
-      console.error('Failed to load products:', err);
-    }
-  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -113,13 +107,13 @@ export const ProductListScreen = () => {
   }
 
   if (error) {
-    return <ErrorMessage message={error} onRetry={loadProducts} />;
+    return <ErrorMessage message={error} onRetry={clearError} retryText="Dismiss" />;
   }
 
   if (!loading && products.length === 0) {
     return (
       <View style={styles.container}>
-        <ErrorMessage message="No products found" onRetry={loadProducts} retryText="Retry" />
+        <ErrorMessage message="No products found for this search" onRetry={() => {}} retryText="Go Back" />
       </View>
     );
   }

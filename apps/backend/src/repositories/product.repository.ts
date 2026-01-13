@@ -4,8 +4,8 @@ import { query } from '../config/database';
 export class ProductRepository {
   async create(productData: CreateProductDTO): Promise<Product> {
     const result = await query(
-      `INSERT INTO products (user_id, name, description, price, currency, image_url, product_url, source, raw_data, ai_extracted)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO products (user_id, name, description, price, currency, image_url, product_url, source, raw_data, ai_extracted, search_query_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         productData.userId,
@@ -18,6 +18,7 @@ export class ProductRepository {
         productData.source,
         productData.rawData ? JSON.stringify(productData.rawData) : null,
         productData.aiExtracted !== undefined ? productData.aiExtracted : true,
+        productData.searchQueryId || null,
       ]
     );
 
@@ -35,7 +36,7 @@ export class ProductRepository {
 
     products.forEach((product) => {
       valuePlaceholders.push(
-        `($${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++})`
+        `($${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++})`
       );
       values.push(
         product.userId,
@@ -47,12 +48,13 @@ export class ProductRepository {
         product.productUrl,
         product.source,
         product.rawData ? JSON.stringify(product.rawData) : null,
-        product.aiExtracted !== undefined ? product.aiExtracted : true
+        product.aiExtracted !== undefined ? product.aiExtracted : true,
+        product.searchQueryId || null
       );
     });
 
     const result = await query(
-      `INSERT INTO products (user_id, name, description, price, currency, image_url, product_url, source, raw_data, ai_extracted)
+      `INSERT INTO products (user_id, name, description, price, currency, image_url, product_url, source, raw_data, ai_extracted, search_query_id)
        VALUES ${valuePlaceholders.join(', ')}
        RETURNING *`,
       values
@@ -68,6 +70,14 @@ export class ProductRepository {
     );
 
     return result.rows.length > 0 ? this.mapToProduct(result.rows[0]) : null;
+  }
+
+  async findBySearchQueryId(searchQueryId: string): Promise<Product[]> {
+    const result = await query(
+      'SELECT * FROM products WHERE search_query_id = $1 ORDER BY created_at DESC',
+      [searchQueryId]
+    );
+    return result.rows.map(row => this.mapToProduct(row));
   }
 
   async findByUserId(userId: string, filters?: ProductFilters): Promise<Product[]> {
@@ -221,6 +231,7 @@ export class ProductRepository {
       source: row.source,
       rawData: row.raw_data,
       aiExtracted: row.ai_extracted,
+      searchQueryId: row.search_query_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

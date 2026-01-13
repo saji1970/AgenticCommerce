@@ -117,6 +117,7 @@ export class ProductService {
             source: `google_search:${result.displayUrl}`,
             rawData: productData,
             aiExtracted: true,
+            searchQueryId: searchQuery.id,
           } as CreateProductDTO;
         } catch (error) {
           console.error(`Failed to extract from ${result.url}:`, error);
@@ -131,7 +132,10 @@ export class ProductService {
       console.log(`✅ Successfully extracted ${extractedProducts.length} products`);
 
       // Step 5: Combine and deduplicate
-      const allProductDTOs = [...extractedProducts, ...mcpProducts.map(p => ({ ...p, userId }))];
+      const allProductDTOs = [
+        ...extractedProducts,
+        ...mcpProducts.map(p => ({ ...p, userId, searchQueryId: searchQuery.id }))
+      ];
 
       // Remove duplicates based on productUrl
       const uniqueProducts = allProductDTOs.reduce((acc, product) => {
@@ -193,11 +197,13 @@ export class ProductService {
    */
   async performNLPSearch(
     userId: string,
-    naturalLanguageQuery: string
+    naturalLanguageQuery: string,
+    createMandate: boolean = false
   ): Promise<{
     searchResponse: AISearchResponse;
     parsedQuery: ParsedSearchQuery;
     intentCreated?: any;
+    mandateCreated?: any;
   }> {
     console.log(`🧠 Starting NLP-powered search for: "${naturalLanguageQuery}"`);
 
@@ -230,13 +236,11 @@ export class ProductService {
 
     // Step 3: Auto-create intent if requested and confidence is high
     let intentCreated = null;
+    let mandateCreated = null;
+
     if (parsedQuery.shouldCreateIntent && parsedQuery.confidence >= 70) {
       try {
-        console.log(`🎯 Auto-creating purchase intent based on NLP parsing`);
-
-        // Note: Intent creation would happen here
-        // For now, we return the intent data structure that should be created
-        // The mobile app or controller can handle actual creation with mandate
+        console.log(`🎯 Preparing purchase intent based on NLP parsing`);
 
         intentCreated = {
           type: parsedQuery.intentType,
@@ -250,10 +254,42 @@ export class ProductService {
           specifications: parsedQuery.specifications,
         };
 
-        console.log(`✅ Intent data prepared for creation:`, intentCreated);
+        console.log(`✅ Intent data prepared:`, intentCreated);
+
+        // Step 4: Auto-create mandate if requested
+        if (createMandate) {
+          console.log(`🔐 Auto-creating intent mandate for autonomous purchases`);
+
+          const { MandateService } = await import('./mandate.service');
+          const mandateService = new MandateService();
+
+          // Create mandate with constraints based on parsed query
+          const mandateRequest = {
+            agentId: 'nlp-search-agent',
+            agentName: 'NLP Search Agent',
+            type: 'intent' as const,
+            constraints: {
+              maxIntentsPerDay: 5,
+              maxIntentValue: parsedQuery.maxPrice || 5000,
+              autoApproveUnder: parsedQuery.maxPrice ? Math.min(parsedQuery.maxPrice * 0.8, 100) : 50,
+              expiryHours: parsedQuery.endDate
+                ? Math.ceil((new Date(parsedQuery.endDate).getTime() - Date.now()) / (1000 * 60 * 60))
+                : 168, // Default 7 days
+            },
+            validUntil: parsedQuery.endDate ? new Date(parsedQuery.endDate) : undefined,
+          };
+
+          mandateCreated = await mandateService.createMandate(userId, mandateRequest);
+
+          console.log(`✅ Mandate created: ${mandateCreated.id}`);
+
+          // Add mandate info to intent
+          intentCreated.mandateId = mandateCreated.id;
+          intentCreated.mandateStatus = mandateCreated.status;
+        }
       } catch (error) {
-        console.error('Failed to prepare intent:', error);
-        // Don't fail the search if intent preparation fails
+        console.error('Failed to create intent/mandate:', error);
+        // Don't fail the search if intent/mandate creation fails
       }
     }
 
@@ -261,6 +297,7 @@ export class ProductService {
       searchResponse,
       parsedQuery,
       intentCreated,
+      mandateCreated,
     };
   }
 
@@ -330,10 +367,8 @@ export class ProductService {
       throw new AppError(403, 'Forbidden', 'FORBIDDEN');
     }
 
-    // Get products for this search (stored in metadata or fetch separately)
-    // For now, return empty array as we don't have a direct link
-    // In a production system, you might add search_query_id to products table
-    const products: Product[] = [];
+    // Get products for this specific search query
+    const products = await this.productRepository.findBySearchQueryId(searchQueryId);
 
     return { query, products };
   }

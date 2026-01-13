@@ -27,10 +27,11 @@ interface ProductContextType {
 
   // Methods
   performAISearch: (request: AISearchRequest) => Promise<AISearchResponse>;
-  performNLPSearch: (naturalLanguageQuery: string) => Promise<{
+  performNLPSearch: (naturalLanguageQuery: string, createMandate?: boolean) => Promise<{
     searchResponse: AISearchResponse;
     parsedQuery: any;
     intentCreated?: any;
+    mandateCreated?: any;
   }>;
   fetchProducts: (filters?: ProductFilters) => Promise<void>;
   refreshProducts: () => Promise<void>;
@@ -88,12 +89,12 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
     }
   };
 
-  const performNLPSearch = async (naturalLanguageQuery: string) => {
+  const performNLPSearch = async (naturalLanguageQuery: string, createMandate: boolean = false) => {
     try {
       setLoading(true);
       setError(null);
 
-      const result = await productService.nlpSearch(naturalLanguageQuery);
+      const result = await productService.nlpSearch(naturalLanguageQuery, createMandate);
 
       // Update products and filters from search response
       setProducts(result.searchResponse.products);

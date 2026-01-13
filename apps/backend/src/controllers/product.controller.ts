@@ -28,7 +28,7 @@ export class ProductController {
   nlpSearch = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user!.userId;
-      const { query: naturalLanguageQuery } = req.body;
+      const { query: naturalLanguageQuery, createMandate = false } = req.body;
 
       if (!naturalLanguageQuery || typeof naturalLanguageQuery !== 'string') {
         return res.status(400).json({
@@ -42,7 +42,11 @@ export class ProductController {
 
       console.log(`🧠 NLP Search request from user ${userId}: "${naturalLanguageQuery}"`);
 
-      const result = await this.productService.performNLPSearch(userId, naturalLanguageQuery);
+      const result = await this.productService.performNLPSearch(
+        userId,
+        naturalLanguageQuery,
+        createMandate
+      );
 
       res.status(200).json({
         success: true,

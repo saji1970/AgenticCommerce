@@ -13,12 +13,16 @@ export const productService = {
     return apiClient.post<AISearchResponse>('/products/ai-search', request);
   },
 
-  async nlpSearch(naturalLanguageQuery: string): Promise<{
+  async nlpSearch(naturalLanguageQuery: string, createMandate: boolean = false): Promise<{
     searchResponse: AISearchResponse;
     parsedQuery: any;
     intentCreated?: any;
+    mandateCreated?: any;
   }> {
-    return apiClient.post('/products/nlp-search', { query: naturalLanguageQuery });
+    return apiClient.post('/products/nlp-search', {
+      query: naturalLanguageQuery,
+      createMandate,
+    });
   },
 
   async getProducts(filters?: ProductFilters): Promise<PaginatedProducts> {

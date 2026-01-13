@@ -10,6 +10,7 @@ export interface Product {
   source: string;
   rawData?: any;
   aiExtracted: boolean;
+  searchQueryId?: string; // Link to the search that found this product
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +26,7 @@ export interface CreateProductDTO {
   source: string;
   rawData?: any;
   aiExtracted?: boolean;
+  searchQueryId?: string; // Link to the search that found this product
 }
 
 export interface UpdateProductDTO {
