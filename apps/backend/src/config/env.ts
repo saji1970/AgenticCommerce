@@ -63,7 +63,7 @@ export const config = {
   },
 
   gemini: {
-    apiKey: process.env.GEMINI_API_KEY || 'AIzaSyBbzFVP7Lf10lJr1IQsfSqEnvm-5zA6lNU',
+    apiKey: process.env.GEMINI_API_KEY || '',
     defaultModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
   },
 
@@ -73,7 +73,7 @@ export const config = {
   },
 
   googlePlaces: {
-    apiKey: process.env.GOOGLE_PLACES_API_KEY || process.env.GEMINI_API_KEY || 'AIzaSyBbzFVP7Lf10lJr1IQsfSqEnvm-5zA6lNU',
+    apiKey: process.env.GOOGLE_PLACES_API_KEY || process.env.GEMINI_API_KEY || '',
   },
 
   mcp: {
