@@ -375,4 +375,57 @@ export class ProductService {
 
     return { query, products };
   }
+
+  async deleteSearchQuery(searchQueryId: string, userId: string): Promise<boolean> {
+    const query = await this.searchQueryRepository.findById(searchQueryId);
+
+    if (!query) {
+      throw new AppError(404, 'Search query not found', 'SEARCH_QUERY_NOT_FOUND');
+    }
+
+    // Ensure query belongs to user
+    if (query.userId !== userId) {
+      throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+    }
+
+    return await this.searchQueryRepository.delete(searchQueryId);
+  }
+
+  async getFrequentlySearchedProducts(userId: string, limit: number = 8): Promise<Product[]> {
+    // Get user's recent search queries (last 10)
+    const recentQueries = await this.searchQueryRepository.findByUserId(userId, 10);
+
+    if (recentQueries.length === 0) {
+      return [];
+    }
+
+    // Get products from these search queries
+    const queryIds = recentQueries.map(q => q.id);
+    const allProducts = await this.productRepository.findBySearchQueryIds(queryIds);
+
+    // Group products by name and count occurrences
+    const productMap = new Map<string, { product: Product; count: number }>();
+
+    allProducts.forEach(product => {
+      const key = product.name.toLowerCase().trim();
+      if (productMap.has(key)) {
+        const existing = productMap.get(key)!;
+        existing.count++;
+        // Keep the most recent product if duplicates
+        if (new Date(product.createdAt) > new Date(existing.product.createdAt)) {
+          existing.product = product;
+        }
+      } else {
+        productMap.set(key, { product, count: 1 });
+      }
+    });
+
+    // Sort by count (most frequently searched first) and return top products
+    const sortedProducts = Array.from(productMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit)
+      .map(item => item.product);
+
+    return sortedProducts;
+  }
 }

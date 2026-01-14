@@ -80,6 +80,19 @@ export class ProductRepository {
     return result.rows.map(row => this.mapToProduct(row));
   }
 
+  async findBySearchQueryIds(searchQueryIds: string[]): Promise<Product[]> {
+    if (searchQueryIds.length === 0) {
+      return [];
+    }
+
+    const placeholders = searchQueryIds.map((_, index) => `$${index + 1}`).join(',');
+    const result = await query(
+      `SELECT * FROM products WHERE search_query_id IN (${placeholders}) ORDER BY created_at DESC`,
+      searchQueryIds
+    );
+    return result.rows.map(row => this.mapToProduct(row));
+  }
+
   async findByUserId(userId: string, filters?: ProductFilters): Promise<Product[]> {
     let queryText = 'SELECT * FROM products WHERE user_id = $1';
     const values: any[] = [userId];

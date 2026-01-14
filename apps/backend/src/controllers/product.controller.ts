@@ -165,4 +165,36 @@ export class ProductController {
       next(error);
     }
   };
+
+  deleteSearchQuery = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = req.params;
+
+      await this.productService.deleteSearchQuery(id, userId);
+
+      res.status(200).json({
+        success: true,
+        data: { message: 'Search query deleted successfully' },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getFrequentlySearchedProducts = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.userId;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 8;
+
+      const products = await this.productService.getFrequentlySearchedProducts(userId, limit);
+
+      res.status(200).json({
+        success: true,
+        data: products,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

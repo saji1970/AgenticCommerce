@@ -58,4 +58,12 @@ export const productService = {
   async getSearchQueryById(id: string): Promise<{ query: SearchQuery; products: Product[] }> {
     return apiClient.get<{ query: SearchQuery; products: Product[] }>(`/products/search-history/${id}`);
   },
+
+  async deleteSearchQuery(id: string): Promise<void> {
+    await apiClient.delete(`/products/search-history/${id}`);
+  },
+
+  async getFrequentlySearchedProducts(limit: number = 8): Promise<Product[]> {
+    return apiClient.get<Product[]>(`/products/frequently-searched?limit=${limit}`);
+  },
 };

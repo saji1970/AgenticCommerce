@@ -20,6 +20,10 @@ router.post('/nlp-search', productController.nlpSearch);
 // Search History (must come before /:id to avoid route conflicts)
 router.get('/search-history', productController.getSearchHistory);
 router.get('/search-history/:id', productController.getSearchQueryById);
+router.delete('/search-history/:id', productController.deleteSearchQuery);
+
+// Frequently Searched Products
+router.get('/frequently-searched', productController.getFrequentlySearchedProducts);
 
 // Products
 router.get('/', productController.getProducts);
