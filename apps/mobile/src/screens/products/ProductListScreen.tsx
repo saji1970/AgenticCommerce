@@ -20,7 +20,9 @@ type ProductListScreenRouteProp = RouteProp<ProductsStackParamList, 'ProductList
 export const ProductListScreen = () => {
   const navigation = useNavigation<ProductListScreenNavigationProp>();
   const route = useRoute<ProductListScreenRouteProp>();
-  const { searchQueryId } = route.params;
+  
+  // Safely get searchQueryId from route params
+  const searchQueryId = route.params?.searchQueryId;
 
   const {
     products,
@@ -38,6 +40,11 @@ export const ProductListScreen = () => {
   useEffect(() => {
     // Products are already loaded in context from the search
     // They are now filtered by searchQueryId in the backend
+    if (!searchQueryId) {
+      console.warn('ProductListScreen: searchQueryId is missing from route params');
+      // Could navigate back or show error - but for now just log warning
+      return;
+    }
     console.log('ProductListScreen mounted with searchQueryId:', searchQueryId);
   }, [searchQueryId]);
 

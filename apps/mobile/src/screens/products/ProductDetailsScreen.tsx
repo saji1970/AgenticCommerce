@@ -30,7 +30,9 @@ type ProductDetailsScreenRouteProp = RouteProp<ProductsStackParamList, 'ProductD
 export const ProductDetailsScreen = () => {
   const navigation = useNavigation<ProductDetailsScreenNavigationProp>();
   const route = useRoute<ProductDetailsScreenRouteProp>();
-  const { productId } = route.params;
+  
+  // Safely get productId from route params with fallback
+  const productId = route.params?.productId;
 
   const { deleteProduct: contextDeleteProduct } = useProduct();
 
@@ -39,11 +41,9 @@ export const ProductDetailsScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    loadProduct();
-  }, [productId]);
-
   const loadProduct = async () => {
+    if (!productId) return;
+    
     try {
       setLoading(true);
       setError(null);
@@ -56,6 +56,24 @@ export const ProductDetailsScreen = () => {
       setLoading(false);
     }
   };
+
+  // Check if productId exists, if not show error and navigate back
+  useEffect(() => {
+    if (!productId) {
+      setError('Product ID is missing');
+      setLoading(false);
+      Alert.alert('Error', 'Product ID is missing', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
+      return;
+    }
+    loadProduct();
+  }, [productId]);
+
+  // Early return if productId is missing
+  if (!productId) {
+    return <ErrorMessage message="Product ID is missing" onRetry={() => navigation.goBack()} />;
+  }
 
   const handleViewWebsite = async () => {
     if (!product?.productUrl) return;

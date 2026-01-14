@@ -41,11 +41,11 @@ export const HomeScreen = () => {
   };
 
   const handleProductPress = (product: Product) => {
-    // Navigate to product details or search results
-    if (product.searchQueryId) {
-      navigation.navigate('ProductList', { searchQueryId: product.searchQueryId });
+    // Navigate directly to product details when product is clicked
+    if (product.id) {
+      navigation.navigate('ProductDetails', { productId: product.id });
     } else {
-      Alert.alert('Product', `Viewing ${product.name}`);
+      Alert.alert('Error', 'Product information is incomplete');
     }
   };
 
