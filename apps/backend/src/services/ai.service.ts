@@ -48,6 +48,71 @@ export class AIService {
     return cleaned.trim();
   }
 
+  /**
+   * Extract JSON from text that might contain other content
+   */
+  private extractJSON(text: string): string {
+    // First try to find JSON array or object boundaries
+    const arrayMatch = text.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      return arrayMatch[0];
+    }
+    
+    const objectMatch = text.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+      return objectMatch[0];
+    }
+    
+    return text;
+  }
+
+  /**
+   * Try to fix common JSON issues
+   */
+  private fixJSON(jsonString: string): string {
+    let fixed = jsonString;
+    
+    // Remove trailing commas before } or ]
+    fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
+    
+    // Fix unescaped newlines in strings (basic attempt)
+    // This is tricky, so we'll be conservative
+    
+    return fixed;
+  }
+
+  /**
+   * Safely parse JSON with multiple fallback strategies
+   */
+  private safeJSONParse<T>(text: string, fallback: T): T {
+    try {
+      // Step 1: Strip markdown
+      let cleaned = this.stripMarkdownCodeFences(text);
+      
+      // Step 2: Extract JSON if embedded in text
+      cleaned = this.extractJSON(cleaned);
+      
+      // Step 3: Try to fix common issues
+      cleaned = this.fixJSON(cleaned);
+      
+      // Step 4: Parse
+      return JSON.parse(cleaned);
+    } catch (error: any) {
+      console.error('JSON parse error:', error.message);
+      console.error('Attempted to parse:', text.substring(0, 500));
+      
+      // Try one more time with just extracting the array/object
+      try {
+        const extracted = this.extractJSON(text);
+        const fixed = this.fixJSON(extracted);
+        return JSON.parse(fixed);
+      } catch (retryError: any) {
+        console.error('JSON parse retry also failed:', retryError.message);
+        throw new Error(`Failed to parse JSON: ${error.message}. Original text preview: ${text.substring(0, 200)}`);
+      }
+    }
+  }
+
   async filterShoppableProducts(searchResults: SearchResult[]): Promise<FilteredResult[]> {
     if (searchResults.length === 0) {
       return [];
@@ -70,8 +135,16 @@ export class AIService {
         throw new Error('Unexpected response type from Claude');
       }
 
-      const cleanedText = this.stripMarkdownCodeFences(response.text);
-      const filtered = JSON.parse(cleanedText);
+      // Log the raw response for debugging
+      console.log('Raw Claude filter response (first 500 chars):', response.text.substring(0, 500));
+
+      // Use safe JSON parsing with fallback
+      const filtered = this.safeJSONParse<FilteredResult[]>(response.text, []);
+
+      // Validate the result is an array
+      if (!Array.isArray(filtered)) {
+        throw new Error('Expected array but got: ' + typeof filtered);
+      }
 
       await this.logUsage(
         'filter',
@@ -109,8 +182,8 @@ export class AIService {
         throw new Error('Unexpected response type from Claude');
       }
 
-      const cleanedText = this.stripMarkdownCodeFences(response.text);
-      const data = JSON.parse(cleanedText);
+      // Use safe JSON parsing
+      const data = this.safeJSONParse<ExtractedProductData | null>(response.text, null);
 
       await this.logUsage(
         'extract',
@@ -147,8 +220,14 @@ export class AIService {
         throw new Error('Unexpected response type from Claude');
       }
 
-      const cleanedText = this.stripMarkdownCodeFences(response.text);
-      const filters = JSON.parse(cleanedText);
+      // Use safe JSON parsing with fallback
+      const filters = this.safeJSONParse<CreateProductFilterDTO[]>(response.text, []);
+
+      // Validate the result is an array
+      if (!Array.isArray(filters)) {
+        console.warn('Expected array but got:', typeof filters);
+        return [];
+      }
 
       await this.logUsage(
         'generate_filters',
@@ -187,7 +266,12 @@ Return a JSON array with this exact structure:
   }
 ]
 
-Only return the JSON array, no other text. Include ALL results from the input, marking each as shoppable or not.`;
+CRITICAL: 
+- Return ONLY valid JSON, no markdown, no code fences, no explanations
+- Ensure all strings are properly escaped (use \\" for quotes inside strings)
+- Ensure all JSON syntax is correct (no trailing commas, proper brackets)
+- Include ALL results from the input array
+- Double-check your JSON is valid before responding`;
   }
 
   private buildExtractionPrompt(url: string, html: string): string {
