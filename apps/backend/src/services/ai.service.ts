@@ -1,46 +1,87 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import {
   SearchResult,
   FilteredResult,
   ExtractedProductData,
   Product,
-  ProductFilter,
   CreateProductFilterDTO,
 } from '@agentic-commerce/shared-types';
 import { config } from '../config/env';
 import { AppError } from '../middleware/errorHandler';
 
+/**
+ * Store information from nearby store search
+ */
+export interface NearbyStore {
+  name: string;
+  address: string;
+  distance: string;
+  rating?: number;
+  isOpen?: boolean;
+  phone?: string;
+  priceLevel?: string;
+  placeId?: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+/**
+ * Product offer/deal information
+ */
+export interface ProductOffer {
+  originalPrice: number;
+  salePrice: number;
+  discountPercent: number;
+  promoCode?: string;
+  dealType: 'sale' | 'clearance' | 'coupon' | 'bundle' | 'limited_time';
+  expiresAt?: string;
+  terms?: string;
+}
+
+/**
+ * Enhanced product data with offers and store info
+ */
+export interface EnhancedProductData extends ExtractedProductData {
+  offers?: ProductOffer[];
+  nearbyStores?: NearbyStore[];
+  bestPrice?: {
+    price: number;
+    store: string;
+    url: string;
+  };
+}
+
 export class AIService {
-  private client: Anthropic;
-  private model: string;
+  private genAI: GoogleGenerativeAI;
+  private model: GenerativeModel;
+  private modelName: string;
 
   constructor() {
-    if (!config.anthropic.apiKey) {
-      console.warn('⚠️  Anthropic API key not configured');
+    if (!config.gemini.apiKey) {
+      console.warn('Gemini API key not configured');
     }
 
-    this.client = new Anthropic({
-      apiKey: config.anthropic.apiKey || 'dummy-key',
-    });
-    this.model = config.anthropic.defaultModel;
+    this.genAI = new GoogleGenerativeAI(config.gemini.apiKey);
+    this.modelName = config.gemini.defaultModel;
+    this.model = this.genAI.getGenerativeModel({ model: this.modelName });
+
+    console.log(`AI Service initialized with Gemini model: ${this.modelName}`);
   }
 
   /**
-   * Strip markdown code fences from Claude's response
-   * Claude sometimes wraps JSON in ```json ... ```
+   * Strip markdown code fences from response
    */
   private stripMarkdownCodeFences(text: string): string {
-    // Remove ```json or ``` from start and end
     let cleaned = text.trim();
 
-    // Remove opening fence (```json or ```)
     if (cleaned.startsWith('```json')) {
       cleaned = cleaned.substring(7);
     } else if (cleaned.startsWith('```')) {
       cleaned = cleaned.substring(3);
     }
 
-    // Remove closing fence (```)
     if (cleaned.endsWith('```')) {
       cleaned = cleaned.substring(0, cleaned.length - 3);
     }
@@ -52,32 +93,25 @@ export class AIService {
    * Extract JSON from text that might contain other content
    */
   private extractJSON(text: string): string {
-    // First try to find JSON array or object boundaries
     const arrayMatch = text.match(/\[[\s\S]*\]/);
     if (arrayMatch) {
       return arrayMatch[0];
     }
-    
+
     const objectMatch = text.match(/\{[\s\S]*\}/);
     if (objectMatch) {
       return objectMatch[0];
     }
-    
+
     return text;
   }
 
   /**
-   * Try to fix common JSON issues
+   * Fix common JSON issues
    */
   private fixJSON(jsonString: string): string {
     let fixed = jsonString;
-    
-    // Remove trailing commas before } or ]
     fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
-    
-    // Fix unescaped newlines in strings (basic attempt)
-    // This is tricky, so we'll be conservative
-    
     return fixed;
   }
 
@@ -86,33 +120,28 @@ export class AIService {
    */
   private safeJSONParse<T>(text: string, fallback: T): T {
     try {
-      // Step 1: Strip markdown
       let cleaned = this.stripMarkdownCodeFences(text);
-      
-      // Step 2: Extract JSON if embedded in text
       cleaned = this.extractJSON(cleaned);
-      
-      // Step 3: Try to fix common issues
       cleaned = this.fixJSON(cleaned);
-      
-      // Step 4: Parse
       return JSON.parse(cleaned);
     } catch (error: any) {
       console.error('JSON parse error:', error.message);
       console.error('Attempted to parse:', text.substring(0, 500));
-      
-      // Try one more time with just extracting the array/object
+
       try {
         const extracted = this.extractJSON(text);
         const fixed = this.fixJSON(extracted);
         return JSON.parse(fixed);
       } catch (retryError: any) {
         console.error('JSON parse retry also failed:', retryError.message);
-        throw new Error(`Failed to parse JSON: ${error.message}. Original text preview: ${text.substring(0, 200)}`);
+        return fallback;
       }
     }
   }
 
+  /**
+   * Filter search results to identify shoppable products
+   */
   async filterShoppableProducts(searchResults: SearchResult[]): Promise<FilteredResult[]> {
     if (searchResults.length === 0) {
       return [];
@@ -121,36 +150,26 @@ export class AIService {
     const prompt = this.buildFilteringPrompt(searchResults);
 
     try {
-      const message = await this.client.messages.create({
-        model: this.model,
-        max_tokens: 4096,
-        messages: [{
-          role: 'user',
-          content: prompt,
-        }],
-      });
+      const result = await this.model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
 
-      const response = message.content[0];
-      if (response.type !== 'text') {
-        throw new Error('Unexpected response type from Claude');
-      }
+      console.log('Raw Gemini filter response (first 500 chars):', text.substring(0, 500));
 
-      // Log the raw response for debugging
-      console.log('Raw Claude filter response (first 500 chars):', response.text.substring(0, 500));
+      const filtered = this.safeJSONParse<FilteredResult[]>(text, []);
 
-      // Use safe JSON parsing with fallback
-      const filtered = this.safeJSONParse<FilteredResult[]>(response.text, []);
-
-      // Validate the result is an array
       if (!Array.isArray(filtered)) {
         throw new Error('Expected array but got: ' + typeof filtered);
       }
 
-      await this.logUsage(
-        'filter',
-        message.usage.input_tokens + message.usage.output_tokens,
-        this.model
-      );
+      const usage = response.usageMetadata;
+      if (usage) {
+        await this.logUsage(
+          'filter',
+          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          this.modelName
+        );
+      }
 
       return filtered;
     } catch (error: any) {
@@ -163,41 +182,39 @@ export class AIService {
     }
   }
 
-  async extractProductData(url: string, html: string): Promise<ExtractedProductData | null> {
+  /**
+   * Extract product data from HTML with enhanced offers/deals detection
+   */
+  async extractProductData(url: string, html: string): Promise<EnhancedProductData | null> {
     const truncatedHtml = html.substring(0, 50000);
-    const prompt = this.buildExtractionPrompt(url, truncatedHtml);
+    const prompt = this.buildEnhancedExtractionPrompt(url, truncatedHtml);
 
     try {
-      const message = await this.client.messages.create({
-        model: this.model,
-        max_tokens: 2048,
-        messages: [{
-          role: 'user',
-          content: prompt,
-        }],
-      });
+      const result = await this.model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
 
-      const response = message.content[0];
-      if (response.type !== 'text') {
-        throw new Error('Unexpected response type from Claude');
+      const data = this.safeJSONParse<EnhancedProductData | null>(text, null);
+
+      const usage = response.usageMetadata;
+      if (usage) {
+        await this.logUsage(
+          'extract',
+          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          this.modelName
+        );
       }
-
-      // Use safe JSON parsing
-      const data = this.safeJSONParse<ExtractedProductData | null>(response.text, null);
-
-      await this.logUsage(
-        'extract',
-        message.usage.input_tokens + message.usage.output_tokens,
-        this.model
-      );
 
       return data;
     } catch (error: any) {
       console.error('AI extraction error:', error);
-      return null; // Return null on extraction failure, don't block the whole search
+      return null;
     }
   }
 
+  /**
+   * Generate filters from product list
+   */
   async generateFilters(products: Product[]): Promise<CreateProductFilterDTO[]> {
     if (products.length === 0) {
       return [];
@@ -206,39 +223,305 @@ export class AIService {
     const prompt = this.buildFilterGenerationPrompt(products);
 
     try {
-      const message = await this.client.messages.create({
-        model: this.model,
-        max_tokens: 2048,
-        messages: [{
-          role: 'user',
-          content: prompt,
-        }],
-      });
+      const result = await this.model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
 
-      const response = message.content[0];
-      if (response.type !== 'text') {
-        throw new Error('Unexpected response type from Claude');
-      }
+      const filters = this.safeJSONParse<CreateProductFilterDTO[]>(text, []);
 
-      // Use safe JSON parsing with fallback
-      const filters = this.safeJSONParse<CreateProductFilterDTO[]>(response.text, []);
-
-      // Validate the result is an array
       if (!Array.isArray(filters)) {
         console.warn('Expected array but got:', typeof filters);
         return [];
       }
 
-      await this.logUsage(
-        'generate_filters',
-        message.usage.input_tokens + message.usage.output_tokens,
-        this.model
-      );
+      const usage = response.usageMetadata;
+      if (usage) {
+        await this.logUsage(
+          'generate_filters',
+          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          this.modelName
+        );
+      }
 
       return filters;
     } catch (error: any) {
       console.error('AI filter generation error:', error);
-      return []; // Return empty array on failure, don't block the search
+      return [];
+    }
+  }
+
+  /**
+   * Search for nearby stores selling a product using Gemini's knowledge
+   */
+  async findNearbyStores(
+    productName: string,
+    userLocation: { lat: number; lng: number; city?: string; country?: string }
+  ): Promise<NearbyStore[]> {
+    const locationStr = userLocation.city
+      ? `${userLocation.city}, ${userLocation.country || ''}`
+      : `coordinates ${userLocation.lat}, ${userLocation.lng}`;
+
+    const prompt = `You are a shopping assistant with knowledge of retail stores. Find stores near ${locationStr} that sell "${productName}".
+
+Return a JSON array of stores with this structure:
+[
+  {
+    "name": "Store Name",
+    "address": "Full address",
+    "distance": "2.5 miles",
+    "rating": 4.5,
+    "isOpen": true,
+    "phone": "+1-xxx-xxx-xxxx",
+    "priceLevel": "$$"
+  }
+]
+
+Include major retailers (Best Buy, Walmart, Target, Amazon Fresh, etc.) and local specialty stores if relevant.
+Focus on stores that would realistically carry this product.
+Return ONLY the JSON array, no other text.
+If no stores are found, return an empty array [].
+Limit to 10 stores maximum, sorted by relevance and distance.`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+
+      const stores = this.safeJSONParse<NearbyStore[]>(text, []);
+
+      const usage = response.usageMetadata;
+      if (usage) {
+        await this.logUsage(
+          'find_stores',
+          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          this.modelName
+        );
+      }
+
+      return stores;
+    } catch (error: any) {
+      console.error('Error finding nearby stores:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Find best deals and offers for a product
+   */
+  async findProductOffers(productName: string, currentPrice?: number): Promise<ProductOffer[]> {
+    const priceContext = currentPrice ? `The current listed price is $${currentPrice}.` : '';
+
+    const prompt = `You are a deal-finding assistant. Find current offers, deals, and discounts for "${productName}". ${priceContext}
+
+Search your knowledge for:
+1. Current sales and discounts
+2. Known coupon codes
+3. Bundle deals
+4. Clearance pricing
+5. Limited time offers
+6. Price comparisons across retailers
+
+Return a JSON array of offers:
+[
+  {
+    "originalPrice": 299.99,
+    "salePrice": 249.99,
+    "discountPercent": 17,
+    "promoCode": "SAVE50",
+    "dealType": "sale",
+    "expiresAt": "2025-12-31",
+    "terms": "Valid for new customers only"
+  }
+]
+
+Deal types: "sale", "clearance", "coupon", "bundle", "limited_time"
+
+Return ONLY the JSON array.
+If no current offers are known, return an empty array [].
+Be accurate - only include offers you're confident exist.`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+
+      const offers = this.safeJSONParse<ProductOffer[]>(text, []);
+
+      const usage = response.usageMetadata;
+      if (usage) {
+        await this.logUsage(
+          'find_offers',
+          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          this.modelName
+        );
+      }
+
+      return offers;
+    } catch (error: any) {
+      console.error('Error finding product offers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Enhanced product search with location and deals
+   */
+  async enhancedProductSearch(
+    query: string,
+    userLocation?: { lat: number; lng: number; city?: string; country?: string }
+  ): Promise<{
+    products: EnhancedProductData[];
+    nearbyStores: NearbyStore[];
+    offers: ProductOffer[];
+  }> {
+    const prompt = `You are an intelligent shopping assistant. Search for "${query}" and provide comprehensive results.
+
+${userLocation ? `User location: ${userLocation.city || 'Unknown'}, ${userLocation.country || 'Unknown'} (${userLocation.lat}, ${userLocation.lng})` : ''}
+
+Return a JSON object with:
+{
+  "products": [
+    {
+      "name": "Product Name",
+      "price": 299.99,
+      "currency": "USD",
+      "description": "Product description",
+      "imageUrl": "https://...",
+      "brand": "Brand Name",
+      "category": "Category",
+      "availability": "In Stock",
+      "rating": 4.5,
+      "reviewCount": 1234,
+      "offers": [
+        {
+          "originalPrice": 349.99,
+          "salePrice": 299.99,
+          "discountPercent": 14,
+          "dealType": "sale"
+        }
+      ],
+      "stores": ["Amazon", "Best Buy", "Walmart"]
+    }
+  ],
+  "nearbyStores": [
+    {
+      "name": "Best Buy",
+      "address": "123 Main St",
+      "distance": "2.5 miles",
+      "rating": 4.2,
+      "isOpen": true
+    }
+  ],
+  "bestDeals": [
+    {
+      "originalPrice": 349.99,
+      "salePrice": 249.99,
+      "discountPercent": 29,
+      "promoCode": "HOLIDAY25",
+      "dealType": "coupon",
+      "terms": "Valid until Dec 31"
+    }
+  ]
+}
+
+Include:
+1. Top 5-10 relevant products with current pricing
+2. Nearby stores if location provided (top 5)
+3. Best available deals and coupon codes
+
+Return ONLY the JSON object.`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+
+      const data = this.safeJSONParse<{
+        products: EnhancedProductData[];
+        nearbyStores: NearbyStore[];
+        bestDeals: ProductOffer[];
+      }>(text, { products: [], nearbyStores: [], bestDeals: [] });
+
+      const usage = response.usageMetadata;
+      if (usage) {
+        await this.logUsage(
+          'enhanced_search',
+          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          this.modelName
+        );
+      }
+
+      return {
+        products: data.products || [],
+        nearbyStores: data.nearbyStores || [],
+        offers: data.bestDeals || [],
+      };
+    } catch (error: any) {
+      console.error('Enhanced search error:', error);
+      return { products: [], nearbyStores: [], offers: [] };
+    }
+  }
+
+  /**
+   * Compare prices across multiple stores
+   */
+  async comparePrices(productName: string): Promise<{
+    store: string;
+    price: number;
+    url?: string;
+    inStock: boolean;
+  }[]> {
+    const prompt = `Compare prices for "${productName}" across major retailers.
+
+Return a JSON array of price comparisons:
+[
+  {
+    "store": "Amazon",
+    "price": 299.99,
+    "url": "https://amazon.com/...",
+    "inStock": true
+  },
+  {
+    "store": "Best Buy",
+    "price": 319.99,
+    "inStock": true
+  },
+  {
+    "store": "Walmart",
+    "price": 289.99,
+    "inStock": false
+  }
+]
+
+Include major retailers: Amazon, Best Buy, Walmart, Target, Costco, B&H Photo, Newegg, etc.
+Sort by price (lowest first).
+Return ONLY the JSON array.`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+
+      const prices = this.safeJSONParse<{
+        store: string;
+        price: number;
+        url?: string;
+        inStock: boolean;
+      }[]>(text, []);
+
+      const usage = response.usageMetadata;
+      if (usage) {
+        await this.logUsage(
+          'compare_prices',
+          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          this.modelName
+        );
+      }
+
+      return prices;
+    } catch (error: any) {
+      console.error('Price comparison error:', error);
+      return [];
     }
   }
 
@@ -266,17 +549,16 @@ Return a JSON array with this exact structure:
   }
 ]
 
-CRITICAL: 
+CRITICAL:
 - Return ONLY valid JSON, no markdown, no code fences, no explanations
-- Ensure all strings are properly escaped (use \\" for quotes inside strings)
-- Ensure all JSON syntax is correct (no trailing commas, proper brackets)
-- Include ALL results from the input array
-- Double-check your JSON is valid before responding`;
+- Ensure all strings are properly escaped
+- Include ALL results from the input array`;
   }
 
-  private buildExtractionPrompt(url: string, html: string): string {
-    return `Extract product information from this webpage. Return a JSON object with the following structure:
+  private buildEnhancedExtractionPrompt(url: string, html: string): string {
+    return `Extract product information from this webpage, including any deals or offers.
 
+Return a JSON object:
 {
   "name": "Product name",
   "price": 99.99,
@@ -288,10 +570,28 @@ CRITICAL:
   "rating": 4.5,
   "reviewCount": 123,
   "brand": "Brand Name",
-  "category": "Category"
+  "category": "Category",
+  "offers": [
+    {
+      "originalPrice": 129.99,
+      "salePrice": 99.99,
+      "discountPercent": 23,
+      "promoCode": null,
+      "dealType": "sale",
+      "expiresAt": null,
+      "terms": null
+    }
+  ]
 }
 
-If a field cannot be found, set it to null. Be conservative - only extract data you're confident about.
+Look for:
+- Sale prices, original prices, discount percentages
+- Coupon codes, promo codes
+- Limited time offers
+- Bundle deals
+- Clearance indicators
+
+If a field cannot be found, set it to null.
 
 URL: ${url}
 
@@ -305,10 +605,12 @@ Return only the JSON object, no other text.`;
     return `Analyze these products and generate useful filters for a shopping app.
 
 Generate filters for:
-1. Price ranges (create 3-4 meaningful ranges based on the actual prices in the data)
+1. Price ranges (create 3-4 meaningful ranges based on the actual prices)
 2. Brands (if identifiable from product names)
-3. Product categories (if identifiable)
-4. Other relevant attributes you notice
+3. Product categories
+4. Deal types (on sale, clearance, etc.)
+5. Availability
+6. Other relevant attributes
 
 Products:
 ${JSON.stringify(products.slice(0, 50).map(p => ({
@@ -317,7 +619,7 @@ ${JSON.stringify(products.slice(0, 50).map(p => ({
   description: p.description,
 })), null, 2)}
 
-Return a JSON array with this structure:
+Return a JSON array:
 [
   {
     "filterType": "price_range",
@@ -330,9 +632,9 @@ Return a JSON array with this structure:
     "filterValue": "nike"
   },
   {
-    "filterType": "category",
-    "filterLabel": "Electronics",
-    "filterValue": "electronics"
+    "filterType": "deal",
+    "filterLabel": "On Sale",
+    "filterValue": "on_sale"
   }
 ]
 
@@ -344,15 +646,12 @@ Only return the JSON array, no other text. Generate 5-10 useful filters.`;
     tokens: number,
     model: string
   ): Promise<void> {
-    // Calculate cost estimate
-    const costPer1MTokens = model.includes('opus') ? 15.0 : 3.0;
+    // Gemini pricing (approximate)
+    const costPer1MTokens = model.includes('pro') ? 1.25 : 0.075; // Pro vs Flash
     const costEstimate = (tokens / 1_000_000) * costPer1MTokens;
 
     console.log(
       `AI Usage - Operation: ${operation}, Model: ${model}, Tokens: ${tokens}, Cost: $${costEstimate.toFixed(6)}`
     );
-
-    // TODO: Save to ai_processing_logs table via repository
-    // This can be implemented later for cost tracking
   }
 }

@@ -13,7 +13,7 @@
   "dependencies": {
     "@agentic-commerce/shared-types": "workspace:*",
     "@agentic-commerce/validation": "workspace:*",
-    "@anthropic-ai/sdk": "^0.71.2",
+    "@google/generative-ai": "^0.21.0",
     "@modelcontextprotocol/sdk": "^1.25.1",
     "axios": "^1.13.2",
     "bcrypt": "^5.1.1",

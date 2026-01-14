@@ -62,14 +62,18 @@ export const config = {
       : ['http://localhost:8081'],
   },
 
-  anthropic: {
-    apiKey: process.env.ANTHROPIC_API_KEY || '',
-    defaultModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929',
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || 'AIzaSyBbzFVP7Lf10lJr1IQsfSqEnvm-5zA6lNU',
+    defaultModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
   },
 
   googleSearch: {
     apiKey: process.env.GOOGLE_API_KEY || '',
     searchEngineId: process.env.GOOGLE_SEARCH_ENGINE_ID || '',
+  },
+
+  googlePlaces: {
+    apiKey: process.env.GOOGLE_PLACES_API_KEY || process.env.GEMINI_API_KEY || 'AIzaSyBbzFVP7Lf10lJr1IQsfSqEnvm-5zA6lNU',
   },
 
   mcp: {
