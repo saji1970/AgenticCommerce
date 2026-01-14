@@ -6,6 +6,7 @@ import {
   SearchQuery,
   CreateProductDTO,
   PaginatedProducts,
+  MandateType,
 } from '@agentic-commerce/shared-types';
 import { ProductRepository } from '../repositories/product.repository';
 import { SearchQueryRepository } from '../repositories/search-query.repository';
@@ -252,6 +253,8 @@ export class ProductService {
           origin: parsedQuery.origin,
           destination: parsedQuery.destination,
           specifications: parsedQuery.specifications,
+          mandateId: undefined as string | undefined,
+          mandateStatus: undefined as string | undefined,
         };
 
         console.log(`✅ Intent data prepared:`, intentCreated);
@@ -267,7 +270,7 @@ export class ProductService {
           const mandateRequest = {
             agentId: 'nlp-search-agent',
             agentName: 'NLP Search Agent',
-            type: 'intent' as const,
+            type: MandateType.INTENT,
             constraints: {
               maxIntentsPerDay: 5,
               maxIntentValue: parsedQuery.maxPrice || 5000,
