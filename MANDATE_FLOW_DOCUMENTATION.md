@@ -306,3 +306,4 @@ User Action (Buy/Intent)
 - Expired mandates are filtered out automatically
 - All mandate operations require authentication
 
+

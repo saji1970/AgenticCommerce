@@ -9,7 +9,11 @@
     "postinstall": "cd ../.. && pnpm build:shared",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
-    "seed:demo": "tsx src/scripts/seed-demo-search-data.ts"
+    "seed:demo": "tsx src/scripts/seed-demo-search-data.ts",
+    "create:demo-user": "tsx src/scripts/create-demo-user.ts",
+    "list:users": "tsx src/scripts/list-users.ts",
+    "generate:sample-data": "tsx src/scripts/generate-sample-data.ts",
+    "create:admin-user": "tsx src/scripts/create-admin-user.ts"
   },
   "dependencies": {
     "@agentic-commerce/shared-types": "workspace:*",

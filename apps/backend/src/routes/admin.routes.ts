@@ -2,16 +2,21 @@ import { Router } from 'express';
 import type { Router as RouterType } from 'express';
 import { AdminController } from '../controllers/admin.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { requireAdmin } from '../middleware/admin.middleware';
 
 const router: RouterType = Router();
 const adminController = new AdminController();
 
-// All admin routes require authentication
-// In production, you would add an admin role check here
+// All admin routes require authentication and admin role
 router.use(authenticateToken);
+router.use(requireAdmin);
 
 // Dashboard
 router.get('/dashboard/stats', adminController.getDashboardStats);
+
+// Users
+router.get('/users', adminController.getAllUsers);
+router.get('/users/:userId', adminController.getUserDetails);
 
 // Mandates
 router.get('/mandates', adminController.getAllMandates);
@@ -21,9 +26,6 @@ router.get('/intents', adminController.getAllIntents);
 
 // Agent Actions
 router.get('/actions', adminController.getAllActions);
-
-// Users
-router.get('/users/:userId', adminController.getUserDetails);
 
 // AP2 Transactions
 router.get('/ap2/transactions', adminController.getAllAP2Transactions);

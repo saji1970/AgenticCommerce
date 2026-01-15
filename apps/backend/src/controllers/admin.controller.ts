@@ -28,7 +28,7 @@ export class AdminController {
       // Total mandates by status
       const mandatesResult = await pool.query(`
         SELECT status, COUNT(*) as count
-        FROM mandates
+        FROM agent_mandates
         GROUP BY status
       `);
       const mandatesByStatus = mandatesResult.rows.reduce((acc, row) => {
@@ -39,7 +39,7 @@ export class AdminController {
       // Total mandates by type
       const mandatesTypeResult = await pool.query(`
         SELECT type, COUNT(*) as count
-        FROM mandates
+        FROM agent_mandates
         GROUP BY type
       `);
       const mandatesByType = mandatesTypeResult.rows.reduce((acc, row) => {
@@ -69,7 +69,7 @@ export class AdminController {
       // Recent activity (last 7 days)
       const activityResult = await pool.query(`
         SELECT DATE(timestamp) as date, COUNT(*) as count
-        FROM agent_action_logs
+        FROM agent_actions
         WHERE timestamp >= CURRENT_DATE - INTERVAL '7 days'
         GROUP BY DATE(timestamp)
         ORDER BY date
@@ -124,7 +124,7 @@ export class AdminController {
 
       let query = `
         SELECT m.*, u.email as user_email, u.first_name, u.last_name
-        FROM mandates m
+        FROM agent_mandates m
         JOIN users u ON m.user_id = u.id
         WHERE 1=1
       `;
@@ -208,7 +208,7 @@ export class AdminController {
 
       const result = await pool.query(
         `SELECT aal.*, u.email as user_email, u.first_name, u.last_name
-         FROM agent_action_logs aal
+         FROM agent_actions aal
          JOIN users u ON aal.user_id = u.id
          ORDER BY aal.timestamp DESC
          LIMIT $1 OFFSET $2`,
@@ -398,6 +398,54 @@ export class AdminController {
     } catch (error) {
       console.error('Error seeding demo data:', error);
       res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to seed demo data' });
+    }
+  };
+
+  // All Users (Admin View)
+  getAllUsers = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { limit = '50', offset = '0', search } = req.query;
+
+      let query = `
+        SELECT id, email, first_name, last_name, phone_number, role, created_at
+        FROM users
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+      let paramCount = 0;
+
+      if (search) {
+        paramCount++;
+        query += ` AND (email ILIKE $${paramCount} OR first_name ILIKE $${paramCount} OR last_name ILIKE $${paramCount})`;
+        params.push(`%${search}%`);
+      }
+
+      query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      params.push(parseInt(limit as string), parseInt(offset as string));
+
+      const result = await pool.query(query, params);
+
+      // Get total count for pagination
+      const countQuery = search
+        ? `SELECT COUNT(*) FROM users WHERE (email ILIKE $1 OR first_name ILIKE $1 OR last_name ILIKE $1)`
+        : `SELECT COUNT(*) FROM users`;
+      const countParams = search ? [`%${search}%`] : [];
+      const countResult = await pool.query(countQuery, countParams);
+      const total = parseInt(countResult.rows[0].count);
+
+      res.json({
+        users: result.rows,
+        pagination: {
+          total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+        },
+      });
+    } catch (error) {
+      console.error('Error getting all users:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to get users',
+      });
     }
   };
 

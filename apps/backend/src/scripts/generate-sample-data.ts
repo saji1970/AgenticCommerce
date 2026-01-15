@@ -75,7 +75,7 @@ async function generateSampleData() {
 
       // Cart mandate
       const cartMandate = await pool.query(
-        `INSERT INTO mandates (
+        `INSERT INTO agent_mandates (
           user_id, agent_id, agent_name, type, status, constraints, valid_from
         )
         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
@@ -100,7 +100,7 @@ async function generateSampleData() {
 
         // Log some cart actions
         await pool.query(
-          `INSERT INTO agent_action_logs (
+          `INSERT INTO agent_actions (
             user_id, agent_id, mandate_id, action, resource_type, metadata, success
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -118,7 +118,7 @@ async function generateSampleData() {
 
       // Intent mandate
       const intentMandate = await pool.query(
-        `INSERT INTO mandates (
+        `INSERT INTO agent_mandates (
           user_id, agent_id, agent_name, type, status, constraints, valid_from
         )
         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
@@ -196,7 +196,7 @@ async function generateSampleData() {
       // Payment mandate (for user 1 only)
       if (i === 0) {
         const paymentMandate = await pool.query(
-          `INSERT INTO mandates (
+          `INSERT INTO agent_mandates (
             user_id, agent_id, agent_name, type, status, constraints, valid_from
           )
           VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
@@ -233,7 +233,7 @@ async function generateSampleData() {
         price: 2499,
         category: 'Electronics',
         stock: 15,
-        image: 'https://via.placeholder.com/300x300/1a1a1a/ffffff?text=MacBook+Pro',
+        image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400',
       },
       {
         name: 'Sony WH-1000XM5 Headphones',
@@ -241,7 +241,7 @@ async function generateSampleData() {
         price: 399,
         category: 'Electronics',
         stock: 30,
-        image: 'https://via.placeholder.com/300x300/000000/ffffff?text=Sony+Headphones',
+        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
       },
       {
         name: 'iPad Air 11"',
@@ -249,7 +249,7 @@ async function generateSampleData() {
         price: 699,
         category: 'Electronics',
         stock: 25,
-        image: 'https://via.placeholder.com/300x300/f5f5f7/000000?text=iPad+Air',
+        image: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400',
       },
       {
         name: 'AirPods Pro (2nd gen)',
@@ -257,7 +257,7 @@ async function generateSampleData() {
         price: 249,
         category: 'Electronics',
         stock: 50,
-        image: 'https://via.placeholder.com/300x300/ffffff/000000?text=AirPods+Pro',
+        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
       },
       {
         name: 'Apple Watch Series 9',
@@ -265,7 +265,7 @@ async function generateSampleData() {
         price: 429,
         category: 'Electronics',
         stock: 20,
-        image: 'https://via.placeholder.com/300x300/000000/ffffff?text=Apple+Watch',
+        image: 'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=400',
       },
       {
         name: 'Kindle Paperwhite',
@@ -273,7 +273,7 @@ async function generateSampleData() {
         price: 139,
         category: 'Books',
         stock: 40,
-        image: 'https://via.placeholder.com/300x300/34495e/ffffff?text=Kindle',
+        image: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400',
       },
       {
         name: 'Dyson V15 Detect',
@@ -281,7 +281,7 @@ async function generateSampleData() {
         price: 649,
         category: 'Home & Kitchen',
         stock: 12,
-        image: 'https://via.placeholder.com/300x300/ffd700/000000?text=Dyson',
+        image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400',
       },
       {
         name: 'Ninja Air Fryer',
@@ -289,18 +289,27 @@ async function generateSampleData() {
         price: 129,
         category: 'Home & Kitchen',
         stock: 35,
-        image: 'https://via.placeholder.com/300x300/ff6b6b/ffffff?text=Air+Fryer',
+        image: 'https://images.unsplash.com/photo-1556910096-6f5e72db6803?w=400',
       },
     ];
 
     for (const product of sampleProducts) {
-      const existing = await pool.query('SELECT id FROM products WHERE name = $1', [product.name]);
+      const existing = await pool.query('SELECT id FROM products WHERE name = $1 AND user_id = $2', [product.name, userIds[0]]);
 
       if (existing.rows.length === 0) {
         await pool.query(
-          `INSERT INTO products (name, description, price, category, stock_quantity, image_url)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [product.name, product.description, product.price, product.category, product.stock, product.image]
+          `INSERT INTO products (user_id, name, description, price, currency, image_url, product_url, source)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            userIds[0],
+            product.name,
+            product.description,
+            product.price,
+            'USD',
+            product.image,
+            `https://example.com/products/${product.name.toLowerCase().replace(/\s+/g, '-')}`,
+            'demo-store'
+          ]
         );
         console.log(`   ✓ Created product: ${product.name}`);
       } else {
@@ -320,7 +329,7 @@ async function generateSampleData() {
 
       // Get a mandate ID
       const mandates = await pool.query(
-        `SELECT id FROM mandates WHERE user_id = $1 LIMIT 1`,
+        `SELECT id FROM agent_mandates WHERE user_id = $1 LIMIT 1`,
         [userIds[0]]
       );
 
