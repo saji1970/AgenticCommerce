@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 import {
   SearchResult,
   FilteredResult,
@@ -54,20 +54,18 @@ export interface EnhancedProductData extends ExtractedProductData {
 }
 
 export class AIService {
-  private genAI: GoogleGenerativeAI;
-  private model: GenerativeModel;
+  private groq: Groq;
   private modelName: string;
 
   constructor() {
-    if (!config.gemini.apiKey) {
-      console.warn('Gemini API key not configured');
+    if (!config.groq.apiKey) {
+      console.warn('Groq API key not configured');
     }
 
-    this.genAI = new GoogleGenerativeAI(config.gemini.apiKey);
-    this.modelName = config.gemini.defaultModel;
-    this.model = this.genAI.getGenerativeModel({ model: this.modelName });
+    this.groq = new Groq({ apiKey: config.groq.apiKey });
+    this.modelName = config.groq.defaultModel;
 
-    console.log(`AI Service initialized with Gemini model: ${this.modelName}`);
+    console.log(`AI Service initialized with Groq model: ${this.modelName}`);
   }
 
   /**
@@ -150,11 +148,16 @@ export class AIService {
     const prompt = this.buildFilteringPrompt(searchResults);
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const completion = await this.groq.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 4096,
+      });
 
-      console.log('Raw Gemini filter response (first 500 chars):', text.substring(0, 500));
+      const text = completion.choices[0]?.message?.content || '[]';
+
+      console.log('Raw Groq filter response (first 500 chars):', text.substring(0, 500));
 
       const filtered = this.safeJSONParse<FilteredResult[]>(text, []);
 
@@ -162,11 +165,11 @@ export class AIService {
         throw new Error('Expected array but got: ' + typeof filtered);
       }
 
-      const usage = response.usageMetadata;
+      const usage = completion.usage;
       if (usage) {
         await this.logUsage(
           'filter',
-          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
           this.modelName
         );
       }
@@ -186,21 +189,26 @@ export class AIService {
    * Extract product data from HTML with enhanced offers/deals detection
    */
   async extractProductData(url: string, html: string): Promise<EnhancedProductData | null> {
-    const truncatedHtml = html.substring(0, 50000);
+    const truncatedHtml = html.substring(0, 30000); // Groq has smaller context
     const prompt = this.buildEnhancedExtractionPrompt(url, truncatedHtml);
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const completion = await this.groq.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 4096,
+      });
+
+      const text = completion.choices[0]?.message?.content || 'null';
 
       const data = this.safeJSONParse<EnhancedProductData | null>(text, null);
 
-      const usage = response.usageMetadata;
+      const usage = completion.usage;
       if (usage) {
         await this.logUsage(
           'extract',
-          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
           this.modelName
         );
       }
@@ -223,9 +231,14 @@ export class AIService {
     const prompt = this.buildFilterGenerationPrompt(products);
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const completion = await this.groq.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 2048,
+      });
+
+      const text = completion.choices[0]?.message?.content || '[]';
 
       const filters = this.safeJSONParse<CreateProductFilterDTO[]>(text, []);
 
@@ -234,11 +247,11 @@ export class AIService {
         return [];
       }
 
-      const usage = response.usageMetadata;
+      const usage = completion.usage;
       if (usage) {
         await this.logUsage(
           'generate_filters',
-          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
           this.modelName
         );
       }
@@ -251,7 +264,7 @@ export class AIService {
   }
 
   /**
-   * Search for nearby stores selling a product using Gemini's knowledge
+   * Search for nearby stores selling a product using AI knowledge
    */
   async findNearbyStores(
     productName: string,
@@ -283,17 +296,22 @@ If no stores are found, return an empty array [].
 Limit to 10 stores maximum, sorted by relevance and distance.`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const completion = await this.groq.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 2048,
+      });
+
+      const text = completion.choices[0]?.message?.content || '[]';
 
       const stores = this.safeJSONParse<NearbyStore[]>(text, []);
 
-      const usage = response.usageMetadata;
+      const usage = completion.usage;
       if (usage) {
         await this.logUsage(
           'find_stores',
-          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
           this.modelName
         );
       }
@@ -341,17 +359,22 @@ If no current offers are known, return an empty array [].
 Be accurate - only include offers you're confident exist.`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const completion = await this.groq.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 2048,
+      });
+
+      const text = completion.choices[0]?.message?.content || '[]';
 
       const offers = this.safeJSONParse<ProductOffer[]>(text, []);
 
-      const usage = response.usageMetadata;
+      const usage = completion.usage;
       if (usage) {
         await this.logUsage(
           'find_offers',
-          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
           this.modelName
         );
       }
@@ -432,9 +455,14 @@ Include:
 Return ONLY the JSON object.`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const completion = await this.groq.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 4096,
+      });
+
+      const text = completion.choices[0]?.message?.content || '{}';
 
       const data = this.safeJSONParse<{
         products: EnhancedProductData[];
@@ -442,11 +470,11 @@ Return ONLY the JSON object.`;
         bestDeals: ProductOffer[];
       }>(text, { products: [], nearbyStores: [], bestDeals: [] });
 
-      const usage = response.usageMetadata;
+      const usage = completion.usage;
       if (usage) {
         await this.logUsage(
           'enhanced_search',
-          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
           this.modelName
         );
       }
@@ -498,9 +526,14 @@ Sort by price (lowest first).
 Return ONLY the JSON array.`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const completion = await this.groq.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 2048,
+      });
+
+      const text = completion.choices[0]?.message?.content || '[]';
 
       const prices = this.safeJSONParse<{
         store: string;
@@ -509,11 +542,11 @@ Return ONLY the JSON array.`;
         inStock: boolean;
       }[]>(text, []);
 
-      const usage = response.usageMetadata;
+      const usage = completion.usage;
       if (usage) {
         await this.logUsage(
           'compare_prices',
-          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
           this.modelName
         );
       }
@@ -646,12 +679,9 @@ Only return the JSON array, no other text. Generate 5-10 useful filters.`;
     tokens: number,
     model: string
   ): Promise<void> {
-    // Gemini pricing (approximate)
-    const costPer1MTokens = model.includes('pro') ? 1.25 : 0.075; // Pro vs Flash
-    const costEstimate = (tokens / 1_000_000) * costPer1MTokens;
-
+    // Groq pricing is free tier, but log for tracking
     console.log(
-      `AI Usage - Operation: ${operation}, Model: ${model}, Tokens: ${tokens}, Cost: $${costEstimate.toFixed(6)}`
+      `AI Usage - Operation: ${operation}, Model: ${model}, Tokens: ${tokens}, Cost: FREE (Groq)`
     );
   }
 }

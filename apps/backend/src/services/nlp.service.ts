@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 import { config } from '../config/env';
 
 /**
@@ -44,23 +44,21 @@ export interface ParsedSearchQuery {
 
 /**
  * NLP Service
- * Uses Gemini AI to parse natural language search queries
+ * Uses Groq AI to parse natural language search queries
  */
 export class NLPService {
-  private genAI: GoogleGenerativeAI;
-  private model: GenerativeModel;
+  private groq: Groq;
   private modelName: string;
 
   constructor() {
-    if (!config.gemini.apiKey) {
-      console.warn('Gemini API key not configured for NLP');
+    if (!config.groq.apiKey) {
+      console.warn('Groq API key not configured for NLP');
     }
 
-    this.genAI = new GoogleGenerativeAI(config.gemini.apiKey);
-    this.modelName = config.gemini.defaultModel;
-    this.model = this.genAI.getGenerativeModel({ model: this.modelName });
+    this.groq = new Groq({ apiKey: config.groq.apiKey });
+    this.modelName = config.groq.defaultModel;
 
-    console.log(`NLP Service initialized with Gemini model: ${this.modelName}`);
+    console.log(`NLP Service initialized with Groq model: ${this.modelName}`);
   }
 
   /**
@@ -75,9 +73,14 @@ export class NLPService {
     try {
       console.log(`Parsing natural language query: "${naturalLanguageQuery}"`);
 
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const completion = await this.groq.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 2048,
+      });
+
+      const text = completion.choices[0]?.message?.content || '{}';
 
       // Strip markdown code fences if present
       const cleanedText = this.stripMarkdownCodeFences(text);
@@ -93,11 +96,11 @@ export class NLPService {
       });
 
       // Log token usage
-      const usage = response.usageMetadata;
+      const usage = completion.usage;
       if (usage) {
         await this.logUsage(
           'nlp_parse',
-          (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
           this.modelName
         );
       }
@@ -110,7 +113,7 @@ export class NLPService {
   }
 
   /**
-   * Build prompt for Gemini to parse natural language
+   * Build prompt for Groq to parse natural language
    */
   private buildNLPPrompt(
     query: string,
@@ -367,12 +370,9 @@ Now parse the user's query and return ONLY the JSON object, no other text.`;
     tokens: number,
     model: string
   ): Promise<void> {
-    // Gemini pricing (approximate)
-    const costPer1MTokens = model.includes('pro') ? 1.25 : 0.075;
-    const costEstimate = (tokens / 1_000_000) * costPer1MTokens;
-
+    // Groq pricing is free tier, but log for tracking
     console.log(
-      `AI Usage - Operation: ${operation}, Model: ${model}, Tokens: ${tokens}, Cost: $${costEstimate.toFixed(6)}`
+      `AI Usage - Operation: ${operation}, Model: ${model}, Tokens: ${tokens}, Cost: FREE (Groq)`
     );
   }
 }

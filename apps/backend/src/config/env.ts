@@ -62,9 +62,9 @@ export const config = {
       : ['http://localhost:8081'],
   },
 
-  gemini: {
-    apiKey: process.env.GEMINI_API_KEY || '',
-    defaultModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+  groq: {
+    apiKey: process.env.GROQ_API_KEY || '',
+    defaultModel: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
   },
 
   googleSearch: {
@@ -73,7 +73,7 @@ export const config = {
   },
 
   googlePlaces: {
-    apiKey: process.env.GOOGLE_PLACES_API_KEY || process.env.GEMINI_API_KEY || '',
+    apiKey: process.env.GOOGLE_PLACES_API_KEY || '',
   },
 
   mcp: {
