@@ -28,4 +28,7 @@ router.get('/users/:userId', adminController.getUserDetails);
 // AP2 Transactions
 router.get('/ap2/transactions', adminController.getAllAP2Transactions);
 
+// Seed Demo Data
+router.post('/seed-demo', adminController.seedDemoData);
+
 export default router;
