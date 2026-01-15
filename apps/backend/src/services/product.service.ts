@@ -543,10 +543,12 @@ export class ProductService {
     // Apply price filters if provided
     if (filters?.priceRange) {
       if (filters.priceRange.min !== undefined) {
-        products = products.filter(p => p.price != null && p.price >= filters.priceRange!.min!);
+        const minPrice = filters.priceRange.min;
+        products = products.filter(p => p.price != null && p.price >= minPrice);
       }
       if (filters.priceRange.max !== undefined) {
-        products = products.filter(p => p.price != null && p.price <= filters.priceRange!.max!);
+        const maxPrice = filters.priceRange.max;
+        products = products.filter(p => p.price != null && p.price <= maxPrice);
       }
     }
 
