@@ -56,6 +56,13 @@ router.get('/seed-demo-temp', async (req, res) => {
       }
     }
 
+    // Get mandate IDs for intents
+    const mandateMap: Record<string, string> = {};
+    for (const m of mandates) {
+      const r = await pool.query('SELECT id FROM agent_mandates WHERE user_id=$1 AND agent_id=$2', [userId, m.agentId]);
+      if (r.rows.length > 0) mandateMap[m.agentId] = r.rows[0].id;
+    }
+
     // Intents
     const intents = [
       { agentId: 'deal-hunter-bot', product: 'MacBook Pro 16"', price: 2499, reasoning: 'Holiday sale - 15% off', status: 'pending' },
@@ -66,10 +73,10 @@ router.get('/seed-demo-temp', async (req, res) => {
     let ic = 0;
     for (const i of intents) {
       const ex = await pool.query('SELECT id FROM purchase_intents WHERE user_id=$1 AND subtotal=$2', [userId, i.price]);
-      if (ex.rows.length === 0) {
+      if (ex.rows.length === 0 && mandateMap[i.agentId]) {
         const tax = i.price * 0.08;
-        await pool.query('INSERT INTO purchase_intents (user_id,agent_id,items,subtotal,tax,total,reasoning,status,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_TIMESTAMP+INTERVAL \'48h\')',
-          [userId, i.agentId, JSON.stringify([{productName:i.product,quantity:1,price:i.price}]), i.price, tax, i.price+tax, i.reasoning, i.status]);
+        await pool.query('INSERT INTO purchase_intents (user_id,agent_id,mandate_id,items,subtotal,tax,total,reasoning,status,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CURRENT_TIMESTAMP+INTERVAL \'48h\')',
+          [userId, i.agentId, mandateMap[i.agentId], JSON.stringify([{productName:i.product,quantity:1,price:i.price}]), i.price, tax, i.price+tax, i.reasoning, i.status]);
         ic++;
       }
     }
