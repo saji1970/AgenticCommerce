@@ -58,10 +58,12 @@ router.get('/seed-demo-temp', async (req, res) => {
 
     // Get mandate IDs for intents
     const mandateMap: Record<string, string> = {};
-    for (const m of mandates) {
-      const r = await pool.query('SELECT id FROM agent_mandates WHERE user_id=$1 AND agent_id=$2', [userId, m.agentId]);
-      if (r.rows.length > 0) mandateMap[m.agentId] = r.rows[0].id;
+    const allMandates = await pool.query('SELECT id, agent_id, type FROM agent_mandates WHERE user_id=$1', [userId]);
+    console.log('Found mandates:', allMandates.rows);
+    for (const row of allMandates.rows) {
+      mandateMap[row.agent_id] = row.id;
     }
+    console.log('Mandate map:', mandateMap);
 
     // Intents
     const intents = [
@@ -107,7 +109,7 @@ router.get('/seed-demo-temp', async (req, res) => {
       }
     }
 
-    res.json({ success: true, created: { mandates: mc, intents: ic, products: pc } });
+    res.json({ success: true, created: { mandates: mc, intents: ic, products: pc }, debug: { mandateMap, foundMandates: allMandates.rows.length } });
   } catch (e: any) {
     console.error('Seed error:', e);
     res.status(500).json({ error: e.message });
