@@ -189,7 +189,7 @@ export class AIService {
    * Extract product data from HTML with enhanced offers/deals detection
    */
   async extractProductData(url: string, html: string): Promise<EnhancedProductData | null> {
-    const truncatedHtml = html.substring(0, 30000); // Groq has smaller context
+    const truncatedHtml = html.substring(0, 15000); // Keep small for rate limits
     const prompt = this.buildEnhancedExtractionPrompt(url, truncatedHtml);
 
     try {
