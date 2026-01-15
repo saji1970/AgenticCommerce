@@ -16,6 +16,7 @@ import { AIService } from './ai.service';
 import { MCPService } from './mcp.service';
 import { NLPService, ParsedSearchQuery } from './nlp.service';
 import { AppError } from '../middleware/errorHandler';
+import { isDemoUserById } from '../utils/demo-users';
 
 export class ProductService {
   private productRepository: ProductRepository;
@@ -39,6 +40,13 @@ export class ProductService {
   async performAISearch(userId: string, request: AISearchRequest): Promise<AISearchResponse> {
     const startTime = Date.now();
     let aiTokensUsed = 0;
+
+    // Check if user is a demo user - use sample data instead of real API calls
+    const isDemoUser = await isDemoUserById(userId);
+    if (isDemoUser) {
+      console.log(`🎭 Demo user detected - using sample data for: "${request.query}"`);
+      return await this.getDemoProducts(userId, request.query, request.filters);
+    }
 
     // Create search query record
     const searchQuery = await this.searchQueryRepository.create({
@@ -427,5 +435,147 @@ export class ProductService {
       .map(item => item.product);
 
     return sortedProducts;
+  }
+
+  /**
+   * Get demo products for demo users
+   * Matches search query against existing demo search queries and returns associated products
+   */
+  private async getDemoProducts(
+    userId: string,
+    searchQuery: string,
+    filters?: AISearchRequest['filters']
+  ): Promise<AISearchResponse> {
+    const startTime = Date.now();
+
+    // Normalize search query for matching
+    const normalizedQuery = searchQuery.toLowerCase().trim();
+
+    // Find matching search queries for this user
+    // Try to find an exact match or partial match
+    const allUserQueries = await this.searchQueryRepository.findByUserId(userId, 100);
+    
+    // Find the best matching search query
+    let matchingQuery: SearchQuery | null = null;
+    let bestMatch = 0;
+
+    for (const query of allUserQueries) {
+      const queryText = query.queryText.toLowerCase();
+      
+      // Exact match
+      if (queryText === normalizedQuery) {
+        matchingQuery = query;
+        bestMatch = 100;
+        break;
+      }
+      
+      // Check if search query contains keywords from normalized query
+      const queryWords = normalizedQuery.split(/\s+/);
+      const queryTextWords = queryText.split(/\s+/);
+      const matchCount = queryWords.filter(word => 
+        queryTextWords.some(qWord => qWord.includes(word) || word.includes(qWord))
+      ).length;
+      
+      const matchScore = (matchCount / queryWords.length) * 100;
+      if (matchScore > bestMatch && matchScore > 50) {
+        bestMatch = matchScore;
+        matchingQuery = query;
+      }
+    }
+
+    // If no matching query found for this user, try to find matching products from other demo users
+    if (!matchingQuery) {
+      // Get all demo user IDs and check their search queries
+      const { isDemoUserByEmail } = await import('../utils/demo-users');
+      const { query } = await import('../config/database');
+      
+      // Find all demo users
+      const demoUserEmails = ['alice@example.com', 'bob@example.com', 'carol@example.com'];
+      const demoUsersResult = await query(
+        `SELECT id, email FROM users WHERE email = ANY($1)`,
+        [demoUserEmails]
+      );
+      
+      const demoUserIds = demoUsersResult.rows.map(row => row.id);
+      
+      // Try to find a matching search query from any demo user
+      for (const demoUserId of demoUserIds) {
+        const demoQueries = await this.searchQueryRepository.findByUserId(demoUserId, 100);
+        for (const query of demoQueries) {
+          const queryText = query.queryText.toLowerCase();
+          if (queryText.includes(normalizedQuery) || normalizedQuery.includes(queryText)) {
+            matchingQuery = query;
+            break;
+          }
+        }
+        if (matchingQuery) break;
+      }
+    }
+
+    // If still no matching query found, create a new search query and return empty results
+    if (!matchingQuery) {
+      const searchQueryRecord = await this.searchQueryRepository.create({
+        userId,
+        queryText: searchQuery,
+        metadata: filters,
+      });
+      
+      await this.searchQueryRepository.complete(searchQueryRecord.id, 0);
+      
+      console.log(`⚠️  No matching demo products found for query: "${searchQuery}"`);
+      
+      return {
+        searchQueryId: searchQueryRecord.id,
+        products: [],
+        filters: [],
+        metadata: {
+          totalResults: 0,
+          processingTimeMs: Date.now() - startTime,
+          aiTokensUsed: 0,
+          sourcesUsed: ['demo_data'],
+        },
+      };
+    }
+
+    // Get products for the matching search query (even if from a different demo user)
+    let products = await this.productRepository.findBySearchQueryId(matchingQuery.id);
+
+    // Apply price filters if provided
+    if (filters?.priceRange) {
+      if (filters.priceRange.min !== undefined) {
+        products = products.filter(p => p.price >= filters.priceRange!.min!);
+      }
+      if (filters.priceRange.max !== undefined) {
+        products = products.filter(p => p.price <= filters.priceRange!.max!);
+      }
+    }
+
+    // Limit results
+    const maxResults = filters?.maxResults || 10;
+    products = products.slice(0, maxResults);
+
+    // Create search query record for this user
+    const searchQueryRecord = await this.searchQueryRepository.create({
+      userId,
+      queryText: searchQuery,
+      metadata: { ...filters, matchedDemoQuery: matchingQuery.id, sourceUserId: matchingQuery.userId },
+    });
+
+    await this.searchQueryRepository.complete(searchQueryRecord.id, products.length);
+
+    console.log(`✅ Found ${products.length} demo products for query: "${searchQuery}"`);
+
+    return {
+      searchQueryId: searchQueryRecord.id,
+      products,
+      filters: [],
+      metadata: {
+        totalResults: products.length,
+        processingTimeMs: Date.now() - startTime,
+        aiTokensUsed: 0,
+        sourcesUsed: ['demo_data'],
+        matchedDemoQuery: matchingQuery.id,
+      },
+    };
   }
 }
