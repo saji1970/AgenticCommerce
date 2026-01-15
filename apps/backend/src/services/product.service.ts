@@ -543,10 +543,10 @@ export class ProductService {
     // Apply price filters if provided
     if (filters?.priceRange) {
       if (filters.priceRange.min !== undefined) {
-        products = products.filter(p => p.price >= filters.priceRange!.min!);
+        products = products.filter(p => p.price != null && p.price >= filters.priceRange!.min!);
       }
       if (filters.priceRange.max !== undefined) {
-        products = products.filter(p => p.price <= filters.priceRange!.max!);
+        products = products.filter(p => p.price != null && p.price <= filters.priceRange!.max!);
       }
     }
 
@@ -574,7 +574,6 @@ export class ProductService {
         processingTimeMs: Date.now() - startTime,
         aiTokensUsed: 0,
         sourcesUsed: ['demo_data'],
-        matchedDemoQuery: matchingQuery.id,
       },
     };
   }
