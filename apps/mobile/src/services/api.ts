@@ -47,8 +47,8 @@ class ApiClient {
     );
   }
 
-  async get<T>(url: string): Promise<T> {
-    const response = await this.client.get<ApiResponse<T>>(url);
+  async get<T>(url: string, config?: { params?: any }): Promise<T> {
+    const response = await this.client.get<ApiResponse<T>>(url, config);
     return response.data.data as T;
   }
 
@@ -69,3 +69,4 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+export default apiClient;

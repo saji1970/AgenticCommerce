@@ -26,8 +26,7 @@ class MandateService {
       validUntil: params.validUntil,
     };
 
-    const response = await api.post<{ mandate: Mandate }>('/mandates', request);
-    return response.data.mandate;
+    return await api.post<Mandate>('/mandates', request);
   }
 
   async getMyMandates(status?: MandateStatus, type?: MandateType): Promise<Mandate[]> {
@@ -35,50 +34,46 @@ class MandateService {
     if (status) params.status = status;
     if (type) params.type = type;
 
-    const response = await api.get<{ mandates: Mandate[] }>('/mandates', { params });
-    return response.data.mandates;
+    const queryString = new URLSearchParams(params).toString();
+    const url = queryString ? `/mandates?${queryString}` : '/mandates';
+    return await api.get<Mandate[]>(url);
   }
 
   async getMandate(mandateId: string): Promise<Mandate> {
-    const response = await api.get<{ mandate: Mandate }>(`/mandates/${mandateId}`);
-    return response.data.mandate;
+    return await api.get<Mandate>(`/mandates/${mandateId}`);
   }
 
   async approveMandate(mandateId: string): Promise<Mandate> {
-    const response = await api.post<{ mandate: Mandate }>(`/mandates/${mandateId}/approve`);
-    return response.data.mandate;
+    return await api.post<Mandate>(`/mandates/${mandateId}/approve`);
   }
 
   async suspendMandate(mandateId: string): Promise<Mandate> {
-    const response = await api.post<{ mandate: Mandate }>(`/mandates/${mandateId}/suspend`);
-    return response.data.mandate;
+    return await api.post<Mandate>(`/mandates/${mandateId}/suspend`);
   }
 
   async revokeMandate(mandateId: string, reason: string): Promise<Mandate> {
-    const response = await api.post<{ mandate: Mandate }>(`/mandates/${mandateId}/revoke`, {
+    return await api.post<Mandate>(`/mandates/${mandateId}/revoke`, {
       reason,
     });
-    return response.data.mandate;
   }
 
   async getPurchaseIntents(status?: string): Promise<PurchaseIntent[]> {
     const params: any = {};
     if (status) params.status = status;
 
-    const response = await api.get<{ intents: PurchaseIntent[] }>('/acp/intents', { params });
-    return response.data.intents;
+    const queryString = new URLSearchParams(params).toString();
+    const url = queryString ? `/acp/intents?${queryString}` : '/acp/intents';
+    return await api.get<PurchaseIntent[]>(url);
   }
 
   async approveIntent(intentId: string): Promise<PurchaseIntent> {
-    const response = await api.post<{ intent: PurchaseIntent }>(`/acp/intents/${intentId}/approve`);
-    return response.data.intent;
+    return await api.post<PurchaseIntent>(`/acp/intents/${intentId}/approve`);
   }
 
   async rejectIntent(intentId: string, reason: string): Promise<PurchaseIntent> {
-    const response = await api.post<{ intent: PurchaseIntent }>(`/acp/intents/${intentId}/reject`, {
+    return await api.post<PurchaseIntent>(`/acp/intents/${intentId}/reject`, {
       reason,
     });
-    return response.data.intent;
   }
 
   async getAgentActions(agentId?: string, limit?: number): Promise<any[]> {
@@ -86,8 +81,9 @@ class MandateService {
     if (agentId) params.agentId = agentId;
     if (limit) params.limit = limit;
 
-    const response = await api.get<{ actions: any[] }>('/acp/actions', { params });
-    return response.data.actions;
+    const queryString = new URLSearchParams(params).toString();
+    const url = queryString ? `/acp/actions?${queryString}` : '/acp/actions';
+    return await api.get<any[]>(url);
   }
 }
 

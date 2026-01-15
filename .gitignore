@@ -46,3 +46,15 @@ apps/mobile/ios/Pods/
 apps/mobile/ios/build/
 *.xcworkspace
 !default.xcworkspace
+
+# Temporary files
+tmpclaude-*
+*.apk
+*.html
+nul
+
+# EAS build artifacts
+apps/mobile/.eas-build/
+
+# Claude settings (local)
+.claude/settings.local.json
