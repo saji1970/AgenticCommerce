@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "44873f97-59bb-4a78-98e5-4fa591847942"
+      }
+    },
+    "android": {
+      "package": "com.sajipillai1970.agenticcommerce"
+    }
+  }
+}

@@ -1,0 +1,1 @@
+ALTER TABLE products ADD COLUMN IF NOT EXISTS search_query_id UUID REFERENCES search_queries(id) ON DELETE SET NULL;
