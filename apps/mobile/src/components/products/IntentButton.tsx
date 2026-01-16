@@ -40,14 +40,29 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
    * Handle intent button press
    */
   const handlePress = () => {
-    const mandate = getActiveMandateByType(MandateType.INTENT);
+    try {
+      console.log('[IntentButton] Pressed for product:', product.id, product.name);
+      
+      if (!product || !product.id) {
+        console.error('[IntentButton] Invalid product:', product);
+        Alert.alert('Error', 'Invalid product data');
+        return;
+      }
 
-    if (mandate) {
-      // Show intent creation modal
-      setShowIntentModal(true);
-    } else {
-      // No mandate, start mandate flow
-      setShowMandateFlow(true);
+      const mandate = getActiveMandateByType(MandateType.INTENT);
+
+      if (mandate) {
+        console.log('[IntentButton] Found mandate:', mandate.id);
+        // Show intent creation modal
+        setShowIntentModal(true);
+      } else {
+        console.log('[IntentButton] No mandate found, starting flow');
+        // No mandate, start mandate flow
+        setShowMandateFlow(true);
+      }
+    } catch (error: any) {
+      console.error('[IntentButton] Error in handlePress:', error);
+      Alert.alert('Error', `Failed to process intent action: ${error.message || 'Unknown error'}`);
     }
   };
 

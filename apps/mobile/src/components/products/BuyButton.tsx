@@ -36,26 +36,42 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
    * Handle buy button press
    */
   const handlePress = () => {
-    const mandate = getActiveMandateByType(MandateType.CART);
-
-    if (mandate) {
-      // Validate product against mandate constraints
-      const validation = validateAgainstCartMandate(product, mandate);
-
-      if (!validation.valid) {
-        Alert.alert(
-          'Mandate Constraint Violation',
-          validation.errors.join('\n'),
-          [{ text: 'OK' }]
-        );
+    try {
+      console.log('[BuyButton] Pressed for product:', product.id, product.name);
+      
+      if (!product || !product.id) {
+        console.error('[BuyButton] Invalid product:', product);
+        Alert.alert('Error', 'Invalid product data');
         return;
       }
 
-      // Show confirmation modal
-      setShowConfirmation(true);
-    } else {
-      // No mandate, start mandate flow
-      setShowMandateFlow(true);
+      const mandate = getActiveMandateByType(MandateType.CART);
+
+      if (mandate) {
+        console.log('[BuyButton] Found mandate:', mandate.id);
+        // Validate product against mandate constraints
+        const validation = validateAgainstCartMandate(product, mandate);
+
+        if (!validation.valid) {
+          console.warn('[BuyButton] Validation failed:', validation.errors);
+          Alert.alert(
+            'Mandate Constraint Violation',
+            validation.errors.join('\n'),
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        // Show confirmation modal
+        setShowConfirmation(true);
+      } else {
+        console.log('[BuyButton] No mandate found, starting flow');
+        // No mandate, start mandate flow
+        setShowMandateFlow(true);
+      }
+    } catch (error: any) {
+      console.error('[BuyButton] Error in handlePress:', error);
+      Alert.alert('Error', `Failed to process buy action: ${error.message || 'Unknown error'}`);
     }
   };
 
