@@ -3,6 +3,14 @@ export interface SearchResult {
   url: string;
   snippet: string;
   displayUrl: string;
+  // Google Shopping specific fields
+  price?: string | number;
+  currency?: string;
+  availability?: string;
+  image?: string;
+  // Location/distance for in-store products
+  distance?: number; // in miles
+  storeLocation?: string;
 }
 
 export interface FilteredResult extends SearchResult {

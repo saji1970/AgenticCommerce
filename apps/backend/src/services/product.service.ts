@@ -59,10 +59,17 @@ export class ProductService {
       // Update status to processing
       await this.searchQueryRepository.updateStatus(searchQuery.id, 'processing');
 
-      // Step 1: Fetch from Google Custom Search
-      console.log(`🔍 Searching Google for: "${request.query}"`);
+      // Step 1: Determine search type and fetch from Google
+      // Use Google Shopping for products, regular search for travel
+      const isProduct = (request.filters as any)?.isProduct ?? true; // Default to product
+      const isTravel = (request.filters as any)?.isTravel ?? false;
+      
+      const useShopping = isProduct && !isTravel; // Use Google Shopping for products only
+      
+      console.log(`🔍 Searching Google ${useShopping ? 'Shopping' : ''} for: "${request.query}"`);
       const searchResults = await this.searchService.search(request.query, {
         maxResults: request.filters?.maxResults || 10,
+        useShopping: useShopping,
       });
 
       if (searchResults.length === 0) {
@@ -80,12 +87,25 @@ export class ProductService {
         };
       }
 
-      // Step 2: Filter shoppable products using Claude
-      console.log(`🤖 Filtering ${searchResults.length} results with Claude...`);
-      const filteredResults = await this.aiService.filterShoppableProducts(searchResults);
-      const shoppableResults = filteredResults.filter(r => r.isShoppable && r.confidence > 50);
-
-      console.log(`✅ Found ${shoppableResults.length} shoppable products`);
+      // Step 2: Filter shoppable products using AI (skip for Google Shopping as results are already products)
+      let shoppableResults: any[] = [];
+      
+      if (useShopping) {
+        // Google Shopping results are already products, use them directly
+        shoppableResults = searchResults.map(result => ({
+          ...result,
+          isShoppable: true,
+          confidence: 90,
+          reasoning: 'Google Shopping result',
+        }));
+        console.log(`✅ Found ${shoppableResults.length} products from Google Shopping`);
+      } else {
+        // For regular search (travel, etc.), filter with AI
+        console.log(`🤖 Filtering ${searchResults.length} results with AI...`);
+        const filteredResults = await this.aiService.filterShoppableProducts(searchResults);
+        shoppableResults = filteredResults.filter(r => r.isShoppable && r.confidence > 50);
+        console.log(`✅ Found ${shoppableResults.length} shoppable results`);
+      }
 
       // Step 3: Fetch from MCP servers in parallel
       console.log(`🔌 Fetching from MCP servers...`);
@@ -98,45 +118,81 @@ export class ProductService {
         // Continue without MCP results
       }
 
-      // Step 4: Extract product data from URLs using Claude
-      console.log(`📦 Extracting product data from ${shoppableResults.length} URLs...`);
-      const extractionPromises = shoppableResults.slice(0, 10).map(async (result) => {
-        try {
-          const html = await this.searchService.fetchPageContent(result.url);
-          const productData = await this.aiService.extractProductData(result.url, html);
-
-          if (!productData) {
-            return null;
-          }
-
-          // Skip products without required fields (name is required in database)
-          if (!productData.name || !productData.name.trim()) {
-            console.warn(`Skipping product with no name from ${result.url}`);
-            return null;
+      // Step 4: Extract product data
+      let extractedProducts: CreateProductDTO[] = [];
+      
+      if (useShopping) {
+        // Google Shopping results already have price, image, etc. - extract directly
+        console.log(`📦 Extracting product data from ${shoppableResults.length} Google Shopping results...`);
+        extractedProducts = shoppableResults.map((result) => {
+          // Parse price from Google Shopping result
+          let price: number | undefined;
+          if (result.price) {
+            const priceStr = typeof result.price === 'string' 
+              ? result.price.replace(/[^0-9.]/g, '') 
+              : String(result.price);
+            price = parseFloat(priceStr) || undefined;
           }
 
           return {
             userId,
-            name: productData.name,
-            description: productData.description,
-            price: productData.price,
-            currency: productData.currency || 'USD',
-            imageUrl: productData.imageUrl,
+            name: result.title,
+            description: result.snippet,
+            price: price,
+            currency: result.currency || 'USD',
+            imageUrl: result.image || undefined,
             productUrl: result.url,
-            source: `google_search:${result.displayUrl}`,
-            rawData: productData,
-            aiExtracted: true,
+            source: `google_shopping:${result.displayUrl}`,
+            rawData: {
+              availability: result.availability,
+              distance: result.distance,
+              storeLocation: result.storeLocation,
+            },
+            aiExtracted: false, // From Google Shopping, not AI extracted
             searchQueryId: searchQuery.id,
           } as CreateProductDTO;
-        } catch (error) {
-          console.error(`Failed to extract from ${result.url}:`, error);
-          return null;
-        }
-      });
+        }).filter(p => p.name && p.name.trim()); // Filter out products without names
+      } else {
+        // For non-shopping results, extract using AI
+        console.log(`📦 Extracting product data from ${shoppableResults.length} URLs...`);
+        const extractionPromises = shoppableResults.slice(0, 10).map(async (result) => {
+          try {
+            const html = await this.searchService.fetchPageContent(result.url);
+            const productData = await this.aiService.extractProductData(result.url, html);
 
-      const extractedProducts = (await Promise.all(extractionPromises)).filter(
-        (p): p is CreateProductDTO => p !== null
-      );
+            if (!productData) {
+              return null;
+            }
+
+            // Skip products without required fields (name is required in database)
+            if (!productData.name || !productData.name.trim()) {
+              console.warn(`Skipping product with no name from ${result.url}`);
+              return null;
+            }
+
+            return {
+              userId,
+              name: productData.name,
+              description: productData.description,
+              price: productData.price,
+              currency: productData.currency || 'USD',
+              imageUrl: productData.imageUrl,
+              productUrl: result.url,
+              source: `google_search:${result.displayUrl}`,
+              rawData: productData,
+              aiExtracted: true,
+              searchQueryId: searchQuery.id,
+            } as CreateProductDTO;
+          } catch (error) {
+            console.error(`Failed to extract from ${result.url}:`, error);
+            return null;
+          }
+        });
+
+        extractedProducts = (await Promise.all(extractionPromises)).filter(
+          (p): p is CreateProductDTO => p !== null
+        );
+      }
 
       console.log(`✅ Successfully extracted ${extractedProducts.length} products`);
 
@@ -154,9 +210,50 @@ export class ProductService {
         return acc;
       }, [] as CreateProductDTO[]);
 
-      // Step 6: Save products to database
-      console.log(`💾 Saving ${uniqueProducts.length} products to database...`);
-      const savedProducts = await this.productRepository.bulkCreate(uniqueProducts);
+      // Step 6: Apply filters and sorting
+      let filteredProducts = uniqueProducts;
+
+      // Apply price filters if provided
+      if (request.filters?.priceRange) {
+        if (request.filters.priceRange.min !== undefined) {
+          filteredProducts = filteredProducts.filter(p => 
+            p.price != null && p.price >= request.filters!.priceRange!.min!
+          );
+        }
+        if (request.filters.priceRange.max !== undefined) {
+          filteredProducts = filteredProducts.filter(p => 
+            p.price != null && p.price <= request.filters!.priceRange!.max!
+          );
+        }
+      }
+
+      // Sort products based on criteria
+      // For in-store: sort by distance (nearest first)
+      // For online: sort by price (low to high)
+      const preferLocalStores = (request.filters as any)?.preferLocalStores;
+      const preferOnline = (request.filters as any)?.preferOnline;
+      
+      if (preferLocalStores && !preferOnline) {
+        // In-store: sort by distance (if available in rawData)
+        filteredProducts.sort((a, b) => {
+          const distanceA = a.rawData?.distance ?? Infinity;
+          const distanceB = b.rawData?.distance ?? Infinity;
+          return distanceA - distanceB; // Nearest first
+        });
+        console.log(`📍 Sorted products by distance (nearest first)`);
+      } else {
+        // Online: sort by price (low to high)
+        filteredProducts.sort((a, b) => {
+          const priceA = a.price ?? Infinity;
+          const priceB = b.price ?? Infinity;
+          return priceA - priceB; // Low to high
+        });
+        console.log(`💰 Sorted products by price (low to high)`);
+      }
+
+      // Step 7: Save products to database
+      console.log(`💾 Saving ${filteredProducts.length} products to database...`);
+      const savedProducts = await this.productRepository.bulkCreate(filteredProducts);
 
       // Step 7: Generate filters using Claude
       console.log(`🎛️  Generating filters...`);
@@ -175,7 +272,7 @@ export class ProductService {
 
       console.log(`✅ Search complete! Found ${savedProducts.length} products in ${processingTimeMs}ms`);
 
-      const sourcesUsed = ['google_search'];
+      const sourcesUsed = useShopping ? ['google_shopping'] : ['google_search'];
       if (mcpProducts.length > 0) {
         const mcpSources = mcpProducts.map(p => p.source).filter((s, i, arr) => arr.indexOf(s) === i);
         sourcesUsed.push(...mcpSources);
@@ -228,7 +325,7 @@ export class ProductService {
     });
 
     // Step 2: Perform AI search with extracted search query and constraints
-    const searchRequest: AISearchRequest = {
+    const searchRequest: AISearchRequest & { filters?: any } = {
       query: parsedQuery.searchQuery,
       filters: {
         priceRange:
@@ -238,6 +335,10 @@ export class ProductService {
                 min: parsedQuery.minPrice,
               }
             : undefined,
+        preferLocalStores: parsedQuery.preferLocalStores,
+        preferOnline: parsedQuery.preferOnline,
+        isTravel: parsedQuery.isTravel,
+        isProduct: parsedQuery.isProduct,
       },
     };
 

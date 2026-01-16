@@ -107,29 +107,131 @@ export class MCPService {
       // List available tools
       const tools = await client.listTools();
 
-      // Find a search tool (adapt based on actual MCP server capabilities)
-      const searchTool = tools.tools.find(t =>
-        t.name.toLowerCase().includes('search') ||
-        t.name.toLowerCase().includes('query') ||
-        t.name.toLowerCase().includes('product')
-      );
+      // Get server-specific search tool name from config, or find it automatically
+      const configuredSearchTool = config.config?.searchTool;
+      let searchTool = configuredSearchTool
+        ? tools.tools.find(t => t.name === configuredSearchTool)
+        : null;
+
+      // If not found in config, try common tool name patterns
+      if (!searchTool) {
+        // Server-specific tool name patterns
+        const toolPatterns = this.getServerSpecificToolPatterns(serverName);
+        
+        for (const pattern of toolPatterns) {
+          searchTool = tools.tools.find(t => 
+            t.name.toLowerCase().includes(pattern.toLowerCase())
+          );
+          if (searchTool) break;
+        }
+
+        // Fallback to generic search patterns
+        if (!searchTool) {
+          searchTool = tools.tools.find(t =>
+            t.name.toLowerCase().includes('search') ||
+            t.name.toLowerCase().includes('query') ||
+            t.name.toLowerCase().includes('product') ||
+            t.name.toLowerCase().includes('item')
+          );
+        }
+      }
 
       if (!searchTool) {
-        console.warn(`No search tool found on server '${serverName}'`);
+        console.warn(`No search tool found on server '${serverName}'. Available tools:`, 
+          tools.tools.map(t => t.name).join(', '));
         return [];
       }
+
+      // Build tool arguments based on server type
+      const toolArguments = this.buildToolArguments(serverName, query, searchTool);
 
       // Call the search tool
       const response = await client.callTool({
         name: searchTool.name,
-        arguments: { query },
+        arguments: toolArguments,
       });
 
-      // Parse and normalize response
+      // Parse and normalize response with server-specific handling
       return this.normalizeResponse(response, serverName);
     } catch (error: any) {
       console.error(`Search error on MCP server '${serverName}':`, error);
       return []; // Don't block other servers
+    }
+  }
+
+  /**
+   * Get server-specific tool name patterns for search
+   */
+  private getServerSpecificToolPatterns(serverName: string): string[] {
+    const patterns: Record<string, string[]> = {
+      'agora-mcp': ['search_products', 'search', 'query_products'],
+      'shopify-catalog': ['query_products', 'search_products', 'products'],
+      'bitrefill': ['search_products', 'search', 'products'],
+      'mercadolibre': ['search_items', 'search', 'items'],
+      'commercetools': ['search_products', 'products', 'query'],
+      'shufersal': ['search_groceries', 'search', 'groceries'],
+      'dynamics365-commerce': ['search_products', 'products', 'query'],
+    };
+
+    return patterns[serverName] || ['search', 'query', 'product'];
+  }
+
+  /**
+   * Build tool arguments based on server type
+   */
+  private buildToolArguments(serverName: string, query: string, tool: any): any {
+    const baseArgs: any = { query };
+
+    // Server-specific argument patterns
+    switch (serverName) {
+      case 'agora-mcp':
+        return {
+          query,
+          limit: 10,
+          // Add filters if needed
+        };
+      
+      case 'shopify-catalog':
+        return {
+          query,
+          first: 10, // Shopify uses 'first' for pagination
+        };
+      
+      case 'mercadolibre':
+        return {
+          q: query, // MercadoLibre uses 'q' parameter
+          limit: 10,
+        };
+      
+      case 'commercetools':
+        return {
+          text: query, // Commercetools uses 'text' for search
+          limit: 10,
+        };
+      
+      case 'shufersal':
+        return {
+          search: query,
+          limit: 10,
+        };
+      
+      default:
+        // Use tool's schema to determine arguments
+        if (tool.inputSchema?.properties) {
+          const args: any = {};
+          const props = tool.inputSchema.properties;
+          
+          // Map common parameter names
+          if (props.query) args.query = query;
+          else if (props.q) args.q = query;
+          else if (props.text) args.text = query;
+          else if (props.search) args.search = query;
+          else args.query = query; // Fallback
+          
+          return args;
+        }
+        
+        return baseArgs;
     }
   }
 
@@ -150,25 +252,111 @@ export class MCPService {
         data = content;
       }
 
+      // Handle different response structures from different servers
+      if (data.products) {
+        data = data.products; // Agora, Commercetools
+      } else if (data.items) {
+        data = data.items; // MercadoLibre
+      } else if (data.edges) {
+        // Shopify GraphQL response
+        data = data.edges.map((edge: any) => edge.node);
+      } else if (data.results) {
+        data = data.results; // Generic results wrapper
+      }
+
       if (!Array.isArray(data)) {
         data = [data];
       }
 
-      return data.map((item: any) => ({
-        userId: '', // Will be set by ProductService
-        name: item.name || item.title || 'Unknown Product',
-        description: item.description || item.snippet,
-        price: item.price ? parseFloat(item.price) : undefined,
-        currency: item.currency || 'USD',
-        imageUrl: item.image_url || item.imageUrl || item.image,
-        productUrl: item.url || item.link || '',
-        source: `mcp:${source}`,
-        rawData: item,
-        aiExtracted: false,
-      }));
+      return data.map((item: any) => {
+        // Server-specific field mapping
+        const normalized = this.normalizeProductItem(item, source);
+        return {
+          userId: '', // Will be set by ProductService
+          name: normalized.name,
+          description: normalized.description,
+          price: normalized.price,
+          currency: normalized.currency,
+          imageUrl: normalized.imageUrl,
+          productUrl: normalized.productUrl,
+          source: `mcp:${source}`,
+          rawData: item,
+          aiExtracted: false,
+        };
+      });
     } catch (error: any) {
       console.error('Failed to normalize MCP response:', error);
       return [];
+    }
+  }
+
+  /**
+   * Normalize product item from different MCP server formats
+   */
+  private normalizeProductItem(item: any, source: string): {
+    name: string;
+    description?: string;
+    price?: number;
+    currency: string;
+    imageUrl?: string;
+    productUrl: string;
+  } {
+    // Server-specific field mappings
+    switch (source) {
+      case 'shopify-catalog':
+        return {
+          name: item.title || item.name || 'Unknown Product',
+          description: item.description || item.bodyHtml,
+          price: item.variants?.[0]?.price ? parseFloat(item.variants[0].price) : undefined,
+          currency: item.variants?.[0]?.priceV2?.currencyCode || 'USD',
+          imageUrl: item.featuredImage?.url || item.images?.[0]?.url,
+          productUrl: item.onlineStoreUrl || item.url || '',
+        };
+      
+      case 'mercadolibre':
+        return {
+          name: item.title || item.name || 'Unknown Product',
+          description: item.description || item.subtitle,
+          price: item.price ? parseFloat(item.price) : undefined,
+          currency: item.currency_id || 'USD',
+          imageUrl: item.thumbnail || item.pictures?.[0]?.url,
+          productUrl: item.permalink || item.url || '',
+        };
+      
+      case 'commercetools':
+        return {
+          name: item.name?.en || item.name || 'Unknown Product',
+          description: item.description?.en || item.description,
+          price: item.masterVariant?.prices?.[0]?.value?.centAmount 
+            ? item.masterVariant.prices[0].value.centAmount / 100 
+            : undefined,
+          currency: item.masterVariant?.prices?.[0]?.value?.currencyCode || 'USD',
+          imageUrl: item.masterVariant?.images?.[0]?.url,
+          productUrl: item.url || '',
+        };
+      
+      case 'agora-mcp':
+        return {
+          name: item.name || item.title || 'Unknown Product',
+          description: item.description || item.snippet,
+          price: item.price ? parseFloat(item.price) : undefined,
+          currency: item.currency || 'USD',
+          imageUrl: item.image_url || item.imageUrl || item.image,
+          productUrl: item.url || item.link || item.product_url || '',
+        };
+      
+      default:
+        // Generic mapping
+        return {
+          name: item.name || item.title || item.productName || 'Unknown Product',
+          description: item.description || item.snippet || item.summary,
+          price: item.price 
+            ? (typeof item.price === 'string' ? parseFloat(item.price) : item.price)
+            : undefined,
+          currency: item.currency || item.currencyCode || 'USD',
+          imageUrl: item.image_url || item.imageUrl || item.image || item.thumbnail,
+          productUrl: item.url || item.link || item.product_url || item.permalink || '',
+        };
     }
   }
 

@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk';
+import Anthropic from '@anthropic-ai/sdk';
 import {
   SearchResult,
   FilteredResult,
@@ -54,18 +54,18 @@ export interface EnhancedProductData extends ExtractedProductData {
 }
 
 export class AIService {
-  private groq: Groq;
+  private anthropic: Anthropic;
   private modelName: string;
 
   constructor() {
-    if (!config.groq.apiKey) {
-      console.warn('Groq API key not configured');
+    if (!config.anthropic.apiKey) {
+      console.warn('Anthropic API key not configured');
     }
 
-    this.groq = new Groq({ apiKey: config.groq.apiKey });
-    this.modelName = config.groq.defaultModel;
+    this.anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
+    this.modelName = config.anthropic.model;
 
-    console.log(`AI Service initialized with Groq model: ${this.modelName}`);
+    console.log(`AI Service initialized with Anthropic Claude model: ${this.modelName}`);
   }
 
   /**
@@ -148,16 +148,18 @@ export class AIService {
     const prompt = this.buildFilteringPrompt(searchResults);
 
     try {
-      const completion = await this.groq.chat.completions.create({
+      const message = await this.anthropic.messages.create({
         model: this.modelName,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
         max_tokens: 4096,
+        temperature: 0.1,
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const text = completion.choices[0]?.message?.content || '[]';
+      const text = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : '[]';
 
-      console.log('Raw Groq filter response (first 500 chars):', text.substring(0, 500));
+      console.log('Raw Anthropic filter response (first 500 chars):', text.substring(0, 500));
 
       const filtered = this.safeJSONParse<FilteredResult[]>(text, []);
 
@@ -165,11 +167,11 @@ export class AIService {
         throw new Error('Expected array but got: ' + typeof filtered);
       }
 
-      const usage = completion.usage;
+      const usage = message.usage;
       if (usage) {
         await this.logUsage(
           'filter',
-          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+          (usage.input_tokens || 0) + (usage.output_tokens || 0),
           this.modelName
         );
       }
@@ -193,22 +195,24 @@ export class AIService {
     const prompt = this.buildEnhancedExtractionPrompt(url, truncatedHtml);
 
     try {
-      const completion = await this.groq.chat.completions.create({
+      const message = await this.anthropic.messages.create({
         model: this.modelName,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
         max_tokens: 4096,
+        temperature: 0.1,
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const text = completion.choices[0]?.message?.content || 'null';
+      const text = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : 'null';
 
       const data = this.safeJSONParse<EnhancedProductData | null>(text, null);
 
-      const usage = completion.usage;
+      const usage = message.usage;
       if (usage) {
         await this.logUsage(
           'extract',
-          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+          (usage.input_tokens || 0) + (usage.output_tokens || 0),
           this.modelName
         );
       }
@@ -231,14 +235,16 @@ export class AIService {
     const prompt = this.buildFilterGenerationPrompt(products);
 
     try {
-      const completion = await this.groq.chat.completions.create({
+      const message = await this.anthropic.messages.create({
         model: this.modelName,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
         max_tokens: 2048,
+        temperature: 0.1,
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const text = completion.choices[0]?.message?.content || '[]';
+      const text = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : '[]';
 
       const filters = this.safeJSONParse<CreateProductFilterDTO[]>(text, []);
 
@@ -247,11 +253,11 @@ export class AIService {
         return [];
       }
 
-      const usage = completion.usage;
+      const usage = message.usage;
       if (usage) {
         await this.logUsage(
           'generate_filters',
-          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+          (usage.input_tokens || 0) + (usage.output_tokens || 0),
           this.modelName
         );
       }
@@ -296,22 +302,24 @@ If no stores are found, return an empty array [].
 Limit to 10 stores maximum, sorted by relevance and distance.`;
 
     try {
-      const completion = await this.groq.chat.completions.create({
+      const message = await this.anthropic.messages.create({
         model: this.modelName,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
         max_tokens: 2048,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const text = completion.choices[0]?.message?.content || '[]';
+      const text = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : '[]';
 
       const stores = this.safeJSONParse<NearbyStore[]>(text, []);
 
-      const usage = completion.usage;
+      const usage = message.usage;
       if (usage) {
         await this.logUsage(
           'find_stores',
-          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+          (usage.input_tokens || 0) + (usage.output_tokens || 0),
           this.modelName
         );
       }
@@ -359,22 +367,24 @@ If no current offers are known, return an empty array [].
 Be accurate - only include offers you're confident exist.`;
 
     try {
-      const completion = await this.groq.chat.completions.create({
+      const message = await this.anthropic.messages.create({
         model: this.modelName,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
         max_tokens: 2048,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const text = completion.choices[0]?.message?.content || '[]';
+      const text = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : '[]';
 
       const offers = this.safeJSONParse<ProductOffer[]>(text, []);
 
-      const usage = completion.usage;
+      const usage = message.usage;
       if (usage) {
         await this.logUsage(
           'find_offers',
-          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+          (usage.input_tokens || 0) + (usage.output_tokens || 0),
           this.modelName
         );
       }
@@ -455,14 +465,16 @@ Include:
 Return ONLY the JSON object.`;
 
     try {
-      const completion = await this.groq.chat.completions.create({
+      const message = await this.anthropic.messages.create({
         model: this.modelName,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
         max_tokens: 4096,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const text = completion.choices[0]?.message?.content || '{}';
+      const text = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : '{}';
 
       const data = this.safeJSONParse<{
         products: EnhancedProductData[];
@@ -470,11 +482,11 @@ Return ONLY the JSON object.`;
         bestDeals: ProductOffer[];
       }>(text, { products: [], nearbyStores: [], bestDeals: [] });
 
-      const usage = completion.usage;
+      const usage = message.usage;
       if (usage) {
         await this.logUsage(
           'enhanced_search',
-          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+          (usage.input_tokens || 0) + (usage.output_tokens || 0),
           this.modelName
         );
       }
@@ -526,14 +538,16 @@ Sort by price (lowest first).
 Return ONLY the JSON array.`;
 
     try {
-      const completion = await this.groq.chat.completions.create({
+      const message = await this.anthropic.messages.create({
         model: this.modelName,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
         max_tokens: 2048,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const text = completion.choices[0]?.message?.content || '[]';
+      const text = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : '[]';
 
       const prices = this.safeJSONParse<{
         store: string;
@@ -542,11 +556,11 @@ Return ONLY the JSON array.`;
         inStock: boolean;
       }[]>(text, []);
 
-      const usage = completion.usage;
+      const usage = message.usage;
       if (usage) {
         await this.logUsage(
           'compare_prices',
-          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+          (usage.input_tokens || 0) + (usage.output_tokens || 0),
           this.modelName
         );
       }
@@ -679,9 +693,14 @@ Only return the JSON array, no other text. Generate 5-10 useful filters.`;
     tokens: number,
     model: string
   ): Promise<void> {
-    // Groq pricing is free tier, but log for tracking
+    // Anthropic pricing: approximate cost calculation
+    // Input: $3/million tokens, Output: $15/million tokens (for claude-sonnet-4)
+    const inputTokens = tokens * 0.6; // Estimate 60% input
+    const outputTokens = tokens * 0.4; // Estimate 40% output
+    const cost = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15;
+    
     console.log(
-      `AI Usage - Operation: ${operation}, Model: ${model}, Tokens: ${tokens}, Cost: FREE (Groq)`
+      `AI Usage - Operation: ${operation}, Model: ${model}, Tokens: ${tokens}, Cost: $${cost.toFixed(6)} (Anthropic)`
     );
   }
 }

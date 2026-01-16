@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk';
+import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config/env';
 
 /**
@@ -40,25 +40,29 @@ export interface ParsedSearchQuery {
   preferOnline?: boolean;
   needsDelivery?: boolean;
   needsPickup?: boolean;
+
+  // Search type detection
+  isTravel?: boolean; // true for flights, hotels, travel services
+  isProduct?: boolean; // true for physical products
 }
 
 /**
  * NLP Service
- * Uses Groq AI to parse natural language search queries
+ * Uses Anthropic Claude to parse natural language search queries
  */
 export class NLPService {
-  private groq: Groq;
+  private anthropic: Anthropic;
   private modelName: string;
 
   constructor() {
-    if (!config.groq.apiKey) {
-      console.warn('Groq API key not configured for NLP');
+    if (!config.anthropic.apiKey) {
+      console.warn('Anthropic API key not configured for NLP');
     }
 
-    this.groq = new Groq({ apiKey: config.groq.apiKey });
-    this.modelName = config.groq.defaultModel;
+    this.anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
+    this.modelName = config.anthropic.model;
 
-    console.log(`NLP Service initialized with Groq model: ${this.modelName}`);
+    console.log(`NLP Service initialized with Anthropic Claude model: ${this.modelName}`);
   }
 
   /**
@@ -73,14 +77,16 @@ export class NLPService {
     try {
       console.log(`Parsing natural language query: "${naturalLanguageQuery}"`);
 
-      const completion = await this.groq.chat.completions.create({
+      const message = await this.anthropic.messages.create({
         model: this.modelName,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
         max_tokens: 2048,
+        temperature: 0.1,
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const text = completion.choices[0]?.message?.content || '{}';
+      const text = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : '{}';
 
       // Strip markdown code fences if present
       const cleanedText = this.stripMarkdownCodeFences(text);
@@ -96,11 +102,11 @@ export class NLPService {
       });
 
       // Log token usage
-      const usage = completion.usage;
+      const usage = message.usage;
       if (usage) {
         await this.logUsage(
           'nlp_parse',
-          (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+          (usage.input_tokens || 0) + (usage.output_tokens || 0),
           this.modelName
         );
       }
@@ -113,7 +119,7 @@ export class NLPService {
   }
 
   /**
-   * Build prompt for Groq to parse natural language
+   * Build prompt for Anthropic Claude to parse natural language
    */
   private buildNLPPrompt(
     query: string,
@@ -158,6 +164,8 @@ Extract the following information:
 20. **preferOnline**: true if user prefers online shopping
 21. **needsDelivery**: true if user needs delivery
 22. **needsPickup**: true if user wants in-store pickup
+23. **isTravel**: true if query is for flights, hotels, travel services (not physical products)
+24. **isProduct**: true if query is for physical products (not travel)
 
 IMPORTANT: Detect local shopping intent from phrases like:
 - "near me", "nearby", "close to me", "in my area"
@@ -191,7 +199,9 @@ Response:
   "preferLocalStores": false,
   "preferOnline": true,
   "needsDelivery": false,
-  "needsPickup": false
+  "needsPickup": false,
+  "isTravel": false,
+  "isProduct": true
 }
 
 Query: "Where can I buy AirPods Pro near me in Atlanta?"
@@ -218,7 +228,9 @@ Response:
   "preferLocalStores": true,
   "preferOnline": false,
   "needsDelivery": false,
-  "needsPickup": true
+  "needsPickup": true,
+  "isTravel": false,
+  "isProduct": true
 }
 
 Query: "Find me the best deals on MacBook Pro"
@@ -245,7 +257,9 @@ Response:
   "preferLocalStores": false,
   "preferOnline": true,
   "needsDelivery": false,
-  "needsPickup": false
+  "needsPickup": false,
+  "isTravel": false,
+  "isProduct": true
 }
 
 Query: "Book a flight from Atlanta to Pune on 1/28/2026, back on 2/2/2026 if under $1000"
@@ -272,7 +286,9 @@ Response:
   "preferLocalStores": false,
   "preferOnline": true,
   "needsDelivery": false,
-  "needsPickup": false
+  "needsPickup": false,
+  "isTravel": true,
+  "isProduct": false
 }
 
 Query: "Show me stores selling Sony headphones with good discounts"
@@ -299,7 +315,9 @@ Response:
   "preferLocalStores": true,
   "preferOnline": true,
   "needsDelivery": false,
-  "needsPickup": false
+  "needsPickup": false,
+  "isTravel": false,
+  "isProduct": true
 }
 
 Now parse the user's query and return ONLY the JSON object, no other text.`;
@@ -348,9 +366,14 @@ Now parse the user's query and return ONLY the JSON object, no other text.`;
     const dealKeywords = ['deal', 'discount', 'sale', 'offer', 'coupon', 'promo'];
     const wantDeals = dealKeywords.some(keyword => lowerQuery.includes(keyword));
 
+    // Detect travel vs product
+    const travelKeywords = ['flight', 'hotel', 'travel', 'trip', 'booking', 'airline'];
+    const isTravel = travelKeywords.some(keyword => lowerQuery.includes(keyword));
+    const isProduct = !isTravel; // Default to product if not travel
+
     return {
       searchQuery: wantDeals ? `${query} deals discounts` : query,
-      productType: 'product',
+      productType: isTravel ? 'travel' : 'product',
       maxPrice,
       currency: 'USD',
       shouldCreateIntent,
@@ -359,6 +382,8 @@ Now parse the user's query and return ONLY the JSON object, no other text.`;
       preferLocalStores,
       preferOnline: !preferLocalStores,
       searchRadius: preferLocalStores ? 25 : undefined,
+      isTravel,
+      isProduct,
     };
   }
 
@@ -370,9 +395,14 @@ Now parse the user's query and return ONLY the JSON object, no other text.`;
     tokens: number,
     model: string
   ): Promise<void> {
-    // Groq pricing is free tier, but log for tracking
+    // Anthropic pricing: approximate cost calculation
+    // Input: $3/million tokens, Output: $15/million tokens (for claude-sonnet-4)
+    const inputTokens = tokens * 0.6; // Estimate 60% input
+    const outputTokens = tokens * 0.4; // Estimate 40% output
+    const cost = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15;
+    
     console.log(
-      `AI Usage - Operation: ${operation}, Model: ${model}, Tokens: ${tokens}, Cost: FREE (Groq)`
+      `AI Usage - Operation: ${operation}, Model: ${model}, Tokens: ${tokens}, Cost: $${cost.toFixed(6)} (Anthropic)`
     );
   }
 }

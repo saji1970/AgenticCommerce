@@ -19,7 +19,7 @@ export class SearchService {
     }
   }
 
-  async search(query: string, options?: SearchOptions): Promise<SearchResult[]> {
+  async search(query: string, options?: SearchOptions & { useShopping?: boolean }): Promise<SearchResult[]> {
     this.checkRateLimit();
 
     if (!this.apiKey || !this.searchEngineId) {
@@ -33,18 +33,26 @@ export class SearchService {
     const maxResults = options?.maxResults || 10;
     const language = options?.language || 'en';
     const country = options?.country || 'us';
+    const useShopping = options?.useShopping ?? false; // Use Google Shopping for products
 
     try {
+      const params: any = {
+        key: this.apiKey,
+        cx: this.searchEngineId,
+        q: query,
+        num: Math.min(maxResults, 10), // Google API max is 10 per request
+        lr: `lang_${language}`,
+        gl: country,
+        safe: options?.safeSearch ? 'active' : 'off',
+      };
+
+      // Add Google Shopping parameter for product searches
+      if (useShopping) {
+        params.tbm = 'shop'; // Google Shopping search
+      }
+
       const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
-        params: {
-          key: this.apiKey,
-          cx: this.searchEngineId,
-          q: query,
-          num: Math.min(maxResults, 10), // Google API max is 10 per request
-          lr: `lang_${language}`,
-          gl: country,
-          safe: options?.safeSearch ? 'active' : 'off',
-        },
+        params,
         timeout: 10000,
       });
 
@@ -59,6 +67,11 @@ export class SearchService {
         url: item.link,
         snippet: item.snippet || '',
         displayUrl: item.displayLink || new URL(item.link).hostname,
+        // Google Shopping specific fields
+        price: item.pagemap?.offer?.[0]?.price || item.pagemap?.product?.[0]?.offers?.price,
+        currency: item.pagemap?.offer?.[0]?.pricecurrency || item.pagemap?.product?.[0]?.offers?.pricecurrency,
+        availability: item.pagemap?.offer?.[0]?.availability,
+        image: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.imageobject?.[0]?.url,
       }));
     } catch (error: any) {
       if (axios.isAxiosError(error)) {

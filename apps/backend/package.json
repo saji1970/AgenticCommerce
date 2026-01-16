@@ -13,11 +13,17 @@
     "create:demo-user": "tsx src/scripts/create-demo-user.ts",
     "list:users": "tsx src/scripts/list-users.ts",
     "generate:sample-data": "tsx src/scripts/generate-sample-data.ts",
-    "create:admin-user": "tsx src/scripts/create-admin-user.ts"
+    "create:admin-user": "tsx src/scripts/create-admin-user.ts",
+    "seed:mcp-servers": "tsx src/scripts/seed-mcp-servers.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:search": "tsx src/scripts/test-product-search.ts"
   },
   "dependencies": {
     "@agentic-commerce/shared-types": "workspace:*",
     "@agentic-commerce/validation": "workspace:*",
+    "@anthropic-ai/sdk": "^0.71.2",
     "@google/generative-ai": "^0.21.0",
     "@modelcontextprotocol/sdk": "^1.25.1",
     "axios": "^1.13.2",
@@ -38,10 +44,13 @@
     "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.10.6",
     "@types/pg": "^8.10.9",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
