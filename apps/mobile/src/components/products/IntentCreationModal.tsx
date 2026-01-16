@@ -93,7 +93,9 @@ export const IntentCreationModal: React.FC<IntentCreationModalProps> = ({
     <View style={styles.formContainer}>
       <Text style={styles.label}>Current Price</Text>
       <Text style={styles.currentPrice}>
-        {product.currency} {product.price.toFixed(2)}
+        {product.price != null
+          ? `${product.currency || 'USD'} ${product.price.toFixed(2)}`
+          : 'Price not available'}
       </Text>
 
       <Text style={styles.label}>Target Price *</Text>
@@ -114,7 +116,7 @@ export const IntentCreationModal: React.FC<IntentCreationModalProps> = ({
         <Text style={styles.errorText}>{errors.targetPrice}</Text>
       )}
 
-      {conditions.targetPrice && conditions.targetPrice < product.price && (
+      {conditions.targetPrice && product.price != null && conditions.targetPrice < product.price && (
         <Text style={styles.helperText}>
           💡 {((1 - conditions.targetPrice / product.price) * 100).toFixed(1)}% price drop
         </Text>
@@ -223,7 +225,9 @@ export const IntentCreationModal: React.FC<IntentCreationModalProps> = ({
             <View style={styles.productSummary}>
               <Text style={styles.productName}>{product.name}</Text>
               <Text style={styles.productPrice}>
-                {product.currency} {product.price.toFixed(2)}
+                {product.price != null
+                  ? `${product.currency || 'USD'} ${product.price.toFixed(2)}`
+                  : 'Price not available'}
               </Text>
             </View>
 
@@ -439,10 +443,10 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#dee2e6',
+    justifyContent: 'space-between',
   },
   button: {
     flex: 1,

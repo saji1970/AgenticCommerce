@@ -15,15 +15,21 @@ export function generateIntentReasoning(
   conditions: IntentConditions
 ): string {
   const productName = product.name;
-  const currentPrice = `$${product.price.toFixed(2)}`;
+  const currentPrice = product.price != null 
+    ? `$${product.price.toFixed(2)}`
+    : 'price not available';
 
   switch (type) {
     case IntentType.PRICE_DROP:
       if (conditions.targetPrice) {
         const targetPrice = `$${conditions.targetPrice.toFixed(2)}`;
-        const dropAmount = product.price - conditions.targetPrice;
-        const dropPercentage = ((dropAmount / product.price) * 100).toFixed(1);
-        return `Monitor price for "${productName}" and notify when it drops to ${targetPrice} or below (currently ${currentPrice}, ${dropPercentage}% drop required)`;
+        if (product.price != null) {
+          const dropAmount = product.price - conditions.targetPrice;
+          const dropPercentage = ((dropAmount / product.price) * 100).toFixed(1);
+          return `Monitor price for "${productName}" and notify when it drops to ${targetPrice} or below (currently ${currentPrice}, ${dropPercentage}% drop required)`;
+        } else {
+          return `Monitor price for "${productName}" and notify when it drops to ${targetPrice} or below`;
+        }
       }
       return `Monitor price for "${productName}" and notify when a price drop occurs (currently ${currentPrice})`;
 
@@ -51,7 +57,7 @@ export function generateIntentReasoning(
       if (conditions.customReasoning && conditions.customReasoning.trim()) {
         return conditions.customReasoning;
       }
-      return `Interested in purchasing "${productName}" when conditions are favorable (current price: ${currentPrice})`;
+      return `Interested in purchasing "${productName}" when conditions are favorable${product.price != null ? ` (current price: ${currentPrice})` : ''}`;
 
     default:
       return `Expressed interest in "${productName}"`;
@@ -105,10 +111,13 @@ export function validateIntentConditions(
     case IntentType.PRICE_DROP:
       if (!conditions.targetPrice) {
         errors.targetPrice = 'Target price is required';
-      } else if (conditions.targetPrice >= product.price) {
+      } else if (product.price != null && conditions.targetPrice >= product.price) {
         errors.targetPrice = 'Target price must be lower than current price';
       } else if (conditions.targetPrice <= 0) {
         errors.targetPrice = 'Target price must be greater than zero';
+      } else if (product.price == null) {
+        // Allow target price even if current price is not available
+        // Just validate it's positive
       }
       break;
 

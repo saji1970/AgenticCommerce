@@ -28,10 +28,14 @@ export function validateAgainstCartMandate(
   const constraints = mandate.constraints as CartMandateConstraints;
 
   // Check max item value
-  if (constraints.maxItemValue && product.price > constraints.maxItemValue) {
+  if (constraints.maxItemValue && product.price != null && product.price > constraints.maxItemValue) {
     errors.push(
       `Product price ($${product.price.toFixed(2)}) exceeds maximum allowed value ($${constraints.maxItemValue.toFixed(2)})`
     );
+  } else if (constraints.maxItemValue && product.price == null) {
+    // If product has no price, we can't validate against max value
+    // Allow it but maybe warn the user
+    // For now, we'll allow it
   }
 
   // Check allowed categories

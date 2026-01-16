@@ -61,7 +61,9 @@ export const BuyConfirmationModal: React.FC<BuyConfirmationModalProps> = ({
                   {product.name}
                 </Text>
                 <Text style={styles.productPrice}>
-                  ${product.price.toFixed(2)} {product.currency}
+                  {product.price != null 
+                    ? `$${product.price.toFixed(2)} ${product.currency || 'USD'}`
+                    : 'Price not available'}
                 </Text>
               </View>
             </View>
@@ -215,8 +217,8 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
     marginTop: 20,
+    justifyContent: 'space-between',
   },
   button: {
     flex: 1,
