@@ -128,10 +128,26 @@ export class ProductService {
           // Parse price from Google Shopping result
           let price: number | undefined;
           if (result.price) {
-            const priceStr = typeof result.price === 'string' 
-              ? result.price.replace(/[^0-9.]/g, '') 
+            // Better price parsing - handle various formats like "$1,299.99", "1299.99", "$1,299", etc.
+            let priceStr = typeof result.price === 'string' 
+              ? result.price 
               : String(result.price);
-            price = parseFloat(priceStr) || undefined;
+            
+            // Remove currency symbols, commas, and whitespace
+            priceStr = priceStr.replace(/[$€£¥,\s]/g, '');
+            
+            // Extract number (handle cases like "1299.99 USD" or "From $1299")
+            const priceMatch = priceStr.match(/(\d+\.?\d*)/);
+            if (priceMatch) {
+              price = parseFloat(priceMatch[1]) || undefined;
+            } else {
+              price = parseFloat(priceStr) || undefined;
+            }
+            
+            // Log if price parsing seems off
+            if (price && (price < 1 || price > 1000000)) {
+              console.warn(`⚠️  Suspicious price parsed: "${result.price}" -> ${price} for product: ${result.title}`);
+            }
           }
 
           return {
@@ -213,17 +229,45 @@ export class ProductService {
       // Step 6: Apply filters and sorting
       let filteredProducts = uniqueProducts;
 
+      console.log(`🔍 Before filtering: ${filteredProducts.length} products`);
+      if (request.filters?.priceRange) {
+        console.log(`💰 Price filter: min=${request.filters.priceRange.min}, max=${request.filters.priceRange.max}`);
+        // Log prices before filtering
+        const pricesBefore = filteredProducts.map(p => ({ name: p.name, price: p.price }));
+        console.log(`💰 Product prices before filter:`, pricesBefore.slice(0, 5));
+      }
+
       // Apply price filters if provided
       if (request.filters?.priceRange) {
+        const beforeCount = filteredProducts.length;
         if (request.filters.priceRange.min !== undefined) {
           filteredProducts = filteredProducts.filter(p => 
             p.price != null && p.price >= request.filters!.priceRange!.min!
           );
+          console.log(`💰 After min price filter (>=${request.filters.priceRange.min}): ${filteredProducts.length} products (removed ${beforeCount - filteredProducts.length})`);
         }
         if (request.filters.priceRange.max !== undefined) {
-          filteredProducts = filteredProducts.filter(p => 
-            p.price != null && p.price <= request.filters!.priceRange!.max!
-          );
+          const beforeMaxCount = filteredProducts.length;
+          filteredProducts = filteredProducts.filter(p => {
+            // If product has no price, include it (user can see it and decide)
+            // Only filter out if price is explicitly above max
+            if (p.price == null) {
+              return true; // Include products without prices
+            }
+            return p.price <= request.filters!.priceRange!.max!;
+          });
+          console.log(`💰 After max price filter (<=${request.filters.priceRange.max}): ${filteredProducts.length} products (removed ${beforeMaxCount - filteredProducts.length})`);
+          
+          // If all products were filtered out due to price, show top products anyway with a note
+          if (filteredProducts.length === 0 && beforeMaxCount > 0) {
+            console.log(`⚠️  All products exceed max price (${request.filters.priceRange.max}). Showing top 5 products anyway.`);
+            // Sort by price and take the cheapest ones
+            const sortedByPrice = uniqueProducts
+              .filter(p => p.price != null)
+              .sort((a, b) => (a.price || Infinity) - (b.price || Infinity))
+              .slice(0, 5);
+            filteredProducts = sortedByPrice;
+          }
         }
       }
 
@@ -253,6 +297,13 @@ export class ProductService {
 
       // Step 7: Save products to database
       console.log(`💾 Saving ${filteredProducts.length} products to database...`);
+      
+      if (filteredProducts.length === 0 && uniqueProducts.length > 0) {
+        console.warn(`⚠️  All ${uniqueProducts.length} products were filtered out!`);
+        console.warn(`   Price range filter:`, request.filters?.priceRange);
+        console.warn(`   Sample product prices:`, uniqueProducts.slice(0, 5).map(p => ({ name: p.name, price: p.price })));
+      }
+      
       const savedProducts = await this.productRepository.bulkCreate(filteredProducts);
 
       // Step 7: Generate filters using Claude
@@ -616,16 +667,42 @@ export class ProductService {
 
     // If still no matching query found, try to find products by name/keywords from all demo users
     if (!matchingQuery) {
+      console.log(`🔍 No matching search query found, trying keyword search for: "${normalizedQuery}"`);
       const { query } = await import('../config/database');
       
-      // Extract keywords from search query
-      const keywords = normalizedQuery.split(/\s+/).filter(word => word.length > 2);
+      // Extract keywords from search query - be more lenient
+      // Remove common stop words and extract meaningful keywords
+      const stopWords = ['find', 'search', 'show', 'me', 'buy', 'get', 'where', 'can', 'i', 'a', 'an', 'the', 'for', 'with', 'under', 'over', 'above', 'below', 'near', 'in', 'on', 'at', 'to', 'from', 'dollars', 'dollar', 'usd'];
+      let keywords = normalizedQuery
+        .split(/\s+/)
+        .filter(word => {
+          const cleaned = word.replace(/[^a-z0-9]/g, '');
+          return cleaned.length > 2 && !stopWords.includes(cleaned.toLowerCase());
+        })
+        .map(word => word.replace(/[^a-z0-9]/g, ''))
+        .filter(word => word.length > 2);
+      
+      // If no keywords after filtering, use the whole query (minus stop words)
+      if (keywords.length === 0) {
+        const allWords = normalizedQuery.split(/\s+/).filter(w => {
+          const cleaned = w.replace(/[^a-z0-9]/g, '');
+          return cleaned.length > 2 && !stopWords.includes(cleaned.toLowerCase());
+        });
+        keywords.push(...allWords.map(w => w.replace(/[^a-z0-9]/g, '')));
+      }
+      
+      // If still no keywords, use the normalized query itself (for single word searches like "chair")
+      if (keywords.length === 0 && normalizedQuery.length > 2) {
+        const cleaned = normalizedQuery.replace(/[^a-z0-9]/g, '');
+        if (cleaned.length > 2 && !stopWords.includes(cleaned)) {
+          keywords = [cleaned];
+        }
+      }
+      
+      console.log(`🔑 Extracted keywords from "${normalizedQuery}":`, keywords);
       
       // Try to find products by name from any demo user
       if (keywords.length > 0) {
-        const keywordPattern = keywords.map((_, i) => `$${i + 1}`).join('|');
-        const keywordValues = keywords.map(k => `%${k}%`);
-        
         // Find all demo users including the main demo user
         const mainDemoUserId = 'cfd469c6-266e-4134-a5bc-b485dd583e1c';
         const demoUserEmails = ['alice@example.com', 'bob@example.com', 'carol@example.com'];
@@ -637,26 +714,28 @@ export class ProductService {
         const demoUserIds = demoUsersResult.rows.map(row => row.id);
         
         // Build SQL query with proper parameterization
+        // Use a single condition that matches ANY keyword (OR logic)
         const keywordConditions: string[] = [];
         const queryParams: any[] = [demoUserIds];
         let paramIndex = 2;
         
-        // Add name conditions
-        for (const keyword of keywordValues) {
-          keywordConditions.push(`p.name ILIKE $${paramIndex++}`);
-          queryParams.push(keyword);
+        // Create conditions for each keyword - match if ANY keyword matches
+        for (const keyword of keywords) {
+          keywordConditions.push(`(p.name ILIKE $${paramIndex} OR p.description ILIKE $${paramIndex})`);
+          queryParams.push(`%${keyword}%`);
+          paramIndex++;
         }
         
-        // Add description conditions
-        for (const keyword of keywordValues) {
-          keywordConditions.push(`p.description ILIKE $${paramIndex++}`);
-          queryParams.push(keyword);
-        }
-        
+        const limitParam = paramIndex;
         queryParams.push(10); // LIMIT parameter
+        
+        console.log(`🔍 Searching products with keywords:`, keywords);
+        console.log(`🔍 SQL conditions:`, keywordConditions);
+        console.log(`🔍 Demo user IDs:`, demoUserIds);
         
         // Search for products with matching keywords
         // Use LEFT JOIN to include products even without search_query_id
+        // Match if ANY keyword is found in name or description
         const productsResult = await query(
           `SELECT DISTINCT p.*, COALESCE(sq.id, NULL) as search_query_id
            FROM products p
@@ -664,9 +743,11 @@ export class ProductService {
            WHERE p.user_id = ANY($1)
              AND (${keywordConditions.join(' OR ')})
            ORDER BY p.created_at DESC
-           LIMIT $${paramIndex}`,
+           LIMIT $${limitParam}`,
           queryParams
         );
+        
+        console.log(`🔍 Keyword search found ${productsResult.rows.length} products`);
         
         if (productsResult.rows.length > 0) {
           // Found products by keyword search - create a search query and link these products
@@ -754,44 +835,69 @@ export class ProductService {
 
     // Get products for the matching search query (even if from a different demo user)
     products = await this.productRepository.findBySearchQueryId(matchingQuery.id);
+    
+    // If matching query has no products, we already tried keyword search above, so return empty
+    if (products.length === 0) {
+      console.log(`⚠️  Matching query found but has 0 products`);
+      // Create search query record and return empty results
+      const searchQueryRecord = await this.searchQueryRepository.create({
+        userId,
+        queryText: searchQuery,
+        metadata: { ...filters, matchedDemoQuery: matchingQuery.id, sourceUserId: matchingQuery.userId },
+      });
+      
+      await this.searchQueryRepository.complete(searchQueryRecord.id, 0);
+      
+      return {
+        searchQueryId: searchQueryRecord.id,
+        products: [],
+        filters: [],
+        metadata: {
+          totalResults: 0,
+          processingTimeMs: Date.now() - startTime,
+          aiTokensUsed: 0,
+          sourcesUsed: ['demo_data'],
+        },
+      };
+    } else {
+      // Apply price filters if provided
+      if (filters?.priceRange) {
+        if (filters.priceRange.min !== undefined) {
+          const minPrice = filters.priceRange.min;
+          products = products.filter(p => p.price != null && p.price >= minPrice);
+        }
+        if (filters.priceRange.max !== undefined) {
+          const maxPrice = filters.priceRange.max;
+          products = products.filter(p => p.price != null && p.price <= maxPrice);
+        }
+      }
 
-    // Apply price filters if provided
-    if (filters?.priceRange) {
-      if (filters.priceRange.min !== undefined) {
-        const minPrice = filters.priceRange.min;
-        products = products.filter(p => p.price != null && p.price >= minPrice);
-      }
-      if (filters.priceRange.max !== undefined) {
-        const maxPrice = filters.priceRange.max;
-        products = products.filter(p => p.price != null && p.price <= maxPrice);
-      }
+      // Limit results
+      const maxResults = filters?.maxResults || 10;
+      products = products.slice(0, maxResults);
+
+      // Create search query record for this user
+      const searchQueryRecord = await this.searchQueryRepository.create({
+        userId,
+        queryText: searchQuery,
+        metadata: { ...filters, matchedDemoQuery: matchingQuery.id, sourceUserId: matchingQuery.userId },
+      });
+
+      await this.searchQueryRepository.complete(searchQueryRecord.id, products.length);
+
+      console.log(`✅ Found ${products.length} demo products for query: "${searchQuery}"`);
+
+      return {
+        searchQueryId: searchQueryRecord.id,
+        products,
+        filters: [],
+        metadata: {
+          totalResults: products.length,
+          processingTimeMs: Date.now() - startTime,
+          aiTokensUsed: 0,
+          sourcesUsed: ['demo_data'],
+        },
+      };
     }
-
-    // Limit results
-    const maxResults = filters?.maxResults || 10;
-    products = products.slice(0, maxResults);
-
-    // Create search query record for this user
-    const searchQueryRecord = await this.searchQueryRepository.create({
-      userId,
-      queryText: searchQuery,
-      metadata: { ...filters, matchedDemoQuery: matchingQuery.id, sourceUserId: matchingQuery.userId },
-    });
-
-    await this.searchQueryRepository.complete(searchQueryRecord.id, products.length);
-
-    console.log(`✅ Found ${products.length} demo products for query: "${searchQuery}"`);
-
-    return {
-      searchQueryId: searchQueryRecord.id,
-      products,
-      filters: [],
-      metadata: {
-        totalResults: products.length,
-        processingTimeMs: Date.now() - startTime,
-        aiTokensUsed: 0,
-        sourcesUsed: ['demo_data'],
-      },
-    };
   }
 }
