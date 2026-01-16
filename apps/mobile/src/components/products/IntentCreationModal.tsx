@@ -446,13 +446,13 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#dee2e6',
-    justifyContent: 'space-between',
   },
   button: {
     flex: 1,
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+    marginHorizontal: 6,
   },
   cancelButton: {
     backgroundColor: '#f8f9fa',

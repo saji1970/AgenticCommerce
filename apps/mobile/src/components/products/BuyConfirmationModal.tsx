@@ -218,7 +218,6 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     marginTop: 20,
-    justifyContent: 'space-between',
   },
   button: {
     flex: 1,
@@ -226,6 +225,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginHorizontal: 6,
   },
   cancelButton: {
     backgroundColor: '#f0f0f0',
