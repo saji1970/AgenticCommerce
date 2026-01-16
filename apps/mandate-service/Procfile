@@ -1,0 +1,1 @@
+web: cd apps/mandate-service && npm run start
