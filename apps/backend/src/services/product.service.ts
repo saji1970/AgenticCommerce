@@ -447,6 +447,7 @@ export class ProductService {
     filters?: AISearchRequest['filters']
   ): Promise<AISearchResponse> {
     const startTime = Date.now();
+    let products: Product[] = [];
 
     // Normalize search query for matching
     const normalizedQuery = searchQuery.toLowerCase().trim();
@@ -512,8 +513,120 @@ export class ProductService {
       }
     }
 
-    // If still no matching query found, create a new search query and return empty results
+    // If still no matching query found, try to find products by name/keywords from all demo users
     if (!matchingQuery) {
+      const { query } = await import('../config/database');
+      
+      // Extract keywords from search query
+      const keywords = normalizedQuery.split(/\s+/).filter(word => word.length > 2);
+      
+      // Try to find products by name from any demo user
+      if (keywords.length > 0) {
+        const keywordPattern = keywords.map((_, i) => `$${i + 1}`).join('|');
+        const keywordValues = keywords.map(k => `%${k}%`);
+        
+        // Find all demo users including the main demo user
+        const mainDemoUserId = 'cfd469c6-266e-4134-a5bc-b485dd583e1c';
+        const demoUserEmails = ['alice@example.com', 'bob@example.com', 'carol@example.com'];
+        const demoUsersResult = await query(
+          `SELECT id FROM users WHERE email = ANY($1) OR id = $2`,
+          [demoUserEmails, mainDemoUserId]
+        );
+        
+        const demoUserIds = demoUsersResult.rows.map(row => row.id);
+        
+        // Build SQL query with proper parameterization
+        const keywordConditions: string[] = [];
+        const queryParams: any[] = [demoUserIds];
+        let paramIndex = 2;
+        
+        // Add name conditions
+        for (const keyword of keywordValues) {
+          keywordConditions.push(`p.name ILIKE $${paramIndex++}`);
+          queryParams.push(keyword);
+        }
+        
+        // Add description conditions
+        for (const keyword of keywordValues) {
+          keywordConditions.push(`p.description ILIKE $${paramIndex++}`);
+          queryParams.push(keyword);
+        }
+        
+        queryParams.push(10); // LIMIT parameter
+        
+        // Search for products with matching keywords
+        const productsResult = await query(
+          `SELECT DISTINCT p.*, sq.id as search_query_id
+           FROM products p
+           JOIN search_queries sq ON p.search_query_id = sq.id
+           WHERE sq.user_id = ANY($1)
+             AND (${keywordConditions.join(' OR ')})
+           ORDER BY p.created_at DESC
+           LIMIT $${paramIndex}`,
+          queryParams
+        );
+        
+        if (productsResult.rows.length > 0) {
+          // Found products by keyword search - create a search query and link these products
+          const searchQueryRecord = await this.searchQueryRepository.create({
+            userId,
+            queryText: searchQuery,
+            metadata: { ...filters, matchedByKeywords: true },
+          });
+          
+          // Map products to the expected format
+          products = productsResult.rows.map(row => ({
+            id: row.id,
+            userId: row.user_id,
+            searchQueryId: row.search_query_id || searchQueryRecord.id,
+            name: row.name,
+            description: row.description || null,
+            price: row.price ? parseFloat(row.price) : undefined,
+            currency: row.currency || 'USD',
+            imageUrl: row.image_url || null,
+            productUrl: row.product_url || null,
+            source: row.source || null,
+            rawData: row.raw_data ? (typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data) : null,
+            aiExtracted: row.ai_extracted !== undefined ? row.ai_extracted : true,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+          } as Product));
+          
+          await this.searchQueryRepository.complete(searchQueryRecord.id, products.length);
+          
+          console.log(`✅ Found ${products.length} demo products by keyword search for: "${searchQuery}"`);
+          
+          // Apply price filters if provided
+          if (filters?.priceRange) {
+            if (filters.priceRange.min !== undefined) {
+              const minPrice = filters.priceRange.min;
+              products = products.filter(p => p.price != null && p.price >= minPrice);
+            }
+            if (filters.priceRange.max !== undefined) {
+              const maxPrice = filters.priceRange.max;
+              products = products.filter(p => p.price != null && p.price <= maxPrice);
+            }
+          }
+          
+          // Limit results
+          const maxResults = filters?.maxResults || 10;
+          products = products.slice(0, maxResults);
+          
+          return {
+            searchQueryId: searchQueryRecord.id,
+            products,
+            filters: [],
+            metadata: {
+              totalResults: products.length,
+              processingTimeMs: Date.now() - startTime,
+              aiTokensUsed: 0,
+              sourcesUsed: ['demo_data'],
+            },
+          };
+        }
+      }
+      
+      // If still no products found, create a new search query and return empty results
       const searchQueryRecord = await this.searchQueryRepository.create({
         userId,
         queryText: searchQuery,
@@ -538,7 +651,7 @@ export class ProductService {
     }
 
     // Get products for the matching search query (even if from a different demo user)
-    let products = await this.productRepository.findBySearchQueryId(matchingQuery.id);
+    products = await this.productRepository.findBySearchQueryId(matchingQuery.id);
 
     // Apply price filters if provided
     if (filters?.priceRange) {
