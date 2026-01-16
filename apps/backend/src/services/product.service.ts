@@ -134,11 +134,32 @@ export class ProductService {
         extractedProducts = shoppableResults.map((result) => {
           // Parse price from Google Shopping result
           let price: number | undefined;
-          if (result.price) {
+          // Try multiple sources for price from Google Shopping
+          let priceValue = result.price;
+          
+          // Google Shopping might return price in different formats
+          // Check rawData (pagemap) if direct price is not available
+          if (!priceValue && result.rawData) {
+            const raw = typeof result.rawData === 'string' ? JSON.parse(result.rawData) : result.rawData;
+            priceValue = raw?.offer?.[0]?.price || 
+                        raw?.product?.[0]?.offers?.price ||
+                        raw?.product?.[0]?.price ||
+                        raw?.price;
+          }
+          
+          // Also try extracting from snippet if still no price
+          if (!priceValue && result.snippet) {
+            const snippetPriceMatch = result.snippet.match(/\$[\d,]+\.?\d*/);
+            if (snippetPriceMatch) {
+              priceValue = snippetPriceMatch[0];
+            }
+          }
+          
+          if (priceValue) {
             // Better price parsing - handle various formats like "$1,299.99", "1299.99", "$1,299", etc.
-            let priceStr = typeof result.price === 'string' 
-              ? result.price 
-              : String(result.price);
+            let priceStr = typeof priceValue === 'string' 
+              ? priceValue 
+              : String(priceValue);
             
             // Remove currency symbols, commas, and whitespace
             priceStr = priceStr.replace(/[$€£¥,\s]/g, '');
@@ -153,8 +174,12 @@ export class ProductService {
             
             // Log if price parsing seems off
             if (price && (price < 1 || price > 1000000)) {
-              console.warn(`⚠️  Suspicious price parsed: "${result.price}" -> ${price} for product: ${result.title}`);
+              console.warn(`⚠️  Suspicious price parsed: "${priceValue}" -> ${price} for product: ${result.title}`);
             }
+          } else {
+            // Log when price is missing
+            console.log(`⚠️  No price found for product: ${result.title.substring(0, 50)}...`);
+            console.log(`   Price sources checked: result.price=${result.price}, rawData=${!!result.rawData}`);
           }
 
           return {
@@ -170,6 +195,8 @@ export class ProductService {
               availability: result.availability,
               distance: result.distance,
               storeLocation: result.storeLocation,
+              originalPrice: result.price, // Store original price string for debugging
+              priceCurrency: result.currency,
             },
             aiExtracted: false, // From Google Shopping, not AI extracted
             searchQueryId: searchQuery.id,
@@ -247,13 +274,13 @@ export class ProductService {
       // Apply price filters if provided
       if (request.filters?.priceRange) {
         const beforeCount = filteredProducts.length;
-        if (request.filters.priceRange.min !== undefined) {
+        if (request.filters.priceRange.min !== undefined && request.filters.priceRange.min != null) {
           filteredProducts = filteredProducts.filter(p => 
             p.price != null && p.price >= request.filters!.priceRange!.min!
           );
           console.log(`💰 After min price filter (>=${request.filters.priceRange.min}): ${filteredProducts.length} products (removed ${beforeCount - filteredProducts.length})`);
         }
-        if (request.filters.priceRange.max !== undefined) {
+        if (request.filters.priceRange.max !== undefined && request.filters.priceRange.max != null) {
           const beforeMaxCount = filteredProducts.length;
           filteredProducts = filteredProducts.filter(p => {
             // If product has no price, include it (user can see it and decide)

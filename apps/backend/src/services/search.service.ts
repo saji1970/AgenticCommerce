@@ -62,17 +62,37 @@ export class SearchService {
         return [];
       }
 
-      return response.data.items.map((item: any) => ({
-        title: item.title,
-        url: item.link,
-        snippet: item.snippet || '',
-        displayUrl: item.displayLink || new URL(item.link).hostname,
-        // Google Shopping specific fields
-        price: item.pagemap?.offer?.[0]?.price || item.pagemap?.product?.[0]?.offers?.price,
-        currency: item.pagemap?.offer?.[0]?.pricecurrency || item.pagemap?.product?.[0]?.offers?.pricecurrency,
-        availability: item.pagemap?.offer?.[0]?.availability,
-        image: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.imageobject?.[0]?.url,
-      }));
+      return response.data.items.map((item: any) => {
+        // Extract price from multiple possible locations in Google Shopping response
+        let price = item.pagemap?.offer?.[0]?.price || 
+                   item.pagemap?.product?.[0]?.offers?.price ||
+                   item.pagemap?.product?.[0]?.price ||
+                   item.pagemap?.aggregaterating?.[0]?.price;
+        
+        // Also check if price is in the snippet
+        if (!price && item.snippet) {
+          const priceMatch = item.snippet.match(/\$[\d,]+\.?\d*/);
+          if (priceMatch) {
+            price = priceMatch[0];
+          }
+        }
+        
+        return {
+          title: item.title,
+          url: item.link,
+          snippet: item.snippet || '',
+          displayUrl: item.displayLink || new URL(item.link).hostname,
+          // Google Shopping specific fields
+          price: price,
+          currency: item.pagemap?.offer?.[0]?.pricecurrency || 
+                   item.pagemap?.product?.[0]?.offers?.pricecurrency ||
+                   'USD',
+          availability: item.pagemap?.offer?.[0]?.availability,
+          image: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.imageobject?.[0]?.url,
+          // Store full pagemap for debugging
+          rawData: item.pagemap,
+        };
+      });
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 429) {
