@@ -111,8 +111,15 @@ export class ProductService {
       console.log(`🔌 Fetching from MCP servers...`);
       let mcpProducts: CreateProductDTO[] = [];
       try {
-        mcpProducts = await this.mcpService.searchProducts(request.query);
-        console.log(`✅ Found ${mcpProducts.length} products from MCP servers`);
+        // Check if any MCP servers are active
+        const activeServers = await this.mcpService.listAvailableServers();
+        if (activeServers.length === 0) {
+          console.log(`⚠️  No active MCP servers configured. To enable MCP servers, run: pnpm seed:mcp-servers`);
+        } else {
+          console.log(`🔌 Querying ${activeServers.length} active MCP server(s): ${activeServers.map(s => s.name).join(', ')}`);
+          mcpProducts = await this.mcpService.searchProducts(request.query);
+          console.log(`✅ Found ${mcpProducts.length} products from MCP servers`);
+        }
       } catch (error) {
         console.error('MCP search failed:', error);
         // Continue without MCP results
