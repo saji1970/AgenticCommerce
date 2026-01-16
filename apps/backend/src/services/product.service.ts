@@ -555,11 +555,12 @@ export class ProductService {
         queryParams.push(10); // LIMIT parameter
         
         // Search for products with matching keywords
+        // Use LEFT JOIN to include products even without search_query_id
         const productsResult = await query(
-          `SELECT DISTINCT p.*, sq.id as search_query_id
+          `SELECT DISTINCT p.*, COALESCE(sq.id, NULL) as search_query_id
            FROM products p
-           JOIN search_queries sq ON p.search_query_id = sq.id
-           WHERE sq.user_id = ANY($1)
+           LEFT JOIN search_queries sq ON p.search_query_id = sq.id
+           WHERE p.user_id = ANY($1)
              AND (${keywordConditions.join(' OR ')})
            ORDER BY p.created_at DESC
            LIMIT $${paramIndex}`,
