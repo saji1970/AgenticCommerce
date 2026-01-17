@@ -15,4 +15,4 @@ cmds = [
 ]
 
 [start]
-cmd = "cd apps/mandate-service && node dist/server.js"
+cmd = "node dist/server.js"
