@@ -31,6 +31,7 @@ export interface CreateAIAgentAppRequest {
 export interface UpdateAIAgentAppRequest {
   name?: string;
   description?: string;
+  agent_id?: string;
   agent_name?: string;
   api_endpoint?: string;
   api_key?: string;
@@ -109,6 +110,10 @@ export class AIAgentAppRepository {
     if (data.description !== undefined) {
       updates.push(`description = $${paramIndex++}`);
       values.push(data.description);
+    }
+    if (data.agent_id !== undefined) {
+      updates.push(`agent_id = $${paramIndex++}`);
+      values.push(data.agent_id);
     }
     if (data.agent_name !== undefined) {
       updates.push(`agent_name = $${paramIndex++}`);

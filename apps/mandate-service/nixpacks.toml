@@ -5,13 +5,13 @@ nixPkgs = ["nodejs"]
 cmds = [
   "npm install -g pnpm corepack",
   "corepack enable",
-  "cd ../.. && pnpm install --frozen-lockfile"
+  "cd .. && pnpm install --frozen-lockfile"
 ]
 
 [phases.build]
 cmds = [
-  "cd ../.. && pnpm build:shared",
-  "cd apps/mandate-service && pnpm run build"
+  "cd .. && pnpm build:shared",
+  "pnpm run build"
 ]
 
 [start]
