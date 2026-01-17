@@ -11,8 +11,8 @@ cmds = [
 [phases.build]
 cmds = [
   "cd ../.. && pnpm build:shared",
-  "pnpm run build"
+  "cd apps/mandate-service && pnpm run build"
 ]
 
 [start]
-cmd = "node dist/server.js"
+cmd = "cd apps/mandate-service && node dist/server.js"
