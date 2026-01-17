@@ -6,7 +6,7 @@ import { config } from './config/env';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { getAdminHtml } from './utils/admin-ui';
-import { getAdminHtml } from './routes/admin.routes';
+import { getAdminHtml } from './utils/admin-ui';
 
 export const createApp = (): Application => {
   const app = express();
@@ -31,8 +31,10 @@ export const createApp = (): Application => {
   // Routes
   app.use('/api', routes);
 
-  // Admin UI route (serves HTML from route handler)
-  app.use('/', require('./routes/admin.routes').default);
+  // Admin UI - serve HTML at root
+  app.get('/', (req, res) => {
+    res.type('html').send(getAdminHtml());
+  });
 
   // Error handling
   app.use(errorHandler);
