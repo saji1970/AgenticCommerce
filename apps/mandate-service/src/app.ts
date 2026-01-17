@@ -2,10 +2,11 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import path from 'path';
 import { config } from './config/env';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
+import { getAdminHtml } from './utils/admin-ui';
+import { getAdminHtml } from './routes/admin.routes';
 
 export const createApp = (): Application => {
   const app = express();
