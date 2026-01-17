@@ -6,7 +6,6 @@ import { config } from './config/env';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { getAdminHtml } from './utils/admin-ui';
-import { getAdminHtml } from './utils/admin-ui';
 
 export const createApp = (): Application => {
   const app = express();
