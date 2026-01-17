@@ -27,13 +27,11 @@ export const createApp = (): Application => {
     res.json({ status: 'ok', service: 'mandate-service' });
   });
 
-  // Admin UI
-  app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
-  });
-
   // Routes
   app.use('/api', routes);
+
+  // Admin UI route (serves HTML from route handler)
+  app.use('/', require('./routes/admin.routes').default);
 
   // Error handling
   app.use(errorHandler);
