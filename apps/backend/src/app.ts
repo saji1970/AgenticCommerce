@@ -22,6 +22,25 @@ export const createApp = (): Application => {
   app.use(express.urlencoded({ extended: true }));
   app.use(morgan('dev'));
 
+  // Root endpoint for Railway health checks
+  app.get('/', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      service: 'AgenticCommerce Backend API',
+      version: '1.0.0',
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Health check endpoint (before routes)
+  app.get('/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      service: 'AgenticCommerce Backend API',
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Serve admin portal static files
   app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 

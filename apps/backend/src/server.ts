@@ -44,14 +44,28 @@ const startServer = async () => {
     console.log('🚀 AgenticCommerce Mobile Shopping API v1.0');
 
     // Railway requires binding to 0.0.0.0 and using PORT env var
-    const port = config.port;
+    const port = parseInt(process.env.PORT || '3000', 10);
     const host = process.env.HOST || '0.0.0.0';
     
+    console.log(`🔧 Starting server on ${host}:${port} (PORT env: ${process.env.PORT || 'not set'})`);
+    
     const server = app.listen(port, host, () => {
-      console.log(`🌐 Server running on ${host}:${port}`);
+      const address = server.address();
+      console.log(`🌐 Server listening on ${typeof address === 'string' ? address : `${address?.address}:${address?.port}`}`);
       console.log(`📦 Environment: ${config.env}`);
       console.log(`✨ API URL: ${config.apiUrl}`);
       console.log(`✨ Ready to accept requests`);
+      console.log(`✨ Health check: http://${host}:${port}/health`);
+    });
+
+    // Handle server errors
+    server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${port} is already in use`);
+      } else {
+        console.error('❌ Server error:', err);
+      }
+      process.exit(1);
     });
 
     // Handle graceful shutdown
