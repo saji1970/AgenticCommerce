@@ -1,5 +1,7 @@
 import { MandateRepository } from '../repositories/mandate.repository';
 import { AgentActionRepository } from '../repositories/agent-action.repository';
+import { AgentRepository } from '../repositories/agent.repository';
+import { AIService } from './ai.service';
 import {
   Mandate,
   MandateType,
@@ -13,17 +15,45 @@ import {
 export class MandateService {
   private mandateRepository: MandateRepository;
   private actionRepository: AgentActionRepository;
+  private agentRepository: AgentRepository;
+  private aiService: AIService;
 
   constructor() {
     this.mandateRepository = new MandateRepository();
     this.actionRepository = new AgentActionRepository();
+    this.agentRepository = new AgentRepository();
+    this.aiService = new AIService();
   }
 
   async createMandate(userId: string, request: CreateMandateRequest): Promise<Mandate> {
+    // Validate agent exists and is active
+    const agent = await this.agentRepository.getByAgentId(request.agentId);
+    if (!agent) {
+      throw new Error(`Agent with ID ${request.agentId} not found. Please configure the agent first.`);
+    }
+    if (agent.status !== 'active') {
+      throw new Error(`Agent ${request.agentId} is not active. Current status: ${agent.status}`);
+    }
+
+    // Validate agent has capability for this mandate type
+    const capability = request.type === MandateType.CART ? 'cart' :
+                      request.type === MandateType.INTENT ? 'intent' : 'payment';
+    if (!agent.capabilities.includes(capability)) {
+      throw new Error(`Agent ${request.agentId} does not have '${capability}' capability. Available capabilities: ${agent.capabilities.join(', ')}`);
+    }
+
     // Validate constraints based on type
     this.validateConstraints(request.type, request.constraints);
 
-    const mandate = await this.mandateRepository.create(userId, request);
+    // Use agent name from database if not provided
+    const agentName = request.agentName || agent.agentName;
+
+    const mandateRequest = {
+      ...request,
+      agentName,
+    };
+
+    const mandate = await this.mandateRepository.create(userId, mandateRequest);
 
     // Log the action
     await this.actionRepository.log(
@@ -33,7 +63,7 @@ export class MandateService {
       'create_mandate',
       request.type,
       mandate.id,
-      { constraints: request.constraints },
+      { constraints: request.constraints, agentName },
       true
     );
 
@@ -144,6 +174,12 @@ export class MandateService {
 
     if (!mandate) {
       throw new Error('Mandate not found');
+    }
+
+    // Validate agent exists and is active
+    const agent = await this.agentRepository.getByAgentId(agentId);
+    if (!agent || agent.status !== 'active') {
+      throw new Error(`Agent ${agentId} not found or not active`);
     }
 
     if (mandate.agentId !== agentId) {

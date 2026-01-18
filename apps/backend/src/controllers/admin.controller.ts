@@ -4,18 +4,21 @@ import { MandateRepository } from '../repositories/mandate.repository';
 import { AgentActionRepository } from '../repositories/agent-action.repository';
 import { PurchaseIntentRepository } from '../repositories/purchase-intent.repository';
 import { AP2TransactionRepository } from '../repositories/ap2-transaction.repository';
+import { AgentRepository } from '../repositories/agent.repository';
 
 export class AdminController {
   private mandateRepository: MandateRepository;
   private actionRepository: AgentActionRepository;
   private intentRepository: PurchaseIntentRepository;
   private transactionRepository: AP2TransactionRepository;
+  private agentRepository: AgentRepository;
 
   constructor() {
     this.mandateRepository = new MandateRepository();
     this.actionRepository = new AgentActionRepository();
     this.intentRepository = new PurchaseIntentRepository();
     this.transactionRepository = new AP2TransactionRepository();
+    this.agentRepository = new AgentRepository();
   }
 
   // Dashboard Statistics
@@ -497,6 +500,346 @@ export class AdminController {
       console.error('Error getting AP2 transactions:', error);
       res.status(500).json({
         error: error instanceof Error ? error.message : 'Failed to get transactions',
+      });
+    }
+  };
+
+  // All AI Agents (Admin View)
+  getAllAgents = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { status } = req.query;
+      
+      const agents = status === 'active'
+        ? await this.agentRepository.getActive()
+        : await this.agentRepository.getAll();
+
+      res.json({
+        agents,
+      });
+    } catch (error) {
+      console.error('Error getting all agents:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to get agents',
+      });
+    }
+  };
+
+  // Agent Monitoring - Statistics for a specific agent
+  getAgentMonitoring = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { agentId } = req.params;
+      const { days = '7' } = req.query;
+
+      const daysNum = parseInt(days as string);
+
+      // Get agent info
+      const agent = await this.agentRepository.getByAgentId(agentId);
+      if (!agent) {
+        res.status(404).json({ error: 'Agent not found' });
+        return;
+      }
+
+      // Get mandate count by status
+      const mandatesResult = await pool.query(
+        `SELECT status, COUNT(*) as count
+         FROM agent_mandates
+         WHERE agent_id = $1
+         GROUP BY status`,
+        [agentId]
+      );
+      const mandatesByStatus = mandatesResult.rows.reduce((acc, row) => {
+        acc[row.status] = parseInt(row.count);
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Get action statistics
+      const actionsResult = await pool.query(
+        `SELECT 
+           COUNT(*) as total_actions,
+           SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful_actions,
+           SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failed_actions,
+           COUNT(DISTINCT user_id) as unique_users,
+           COUNT(DISTINCT mandate_id) as active_mandates
+         FROM agent_actions
+         WHERE agent_id = $1
+           AND timestamp >= CURRENT_TIMESTAMP - INTERVAL '${daysNum} days'`,
+        [agentId]
+      );
+
+      // Get actions by type
+      const actionsByTypeResult = await pool.query(
+        `SELECT action, COUNT(*) as count
+         FROM agent_actions
+         WHERE agent_id = $1
+           AND timestamp >= CURRENT_TIMESTAMP - INTERVAL '${daysNum} days'
+         GROUP BY action
+         ORDER BY count DESC`,
+        [agentId]
+      );
+      const actionsByType = actionsByTypeResult.rows.map(row => ({
+        action: row.action,
+        count: parseInt(row.count),
+      }));
+
+      // Get daily activity
+      const dailyActivityResult = await pool.query(
+        `SELECT 
+           DATE(timestamp) as date,
+           COUNT(*) as action_count,
+           SUM(CASE WHEN success THEN 1 ELSE 0 END) as success_count,
+           SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failure_count
+         FROM agent_actions
+         WHERE agent_id = $1
+           AND timestamp >= CURRENT_TIMESTAMP - INTERVAL '${daysNum} days'
+         GROUP BY DATE(timestamp)
+         ORDER BY date`,
+        [agentId]
+      );
+
+      // Get intent statistics
+      const intentsResult = await pool.query(
+        `SELECT 
+           status,
+           COUNT(*) as count,
+           COALESCE(SUM(total), 0) as total_value
+         FROM purchase_intents
+         WHERE agent_id = $1
+           AND created_at >= CURRENT_TIMESTAMP - INTERVAL '${daysNum} days'
+         GROUP BY status`,
+        [agentId]
+      );
+      const intentsByStatus = intentsResult.rows.reduce((acc, row) => {
+        acc[row.status] = {
+          count: parseInt(row.count),
+          totalValue: parseFloat(row.total_value),
+        };
+        return acc;
+      }, {} as Record<string, { count: number; totalValue: number }>);
+
+      res.json({
+        agent: {
+          id: agent.id,
+          agentId: agent.agentId,
+          agentName: agent.agentName,
+          name: agent.name,
+          status: agent.status,
+          capabilities: agent.capabilities,
+        },
+        mandates: {
+          byStatus: mandatesByStatus,
+          total: Object.values(mandatesByStatus).reduce((a: number, b: number) => a + b, 0),
+        },
+        actions: {
+          total: parseInt(actionsResult.rows[0].total_actions || 0),
+          successful: parseInt(actionsResult.rows[0].successful_actions || 0),
+          failed: parseInt(actionsResult.rows[0].failed_actions || 0),
+          byType: actionsByType,
+          uniqueUsers: parseInt(actionsResult.rows[0].unique_users || 0),
+          activeMandates: parseInt(actionsResult.rows[0].active_mandates || 0),
+          dailyActivity: dailyActivityResult.rows.map(row => ({
+            date: row.date,
+            actionCount: parseInt(row.action_count),
+            successCount: parseInt(row.success_count),
+            failureCount: parseInt(row.failure_count),
+          })),
+        },
+        intents: {
+          byStatus: intentsByStatus,
+          total: Object.values(intentsByStatus).reduce((acc, val) => acc + val.count, 0),
+          totalValue: Object.values(intentsByStatus).reduce((acc, val) => acc + val.totalValue, 0),
+        },
+        period: {
+          days: daysNum,
+        },
+      });
+    } catch (error) {
+      console.error('Error getting agent monitoring:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to get agent monitoring',
+      });
+    }
+  };
+
+  // Agent Auditability - Action logs for a specific agent
+  getAgentAuditability = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { agentId } = req.params;
+      const { limit = '100', offset = '0', action, success, userId } = req.query;
+
+      let query = `
+        SELECT aal.*, u.email as user_email, u.first_name, u.last_name, m.type as mandate_type
+        FROM agent_actions aal
+        JOIN users u ON aal.user_id = u.id
+        LEFT JOIN agent_mandates m ON aal.mandate_id = m.id
+        WHERE aal.agent_id = $1
+      `;
+      const params: any[] = [agentId];
+      let paramCount = 1;
+
+      if (action) {
+        paramCount++;
+        query += ` AND aal.action = $${paramCount}`;
+        params.push(action);
+      }
+
+      if (success !== undefined) {
+        paramCount++;
+        query += ` AND aal.success = $${paramCount}`;
+        params.push(success === 'true');
+      }
+
+      if (userId) {
+        paramCount++;
+        query += ` AND aal.user_id = $${paramCount}`;
+        params.push(userId);
+      }
+
+      query += ` ORDER BY aal.timestamp DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      params.push(parseInt(limit as string), parseInt(offset as string));
+
+      const result = await pool.query(query, params);
+
+      // Get total count for pagination
+      let countQuery = `SELECT COUNT(*) FROM agent_actions WHERE agent_id = $1`;
+      const countParams: any[] = [agentId];
+      let countParamCount = 1;
+
+      if (action) {
+        countParamCount++;
+        countQuery += ` AND action = $${countParamCount}`;
+        countParams.push(action);
+      }
+      if (success !== undefined) {
+        countParamCount++;
+        countQuery += ` AND success = $${countParamCount}`;
+        countParams.push(success === 'true');
+      }
+      if (userId) {
+        countParamCount++;
+        countQuery += ` AND user_id = $${countParamCount}`;
+        countParams.push(userId);
+      }
+
+      const countResult = await pool.query(countQuery, countParams);
+      const total = parseInt(countResult.rows[0].count);
+
+      res.json({
+        actions: result.rows.map(row => ({
+          id: row.id,
+          userId: row.user_id,
+          userEmail: row.user_email,
+          userName: `${row.first_name} ${row.last_name}`,
+          agentId: row.agent_id,
+          mandateId: row.mandate_id,
+          mandateType: row.mandate_type,
+          action: row.action,
+          resourceType: row.resource_type,
+          resourceId: row.resource_id,
+          metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata,
+          success: row.success,
+          errorMessage: row.error_message,
+          timestamp: row.timestamp,
+        })),
+        pagination: {
+          total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+        },
+      });
+    } catch (error) {
+      console.error('Error getting agent auditability:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to get agent auditability',
+      });
+    }
+  };
+
+  // Agent Transaction History
+  getAgentTransactionHistory = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { agentId } = req.params;
+      const { limit = '50', offset = '0', status } = req.query;
+
+      // Get purchase intents (transactions) for this agent
+      let query = `
+        SELECT pi.*, u.email as user_email, u.first_name, u.last_name, m.type as mandate_type
+        FROM purchase_intents pi
+        JOIN users u ON pi.user_id = u.id
+        JOIN agent_mandates m ON pi.mandate_id = m.id
+        WHERE pi.agent_id = $1
+      `;
+      const params: any[] = [agentId];
+      let paramCount = 1;
+
+      if (status) {
+        paramCount++;
+        query += ` AND pi.status = $${paramCount}`;
+        params.push(status);
+      }
+
+      query += ` ORDER BY pi.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      params.push(parseInt(limit as string), parseInt(offset as string));
+
+      const result = await pool.query(query, params);
+
+      // Get total count
+      let countQuery = `SELECT COUNT(*) FROM purchase_intents WHERE agent_id = $1`;
+      const countParams: any[] = [agentId];
+      if (status) {
+        countQuery += ` AND status = $2`;
+        countParams.push(status);
+      }
+      const countResult = await pool.query(countQuery, countParams);
+      const total = parseInt(countResult.rows[0].count);
+
+      // Get summary statistics
+      const statsResult = await pool.query(
+        `SELECT 
+           COUNT(*) as total_intents,
+           SUM(CASE WHEN status = 'executed' THEN total ELSE 0 END) as total_revenue,
+           SUM(CASE WHEN status = 'executed' THEN 1 ELSE 0 END) as executed_count,
+           AVG(CASE WHEN status = 'executed' THEN total ELSE NULL END) as avg_transaction_value
+         FROM purchase_intents
+         WHERE agent_id = $1`,
+        [agentId]
+      );
+
+      res.json({
+        transactions: result.rows.map(row => ({
+          id: row.id,
+          userId: row.user_id,
+          userEmail: row.user_email,
+          userName: `${row.first_name} ${row.last_name}`,
+          agentId: row.agent_id,
+          mandateId: row.mandate_id,
+          mandateType: row.mandate_type,
+          items: typeof row.items === 'string' ? JSON.parse(row.items) : row.items,
+          subtotal: parseFloat(row.subtotal),
+          tax: parseFloat(row.tax),
+          total: parseFloat(row.total),
+          reasoning: row.reasoning,
+          status: row.status,
+          createdAt: row.created_at,
+          expiresAt: row.expires_at,
+          approvedAt: row.approved_at,
+          executedAt: row.executed_at,
+        })),
+        statistics: {
+          totalIntents: parseInt(statsResult.rows[0].total_intents || 0),
+          totalRevenue: parseFloat(statsResult.rows[0].total_revenue || 0),
+          executedCount: parseInt(statsResult.rows[0].executed_count || 0),
+          avgTransactionValue: parseFloat(statsResult.rows[0].avg_transaction_value || 0),
+        },
+        pagination: {
+          total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+        },
+      });
+    } catch (error) {
+      console.error('Error getting agent transaction history:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to get agent transaction history',
       });
     }
   };

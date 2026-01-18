@@ -27,6 +27,12 @@ router.get('/intents', adminController.getAllIntents);
 // Agent Actions
 router.get('/actions', adminController.getAllActions);
 
+// AI Agents
+router.get('/agents', adminController.getAllAgents);
+router.get('/agents/:agentId/monitoring', adminController.getAgentMonitoring);
+router.get('/agents/:agentId/auditability', adminController.getAgentAuditability);
+router.get('/agents/:agentId/transactions', adminController.getAgentTransactionHistory);
+
 // AP2 Transactions
 router.get('/ap2/transactions', adminController.getAllAP2Transactions);
 

@@ -17,6 +17,9 @@ router.post('/', validate(createMandateSchema), mandateController.createMandate)
 // Get user's mandates
 router.get('/', mandateController.getUserMandates);
 
+// Get available agents for mandate creation
+router.get('/available-agents', mandateController.getAvailableAgents);
+
 // Get specific mandate
 router.get('/:mandateId', mandateController.getMandate);
 

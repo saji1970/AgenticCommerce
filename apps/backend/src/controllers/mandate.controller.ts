@@ -1,11 +1,14 @@
 import { Request, Response } from 'express';
 import { MandateService } from '../services/mandate.service';
+import { AgentService } from '../services/agent.service';
 
 export class MandateController {
   private mandateService: MandateService;
+  private agentService: AgentService;
 
   constructor() {
     this.mandateService = new MandateService();
+    this.agentService = new AgentService();
   }
 
   createMandate = async (req: Request, res: Response) => {
@@ -132,6 +135,30 @@ export class MandateController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to revoke mandate',
+      });
+    }
+  };
+
+  // Get available agents for mandate creation
+  getAvailableAgents = async (req: Request, res: Response) => {
+    try {
+      const { type } = req.query; // Optional: filter by mandate type capability
+      
+      const agents = type 
+        ? (await this.agentService.getActiveAgents()).filter(agent => 
+            agent.capabilities.includes(type as string)
+          )
+        : await this.agentService.getActiveAgents();
+
+      res.json({
+        success: true,
+        data: agents,
+      });
+    } catch (error) {
+      console.error('Error getting available agents:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get available agents',
       });
     }
   };

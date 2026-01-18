@@ -6,6 +6,7 @@ import productRoutes from './product.routes';
 import cartRoutes from './cart.routes';
 import paymentRoutes from './payment.routes';
 import mandateRoutes from './mandate.routes';
+import agentRoutes from './agent.routes';
 import acpRoutes from './agentic-commerce.routes';
 import merchantRoutes from './merchant.routes';
 import ap2GatewayRoutes from './ap2-gateway.routes';
@@ -19,6 +20,7 @@ router.use('/products', productRoutes);
 router.use('/cart', cartRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/mandates', mandateRoutes);
+router.use('/agents', agentRoutes);
 router.use('/acp', acpRoutes);
 
 // AP2 (Agentic Protocol 2) Routes

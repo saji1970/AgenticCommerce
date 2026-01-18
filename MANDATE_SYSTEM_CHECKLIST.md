@@ -17,6 +17,13 @@ Complete mandate UI and backend system for AI agent authorization with cart, int
   - UI customization options
   - Gateway-agnostic design
 
+- [x] **AI Agent Database & Repository** ⭐ NEW
+  - `apps/backend/migrations/008_create_ai_agents_table.sql` - Agent configuration table
+  - `apps/backend/src/repositories/agent.repository.ts` - Agent CRUD operations
+  - `apps/backend/src/services/agent.service.ts` - Agent business logic
+  - Default "AgenticCommerce AI" agent with full capabilities
+  - Agent validation integrated into mandate creation
+
 - [x] **Sample Data Generator** (`apps/backend/src/scripts/generate-sample-data.ts`)
   - 3 demo users (alice, bob, carol @ example.com, password: Demo123!)
   - Cart and intent mandates for all users
@@ -61,6 +68,10 @@ Complete mandate UI and backend system for AI agent authorization with cart, int
   - Agent action logs
   - User details with history
   - AP2 transaction tracking
+  - **AI Agent management endpoints** ⭐ NEW
+  - **Agent monitoring with statistics** ⭐ NEW
+  - **Agent auditability (action logs per agent)** ⭐ NEW
+  - **Agent transaction history** ⭐ NEW
 
 - [x] **Admin Routes** (`apps/backend/src/routes/admin.routes.ts`)
   - `/api/admin/dashboard/stats` - Complete statistics
@@ -69,6 +80,10 @@ Complete mandate UI and backend system for AI agent authorization with cart, int
   - `/api/admin/actions` - Agent actions log
   - `/api/admin/users/:userId` - User details
   - `/api/admin/ap2/transactions` - AP2 transactions
+  - `/api/admin/agents` - List all AI agents ⭐ NEW
+  - `/api/admin/agents/:agentId/monitoring` - Agent monitoring & statistics ⭐ NEW
+  - `/api/admin/agents/:agentId/auditability` - Agent action audit logs ⭐ NEW
+  - `/api/admin/agents/:agentId/transactions` - Agent transaction history ⭐ NEW
   - Integrated with main routes
 
 ### Documentation
@@ -199,6 +214,41 @@ const handleSign = async () => {
 
 ## 🖥️ Admin Dashboard
 
+### 📍 All Admin API Endpoints (Base URL: `http://localhost:3000/api/admin`)
+
+**All endpoints require authentication with admin token in header:**
+```
+Authorization: Bearer YOUR_ADMIN_TOKEN
+```
+
+#### Dashboard & Statistics
+- `GET /api/admin/dashboard/stats` - Complete dashboard statistics
+
+#### User Management
+- `GET /api/admin/users` - List all users (supports `?limit=50&offset=0&search=`)
+- `GET /api/admin/users/:userId` - Get user details with history
+
+#### Mandate Management
+- `GET /api/admin/mandates` - List all mandates (supports `?status=&type=&limit=50&offset=0`)
+
+#### Intent Monitoring
+- `GET /api/admin/intents` - List all purchase intents (supports `?status=&limit=50&offset=0`)
+
+#### Agent Action Logs
+- `GET /api/admin/actions` - Get all agent action logs (supports `?limit=100&offset=0`)
+
+#### AI Agent Management ⭐ NEW
+- `GET /api/admin/agents` - List all AI agents (supports `?status=active`)
+- `GET /api/admin/agents/:agentId/monitoring` - Agent monitoring & statistics (supports `?days=7`)
+- `GET /api/admin/agents/:agentId/auditability` - Agent action audit logs (supports `?limit=100&offset=0&action=&success=&userId=`)
+- `GET /api/admin/agents/:agentId/transactions` - Agent transaction history (supports `?limit=50&offset=0&status=`)
+
+#### AP2 Transactions
+- `GET /api/admin/ap2/transactions` - List all AP2 transactions (supports `?status=&type=&merchantId=&limit=50&offset=0`)
+
+#### Utilities
+- `POST /api/admin/seed-demo` - Seed demo data for current admin user
+
 ### Quick API Test
 
 ```bash
@@ -216,6 +266,22 @@ curl "http://localhost:3000/api/admin/intents?status=pending" \
 
 # User details
 curl "http://localhost:3000/api/admin/users/USER_ID" \
+  -H "Authorization: Bearer TOKEN"
+
+# AI Agents - List all agents ⭐ NEW
+curl "http://localhost:3000/api/admin/agents" \
+  -H "Authorization: Bearer TOKEN"
+
+# AI Agent Monitoring - Get agent statistics ⭐ NEW
+curl "http://localhost:3000/api/admin/agents/agentic-commerce-ai/monitoring?days=30" \
+  -H "Authorization: Bearer TOKEN"
+
+# AI Agent Auditability - Get agent action logs ⭐ NEW
+curl "http://localhost:3000/api/admin/agents/agentic-commerce-ai/auditability?limit=100" \
+  -H "Authorization: Bearer TOKEN"
+
+# AI Agent Transaction History ⭐ NEW
+curl "http://localhost:3000/api/admin/agents/agentic-commerce-ai/transactions" \
   -H "Authorization: Bearer TOKEN"
 ```
 
@@ -273,6 +339,10 @@ The admin APIs are ready for your web dashboard. You can use:
 - ✅ AP2 transaction statistics
 - ✅ Filter by status/type
 - ✅ User details with history
+- ✅ **AI Agent listing and management** ⭐ NEW
+- ✅ **Agent monitoring with performance metrics** ⭐ NEW
+- ✅ **Agent auditability (complete action logs)** ⭐ NEW
+- ✅ **Agent transaction history & revenue tracking** ⭐ NEW
 
 ### Sample Data
 - ✅ 3 users with complete profiles
@@ -328,6 +398,11 @@ No code changes needed to switch providers!
 - ✅ `apps/backend/src/controllers/admin.controller.ts`
 - ✅ `apps/backend/src/routes/admin.routes.ts`
 - ✅ `apps/backend/src/scripts/generate-sample-data.ts`
+- ✅ `apps/backend/migrations/008_create_ai_agents_table.sql` ⭐ NEW
+- ✅ `apps/backend/src/repositories/agent.repository.ts` ⭐ NEW
+- ✅ `apps/backend/src/services/agent.service.ts` ⭐ NEW
+- ✅ `apps/backend/src/controllers/agent.controller.ts` ⭐ NEW
+- ✅ `apps/backend/src/routes/agent.routes.ts` ⭐ NEW
 
 ### Documentation
 - ✅ `MANDATE_DEMO_GUIDE.md`
