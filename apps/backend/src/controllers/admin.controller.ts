@@ -627,7 +627,7 @@ export class AdminController {
         },
         mandates: {
           byStatus: mandatesByStatus,
-          total: Object.values(mandatesByStatus).reduce((a: number, b: number) => a + b, 0),
+          total: (Object.values(mandatesByStatus) as number[]).reduce((a, b) => a + b, 0),
         },
         actions: {
           total: parseInt(actionsResult.rows[0].total_actions || 0),
@@ -645,8 +645,8 @@ export class AdminController {
         },
         intents: {
           byStatus: intentsByStatus,
-          total: Object.values(intentsByStatus).reduce((acc, val) => acc + val.count, 0),
-          totalValue: Object.values(intentsByStatus).reduce((acc, val) => acc + val.totalValue, 0),
+          total: (Object.values(intentsByStatus) as Array<{ count: number; totalValue: number }>).reduce((acc, val) => acc + val.count, 0),
+          totalValue: (Object.values(intentsByStatus) as Array<{ count: number; totalValue: number }>).reduce((acc, val) => acc + val.totalValue, 0),
         },
         period: {
           days: daysNum,
