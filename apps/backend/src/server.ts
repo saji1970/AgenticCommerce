@@ -43,9 +43,14 @@ const startServer = async () => {
 
     console.log('🚀 AgenticCommerce Mobile Shopping API v1.0');
 
-    const server = app.listen(config.port, () => {
-      console.log(`🌐 Server running on ${config.apiUrl}`);
+    // Railway requires binding to 0.0.0.0 and using PORT env var
+    const port = config.port;
+    const host = process.env.HOST || '0.0.0.0';
+    
+    const server = app.listen(port, host, () => {
+      console.log(`🌐 Server running on ${host}:${port}`);
       console.log(`📦 Environment: ${config.env}`);
+      console.log(`✨ API URL: ${config.apiUrl}`);
       console.log(`✨ Ready to accept requests`);
     });
 
