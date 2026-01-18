@@ -1,0 +1,29 @@
+import { Router } from 'express';
+import type { Router as RouterType } from 'express';
+import { MandateController } from '../controllers/mandate.controller';
+
+const router: RouterType = Router();
+const mandateController = new MandateController();
+
+// Register mandate (called by agents)
+router.post('/register', mandateController.registerMandate);
+
+// Validate mandate (called by agents before transactions)
+router.post('/validate', mandateController.validateMandate);
+
+// Get user mandates
+router.get('/', mandateController.getUserMandates);
+
+// Get specific mandate
+router.get('/:id', mandateController.getMandate);
+
+// Approve mandate (requires userId in body)
+router.post('/:id/approve', mandateController.approveMandate);
+
+// Suspend mandate (requires userId in body)
+router.post('/:id/suspend', mandateController.suspendMandate);
+
+// Revoke mandate (requires userId in body)
+router.post('/:id/revoke', mandateController.revokeMandate);
+
+export default router;
