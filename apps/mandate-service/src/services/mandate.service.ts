@@ -28,7 +28,7 @@ export class MandateService {
     }
 
     // Use agent name from database if not provided
-    const agentName = data.agentName || agent.agentName;
+    const agentName = data.agentName || agent.agent_name;
 
     return await this.mandateRepository.create({
       ...data,
