@@ -53,7 +53,8 @@ export class SearchService {
 
       const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
         params,
-        timeout: 10000,
+        timeout: 30000, // Increased timeout to 30s to prevent premature failures
+        validateStatus: (status) => status < 500, // Don't throw on 4xx, only 5xx
       });
 
       this.requestCount++;
@@ -95,6 +96,7 @@ export class SearchService {
       });
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
+        // Handle specific HTTP status codes
         if (error.response?.status === 429) {
           throw new AppError(429, 'Google Search API rate limit exceeded', 'RATE_LIMIT_ERROR');
         }
@@ -105,12 +107,62 @@ export class SearchService {
             'SEARCH_AUTH_ERROR'
           );
         }
+        // Handle 502 Bad Gateway specifically
+        if (error.response?.status === 502) {
+          console.error('Google Search API returned 502 Bad Gateway:', {
+            query,
+            url: error.config?.url,
+            status: error.response.status,
+            statusText: error.response.statusText,
+          });
+          throw new AppError(
+            502,
+            'Google Search API is temporarily unavailable (Bad Gateway). Please try again later.',
+            'SEARCH_SERVICE_UNAVAILABLE'
+          );
+        }
+        // Handle network errors (timeouts, connection issues)
+        if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+          console.error('Google Search API request timeout:', {
+            query,
+            timeout: error.config?.timeout,
+            code: error.code,
+          });
+          throw new AppError(
+            503,
+            'Google Search API request timed out. Please try again.',
+            'SEARCH_TIMEOUT'
+          );
+        }
+        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+          console.error('Google Search API connection error:', {
+            query,
+            code: error.code,
+            message: error.message,
+          });
+          throw new AppError(
+            503,
+            'Cannot connect to Google Search API. Please check your internet connection.',
+            'SEARCH_CONNECTION_ERROR'
+          );
+        }
+        // Log full error details for debugging
+        console.error('Google Search API error:', {
+          query,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message,
+          code: error.code,
+        });
         throw new AppError(
           503,
-          `Google Search API error: ${error.message}`,
+          `Google Search API error: ${error.response?.statusText || error.message}`,
           'SEARCH_SERVICE_ERROR'
         );
       }
+      // Non-Axios errors
+      console.error('Unexpected error in SearchService:', error);
       throw error;
     }
   }
