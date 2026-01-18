@@ -1,4 +1,4 @@
-export function getAdminHtml(): string {
+export function getAdminHtml(backendApiUrl: string = '', adminToken: string = ''): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -55,11 +55,25 @@ export function getAdminHtml(): string {
   <div class="container">
     <header>
       <h1>🚀 Mandate Service Admin</h1>
-      <p class="subtitle">Manage Merchants and AI Agent Applications</p>
+      <p class="subtitle">Manage Merchants, AI Agents, Mandates, Intents, Users & Transactions</p>
     </header>
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('merchants')">Merchants</button>
+      <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
+      <button class="tab" onclick="switchTab('merchants')">Merchants</button>
       <button class="tab" onclick="switchTab('agent-apps')">AI Agent Apps</button>
+      <button class="tab" onclick="switchTab('mandates')">Mandates</button>
+      <button class="tab" onclick="switchTab('intents')">Intents</button>
+      <button class="tab" onclick="switchTab('actions')">Action Logs</button>
+      <button class="tab" onclick="switchTab('users')">Users</button>
+      <button class="tab" onclick="switchTab('ap2')">AP2 Transactions</button>
+    </div>
+    <div id="dashboard" class="tab-content active">
+      <div class="card">
+        <div class="card-header">
+          <h2>Dashboard Statistics</h2>
+        </div>
+        <div id="dashboard-stats" class="loading">Loading...</div>
+      </div>
     </div>
     <div id="merchants" class="tab-content active">
       <div class="card">
@@ -77,6 +91,46 @@ export function getAdminHtml(): string {
           <button class="btn btn-primary" onclick="openAgentAppModal()">+ Add Agent App</button>
         </div>
         <div id="agent-apps-list" class="loading">Loading...</div>
+      </div>
+    </div>
+    <div id="mandates" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>All Mandates</h2>
+        </div>
+        <div id="mandates-list" class="loading">Loading...</div>
+      </div>
+    </div>
+    <div id="intents" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>Purchase Intents</h2>
+        </div>
+        <div id="intents-list" class="loading">Loading...</div>
+      </div>
+    </div>
+    <div id="actions" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>Agent Action Logs</h2>
+        </div>
+        <div id="actions-list" class="loading">Loading...</div>
+      </div>
+    </div>
+    <div id="users" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>Users</h2>
+        </div>
+        <div id="users-list" class="loading">Loading...</div>
+      </div>
+    </div>
+    <div id="ap2" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>AP2 Transactions</h2>
+        </div>
+        <div id="ap2-list" class="loading">Loading...</div>
       </div>
     </div>
   </div>
@@ -123,12 +177,23 @@ export function getAdminHtml(): string {
   </div>
   <script>
     const API_URL = window.location.origin;
+    const BACKEND_API_URL = '${backendApiUrl}';
+    const ADMIN_TOKEN = '${adminToken}';
+    const headers = ADMIN_TOKEN ? { 'Authorization': 'Bearer ' + ADMIN_TOKEN } : {};
+    
     function switchTab(tab) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       event.target.classList.add('active');
       document.getElementById(tab).classList.add('active');
-      if (tab === 'merchants') loadMerchants(); else loadAgentApps();
+      if (tab === 'dashboard') loadDashboard(); 
+      else if (tab === 'merchants') loadMerchants(); 
+      else if (tab === 'agent-apps') loadAgentApps();
+      else if (tab === 'mandates') loadMandates();
+      else if (tab === 'intents') loadIntents();
+      else if (tab === 'actions') loadActions();
+      else if (tab === 'users') loadUsers();
+      else if (tab === 'ap2') loadAP2();
     }
     async function loadMerchants() {
       const c = document.getElementById('merchants-list');
@@ -284,7 +349,131 @@ export function getAdminHtml(): string {
     }
     function editMerchant(id) { openMerchantModal(id); }
     function editAgentApp(id) { openAgentAppModal(id); }
-    loadMerchants();
+    
+    async function loadDashboard() {
+      const c = document.getElementById('dashboard-stats');
+      if (!BACKEND_API_URL) {
+        c.innerHTML = '<div class="error">Backend API URL not configured. Set BACKEND_API_URL environment variable.</div>';
+        return;
+      }
+      try {
+        const r = await fetch(BACKEND_API_URL + '/api/admin/dashboard/stats', { headers });
+        if (!r.ok) throw new Error('Failed to load dashboard stats');
+        const d = await r.json();
+        const s = d.stats || {};
+        c.innerHTML = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">' +
+          '<div class="card"><h3>Users</h3><p style="font-size: 32px; margin: 10px 0;">' + (s.totalUsers || 0) + '</p></div>' +
+          '<div class="card"><h3>Mandates</h3><p style="font-size: 32px; margin: 10px 0;">' + (s.mandates?.total || 0) + '</p><small>Active: ' + (s.mandates?.byStatus?.active || 0) + '</small></div>' +
+          '<div class="card"><h3>Intents</h3><p style="font-size: 32px; margin: 10px 0;">' + (s.intents?.total || 0) + '</p><small>Pending: ' + (s.intents?.byStatus?.pending || 0) + '</small></div>' +
+          '<div class="card"><h3>Total Spent</h3><p style="font-size: 32px; margin: 10px 0;">$' + (s.spending?.totalSpent?.toFixed(2) || '0.00') + '</p></div>' +
+          '<div class="card"><h3>AP2 Transactions</h3><p style="font-size: 32px; margin: 10px 0;">' + (s.ap2?.totalTransactions || 0) + '</p><small>Volume: $' + (s.ap2?.totalVolume?.toFixed(2) || '0.00') + '</small></div>' +
+          '</div>';
+      } catch (e) {
+        c.innerHTML = '<div class="error">Error: ' + e.message + (BACKEND_API_URL ? '' : ' (Backend API not configured)') + '</div>';
+      }
+    }
+    
+    async function loadMandates() {
+      const c = document.getElementById('mandates-list');
+      if (!BACKEND_API_URL) {
+        c.innerHTML = '<div class="error">Backend API URL not configured. Set BACKEND_API_URL environment variable.</div>';
+        return;
+      }
+      try {
+        const r = await fetch(BACKEND_API_URL + '/api/admin/mandates?limit=50', { headers });
+        if (!r.ok) throw new Error('Failed to load mandates');
+        const d = await r.json();
+        const m = d.mandates || [];
+        c.innerHTML = m.length === 0 ? '<div class="empty">No mandates found.</div>' :
+          '<table><thead><tr><th>Agent</th><th>Type</th><th>Status</th><th>User</th><th>Created</th></tr></thead><tbody>' +
+          m.map(x => '<tr><td>' + x.agent_name + '</td><td>' + x.type + '</td><td><span class="status ' + x.status + '">' + x.status + '</span></td><td>' + (x.user_email || 'N/A') + '</td><td>' + new Date(x.created_at).toLocaleDateString() + '</td></tr>').join('') +
+          '</tbody></table>';
+      } catch (e) {
+        c.innerHTML = '<div class="error">Error: ' + e.message + '</div>';
+      }
+    }
+    
+    async function loadIntents() {
+      const c = document.getElementById('intents-list');
+      if (!BACKEND_API_URL) {
+        c.innerHTML = '<div class="error">Backend API URL not configured. Set BACKEND_API_URL environment variable.</div>';
+        return;
+      }
+      try {
+        const r = await fetch(BACKEND_API_URL + '/api/admin/intents?limit=50', { headers });
+        if (!r.ok) throw new Error('Failed to load intents');
+        const d = await r.json();
+        const i = d.intents || [];
+        c.innerHTML = i.length === 0 ? '<div class="empty">No intents found.</div>' :
+          '<table><thead><tr><th>Agent</th><th>Total</th><th>Status</th><th>User</th><th>Created</th></tr></thead><tbody>' +
+          i.map(x => '<tr><td>' + x.agent_id + '</td><td>$' + parseFloat(x.total).toFixed(2) + '</td><td><span class="status ' + x.status + '">' + x.status + '</span></td><td>' + (x.user_email || 'N/A') + '</td><td>' + new Date(x.created_at).toLocaleDateString() + '</td></tr>').join('') +
+          '</tbody></table>';
+      } catch (e) {
+        c.innerHTML = '<div class="error">Error: ' + e.message + '</div>';
+      }
+    }
+    
+    async function loadActions() {
+      const c = document.getElementById('actions-list');
+      if (!BACKEND_API_URL) {
+        c.innerHTML = '<div class="error">Backend API URL not configured. Set BACKEND_API_URL environment variable.</div>';
+        return;
+      }
+      try {
+        const r = await fetch(BACKEND_API_URL + '/api/admin/actions?limit=100', { headers });
+        if (!r.ok) throw new Error('Failed to load actions');
+        const d = await r.json();
+        const a = d.actions || [];
+        c.innerHTML = a.length === 0 ? '<div class="empty">No actions found.</div>' :
+          '<table><thead><tr><th>Agent</th><th>Action</th><th>Type</th><th>Success</th><th>User</th><th>Time</th></tr></thead><tbody>' +
+          a.map(x => '<tr><td>' + x.agent_id + '</td><td>' + x.action + '</td><td>' + x.resource_type + '</td><td><span class="status ' + (x.success ? 'active' : 'inactive') + '">' + (x.success ? 'Yes' : 'No') + '</span></td><td>' + (x.user_email || 'N/A') + '</td><td>' + new Date(x.timestamp).toLocaleString() + '</td></tr>').join('') +
+          '</tbody></table>';
+      } catch (e) {
+        c.innerHTML = '<div class="error">Error: ' + e.message + '</div>';
+      }
+    }
+    
+    async function loadUsers() {
+      const c = document.getElementById('users-list');
+      if (!BACKEND_API_URL) {
+        c.innerHTML = '<div class="error">Backend API URL not configured. Set BACKEND_API_URL environment variable.</div>';
+        return;
+      }
+      try {
+        const r = await fetch(BACKEND_API_URL + '/api/admin/users?limit=50', { headers });
+        if (!r.ok) throw new Error('Failed to load users');
+        const d = await r.json();
+        const u = d.users || [];
+        c.innerHTML = u.length === 0 ? '<div class="empty">No users found.</div>' :
+          '<table><thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Created</th></tr></thead><tbody>' +
+          u.map(x => '<tr><td>' + x.email + '</td><td>' + (x.first_name || '') + ' ' + (x.last_name || '') + '</td><td>' + (x.role || 'user') + '</td><td>' + new Date(x.created_at).toLocaleDateString() + '</td></tr>').join('') +
+          '</tbody></table>';
+      } catch (e) {
+        c.innerHTML = '<div class="error">Error: ' + e.message + '</div>';
+      }
+    }
+    
+    async function loadAP2() {
+      const c = document.getElementById('ap2-list');
+      if (!BACKEND_API_URL) {
+        c.innerHTML = '<div class="error">Backend API URL not configured. Set BACKEND_API_URL environment variable.</div>';
+        return;
+      }
+      try {
+        const r = await fetch(BACKEND_API_URL + '/api/admin/ap2/transactions?limit=50', { headers });
+        if (!r.ok) throw new Error('Failed to load AP2 transactions');
+        const d = await r.json();
+        const t = d.transactions || [];
+        c.innerHTML = t.length === 0 ? '<div class="empty">No AP2 transactions found.</div>' :
+          '<table><thead><tr><th>Type</th><th>Amount</th><th>Status</th><th>Merchant</th><th>User</th><th>Created</th></tr></thead><tbody>' +
+          t.map(x => '<tr><td>' + x.type + '</td><td>$' + parseFloat(x.amount || 0).toFixed(2) + '</td><td><span class="status ' + x.status + '">' + x.status + '</span></td><td>' + (x.merchant_name || 'N/A') + '</td><td>' + (x.user_email || 'N/A') + '</td><td>' + new Date(x.requested_at).toLocaleDateString() + '</td></tr>').join('') +
+          '</tbody></table>';
+      } catch (e) {
+        c.innerHTML = '<div class="error">Error: ' + e.message + '</div>';
+      }
+    }
+    
+    loadDashboard();
   </script>
 </body>
 </html>`;

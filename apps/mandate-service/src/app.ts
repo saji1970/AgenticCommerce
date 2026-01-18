@@ -32,7 +32,7 @@ export const createApp = (): Application => {
 
   // Admin UI - serve HTML at root
   app.get('/', (req, res) => {
-    res.type('html').send(getAdminHtml());
+    res.type('html').send(getAdminHtml(config.backendApiUrl, config.adminToken));
   });
 
   // Error handling

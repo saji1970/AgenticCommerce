@@ -15,4 +15,6 @@ export const config = {
   cors: {
     origin: process.env.CORS_ORIGIN || '*',
   },
+  backendApiUrl: process.env.BACKEND_API_URL || '', // Main backend API URL for admin endpoints
+  adminToken: process.env.ADMIN_TOKEN || '', // Admin token for backend API access
 };
