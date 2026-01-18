@@ -1,9 +1,32 @@
+// Catch all unhandled errors and promise rejections
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  // Don't exit immediately - let Railway see the error
+  setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise);
+  console.error('Reason:', reason);
+  // Don't exit immediately - let Railway see the error
+  setTimeout(() => process.exit(1), 1000);
+});
+
 import { createApp } from './app';
 import { config } from './config/env';
 import { pool } from './config/database';
 import { runMigrations } from './utils/migrate';
 
-const app = createApp();
+let app;
+try {
+  app = createApp();
+  console.log('✅ Express app created successfully');
+} catch (error: any) {
+  console.error('❌ Failed to create Express app:', error);
+  console.error('Stack:', error.stack);
+  process.exit(1);
+}
 
 const startServer = async () => {
   try {
