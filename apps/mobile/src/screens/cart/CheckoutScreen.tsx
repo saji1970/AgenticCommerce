@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,13 @@ import {
 } from 'react-native';
 import { useCart } from '../../contexts/CartContext';
 import { paymentService } from '../../services/payment.service';
-import { PaymentMethod } from '@agentic-commerce/shared-types';
+import { PaymentMethod, MandateType } from '@agentic-commerce/shared-types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CartStackParamList } from '../../navigation/types';
+import { checkPaymentMandate, registerPaymentMandate, approveMandate } from '../../utils/mandateCheck';
+import { MandateSigningModal } from '../../components/mandate/MandateSigningModal';
+import { AppConfig } from '../../config/app.config';
+import { storageService } from '../../services/storage.service';
 
 type CheckoutScreenNavigationProp = NativeStackNavigationProp<CartStackParamList, 'Checkout'>;
 
@@ -25,6 +29,9 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
   const { cart, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CARD);
+  const [showMandateModal, setShowMandateModal] = useState(false);
+  const [mandateCheckComplete, setMandateCheckComplete] = useState(false);
+  const [pendingMandate, setPendingMandate] = useState<any>(null);
 
   // Card details
   const [cardNumber, setCardNumber] = useState('');
@@ -35,6 +42,52 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
 
   // PayPal details
   const [paypalEmail, setPaypalEmail] = useState('');
+
+  // Check for mandate on mount
+  useEffect(() => {
+    checkMandateBeforePayment();
+  }, []);
+
+  const checkMandateBeforePayment = async () => {
+    try {
+      const defaultAgent = AppConfig.getDefaultAgent();
+      const mandateCheck = await checkPaymentMandate(defaultAgent.id, defaultAgent.name);
+
+      if (!mandateCheck.hasMandate) {
+        // No mandate, show popup to register
+        setShowMandateModal(true);
+      } else {
+        // Mandate exists, can proceed with payment
+        setMandateCheckComplete(true);
+      }
+    } catch (error) {
+      console.error('Error checking mandate:', error);
+      // On error, allow payment to proceed (graceful degradation)
+      setMandateCheckComplete(true);
+    }
+  };
+
+  const handleRegisterMandate = async () => {
+    try {
+      const defaultAgent = AppConfig.getDefaultAgent();
+      const defaultConstraints = AppConfig.getDefaultConstraints('payment');
+
+      const mandate = await registerPaymentMandate(
+        defaultAgent.id,
+        defaultAgent.name,
+        defaultConstraints
+      );
+
+      setPendingMandate(mandate);
+      // Auto-approve the mandate
+      const approved = await approveMandate(mandate.id);
+      setPendingMandate(null);
+      setShowMandateModal(false);
+      setMandateCheckComplete(true);
+    } catch (error) {
+      throw error; // Let modal handle error
+    }
+  };
 
   const handlePayment = async () => {
     if (!cart) {
@@ -77,7 +130,13 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
         }),
       };
 
-      const result = await paymentService.processPayment(paymentRequest);
+      // Get default agent ID for mandate validation
+      const defaultAgent = AppConfig.getDefaultAgent();
+      const result = await paymentService.processPayment(
+        paymentRequest,
+        defaultAgent.id,
+        false // Don't skip mandate check
+      );
 
       Alert.alert(
         'Payment Successful!',
@@ -247,6 +306,19 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
         Test Card: 4532015112830366 (Valid Luhn){'\n'}
         Fail Card: Ending in 0000 (Insufficient funds)
       </Text>
+
+      {/* Mandate Registration Modal */}
+      <MandateSigningModal
+        visible={showMandateModal}
+        onClose={() => {
+          setShowMandateModal(false);
+          navigation.goBack();
+        }}
+        onSign={handleRegisterMandate}
+        mandateType={MandateType.PAYMENT}
+        agentName={AppConfig.getDefaultAgent().name}
+        constraints={AppConfig.getDefaultConstraints('payment')}
+      />
     </ScrollView>
   );
 };

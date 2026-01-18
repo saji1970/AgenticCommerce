@@ -5,14 +5,17 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { UserProfile } from '@agentic-commerce/shared-types';
 import { useAuth } from '../../hooks/useAuth';
 import { userService } from '../../services/user.service';
 import { Button } from '../../components/common/Button';
+import { useNavigation } from '@react-navigation/native';
 
 export const ProfileScreen = () => {
   const { logout } = useAuth();
+  const navigation = useNavigation<any>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -69,6 +72,14 @@ export const ProfileScreen = () => {
         )}
       </View>
 
+      <TouchableOpacity
+        style={styles.menuItem}
+        onPress={() => navigation.navigate('MandateManagement' as never)}
+      >
+        <Text style={styles.menuItemText}>Manage Agent Mandates</Text>
+        <Text style={styles.menuItemSubtext}>Configure AI agent payment permissions</Text>
+      </TouchableOpacity>
+
       <Button title="Logout" onPress={handleLogout} variant="secondary" />
     </View>
   );
@@ -102,5 +113,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     fontWeight: '500',
+  },
+  menuItem: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  menuItemSubtext: {
+    fontSize: 12,
+    color: '#666',
   },
 });

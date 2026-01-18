@@ -7,11 +7,26 @@ import {
   Order,
   Payment,
 } from '@agentic-commerce/shared-types';
+import { validateMandateForTransaction } from '../utils/mandateCheck';
 
 const API_URL = 'https://agenticcommerce-production.up.railway.app/api';
 
 export const paymentService = {
-  async processPayment(request: PaymentRequest): Promise<PaymentResponse> {
+  async processPayment(
+    request: PaymentRequest,
+    agentId?: string,
+    skipMandateCheck: boolean = false
+  ): Promise<PaymentResponse> {
+    // Validate mandate if agent is involved
+    if (!skipMandateCheck && agentId) {
+      const isValid = await validateMandateForTransaction(agentId, request.totalAmount);
+      if (!isValid) {
+        throw new Error(
+          'No valid payment mandate found. Please register and approve a mandate first.'
+        );
+      }
+    }
+
     const token = await storageService.getToken();
     const response = await axios.post(`${API_URL}/payments`, request, {
       headers: { Authorization: `Bearer ${token}` },
