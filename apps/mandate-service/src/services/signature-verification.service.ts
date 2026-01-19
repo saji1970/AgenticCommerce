@@ -50,9 +50,10 @@ export class SignatureVerificationService {
         verify.end();
 
         // Convert PEM public key to verify signature
+        const signatureBuffer = Buffer.from(signature.signatureData, 'base64');
         const isValid = verify.verify(
           publicKey.publicKeyPem,
-          Buffer.from(signature.signatureData, 'base64'),
+          signatureBuffer.toString('base64'),
           'base64'
         );
 
@@ -109,7 +110,7 @@ export class SignatureVerificationService {
         // In test mode, accept any signature that has the correct format
         // This allows demo to work without actual Secure Element
         console.log('[TEST MODE] Accepting test signature for demo');
-        return signatureData && signatureData.length > 0;
+        return !!(signatureData && signatureData.length > 0);
       }
 
       // Production: Verify with actual crypto
@@ -117,11 +118,13 @@ export class SignatureVerificationService {
       verify.update(mandateHash);
       verify.end();
 
-      return verify.verify(
+      const signatureBuffer = Buffer.from(signatureData, 'base64');
+      const verifyResult = verify.verify(
         publicKeyPem,
-        Buffer.from(signatureData, 'base64'),
+        signatureBuffer.toString('base64'),
         'base64'
       );
+      return !!verifyResult;
     } catch (error) {
       console.error('Signature verification error:', error);
       // In test mode, be more lenient
@@ -129,7 +132,7 @@ export class SignatureVerificationService {
                        publicKeyPem.includes('test_private_key');
       if (isTestKey) {
         console.log('[TEST MODE] Accepting test signature despite crypto error');
-        return signatureData && signatureData.length > 0;
+        return !!(signatureData && signatureData.length > 0);
       }
       return false;
     }
