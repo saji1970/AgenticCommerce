@@ -10,6 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import { MandateType, CartMandateConstraints, IntentMandateConstraints, PaymentMandateConstraints } from '@agentic-commerce/shared-types';
+import { SignaturePad } from './SignaturePad';
+import signatureService from '../../services/signature.service';
+import publicKeyService from '../../services/public-key.service';
 
 interface MandateSigningModalProps {
   visible: boolean;
@@ -18,6 +21,7 @@ interface MandateSigningModalProps {
   mandateType: MandateType;
   agentName: string;
   constraints: CartMandateConstraints | IntentMandateConstraints | PaymentMandateConstraints;
+  mandateId?: string; // Optional: if provided, will use Secure Element signing
   intentDetails?: {
     productName: string;
     criteria: string;
@@ -34,12 +38,20 @@ export const MandateSigningModal: React.FC<MandateSigningModalProps> = ({
   mandateType,
   agentName,
   constraints,
+  mandateId,
   intentDetails,
   estimatedTotal,
   productNames = [],
 }) => {
   const [signing, setSigning] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+
+  const getMandateText = (): string => {
+    const constraintsText = JSON.stringify(constraints, null, 2);
+    return `I authorize ${agentName} to perform ${mandateType} operations with the following constraints:\n\n${constraintsText}\n\nThis authorization is valid until revoked.`;
+  };
 
   const handleSign = async () => {
     if (!agreed) {
@@ -47,15 +59,53 @@ export const MandateSigningModal: React.FC<MandateSigningModalProps> = ({
       return;
     }
 
-    setSigning(true);
-    try {
-      await onSign();
-      setAgreed(false);
-      onClose();
-    } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to sign mandate');
-    } finally {
-      setSigning(false);
+    // If mandateId is provided, use Secure Element signing
+    if (mandateId) {
+      if (!signatureData) {
+        Alert.alert('Signature Required', 'Please provide your signature first');
+        setShowSignaturePad(true);
+        return;
+      }
+
+      setSigning(true);
+      try {
+        // Ensure public key is registered
+        const hasKey = await publicKeyService.hasRegisteredKey();
+        if (!hasKey) {
+          await publicKeyService.registerPublicKey();
+        }
+
+        // Create signature with Secure Element
+        const mandateText = getMandateText();
+        await signatureService.createSignature({
+          mandateId,
+          mandateText,
+          signatureImageUrl: signatureData, // In production, upload image and get URL
+        });
+
+        // Call the original onSign callback
+        await onSign();
+        setAgreed(false);
+        setSignatureData(null);
+        setShowSignaturePad(false);
+        onClose();
+      } catch (error) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Failed to sign mandate');
+      } finally {
+        setSigning(false);
+      }
+    } else {
+      // Use original onSign callback (backward compatible)
+      setSigning(true);
+      try {
+        await onSign();
+        setAgreed(false);
+        onClose();
+      } catch (error) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Failed to sign mandate');
+      } finally {
+        setSigning(false);
+      }
     }
   };
 
@@ -267,6 +317,44 @@ export const MandateSigningModal: React.FC<MandateSigningModalProps> = ({
               </Text>
             </View>
 
+            {/* Signature Pad (if mandateId is provided) */}
+            {mandateId && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Your Signature</Text>
+                {!showSignaturePad && !signatureData && (
+                  <TouchableOpacity
+                    style={styles.signatureButton}
+                    onPress={() => setShowSignaturePad(true)}
+                  >
+                    <Text style={styles.signatureButtonText}>Add Signature</Text>
+                  </TouchableOpacity>
+                )}
+                {showSignaturePad && !signatureData && (
+                  <SignaturePad
+                    onSignatureComplete={(data) => {
+                      setSignatureData(data);
+                      setShowSignaturePad(false);
+                    }}
+                    onClear={() => setSignatureData(null)}
+                  />
+                )}
+                {signatureData && !showSignaturePad && (
+                  <View style={styles.signatureSaved}>
+                    <Text style={styles.signatureSavedText}>✓ Signature saved</Text>
+                    <TouchableOpacity
+                      style={styles.changeSignatureButton}
+                      onPress={() => {
+                        setSignatureData(null);
+                        setShowSignaturePad(true);
+                      }}
+                    >
+                      <Text style={styles.changeSignatureButtonText}>Change</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Agreement Checkbox */}
             <TouchableOpacity
               style={styles.checkboxContainer}
@@ -295,15 +383,17 @@ export const MandateSigningModal: React.FC<MandateSigningModalProps> = ({
               style={[
                 styles.button,
                 styles.signButton,
-                (!agreed || signing) && styles.signButtonDisabled,
+                (!agreed || signing || (mandateId && !signatureData)) && styles.signButtonDisabled,
               ]}
               onPress={handleSign}
-              disabled={!agreed || signing}
+              disabled={!agreed || signing || (mandateId && !signatureData)}
             >
               {signing ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.signButtonText}>Sign Mandate</Text>
+                <Text style={styles.signButtonText}>
+                  {mandateId ? 'Sign with Secure Element' : 'Sign Mandate'}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -524,5 +614,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  signatureButton: {
+    padding: 16,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    borderStyle: 'dashed',
+  },
+  signatureButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4F46E5',
+  },
+  signatureSaved: {
+    padding: 16,
+    backgroundColor: '#D1FAE5',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  signatureSavedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  changeSignatureButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+  },
+  changeSignatureButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4F46E5',
   },
 });
