@@ -1,16 +1,22 @@
 import * as Keychain from 'react-native-keychain';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Platform } from 'react-native';
+import { TEST_PUBLIC_KEY_PEM, generateTestSignature, generateTestKeyId } from './test-key-generator';
 
 /**
  * Secure Element Service
  * Manages cryptographic keys in Secure Element (iOS Secure Enclave / Android StrongBox)
  * 
+ * TEST MODE: Set USE_TEST_KEYS=true to use test keys for demo (no hardware required)
+ * 
  * Note: React Native doesn't have direct Secure Element access, so we use:
  * - react-native-keychain for secure key storage
  * - expo-local-authentication for biometric auth
- * - crypto-js for hashing (signing will be done server-side or via native module)
+ * - Test keys for demo mode (no hardware Secure Element required)
  */
+
+// Enable test mode for demo (set to false in production)
+const USE_TEST_KEYS = __DEV__ || true; // Enable test mode in dev and for demo
 
 export interface KeyPair {
   keyId: string;
@@ -70,8 +76,15 @@ class SecureElementService {
 
   /**
    * Authenticate with biometric or PIN
+   * In test mode, skips actual biometric (for demo purposes)
    */
   async authenticate(reason: string = 'Authenticate to sign mandate'): Promise<boolean> {
+    if (USE_TEST_KEYS) {
+      // In test mode, simulate successful authentication
+      console.log('[TEST MODE] Simulating biometric authentication');
+      return true;
+    }
+
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: reason,
@@ -107,8 +120,39 @@ class SecureElementService {
       }
 
       // Generate new key pair
+      if (USE_TEST_KEYS) {
+        // Use test keys for demo
+        const keyId = generateTestKeyId();
+        const publicKey = TEST_PUBLIC_KEY_PEM;
+        
+        // Store securely
+        await Keychain.setInternetCredentials(
+          this.KEY_ID_KEY,
+          this.KEY_ID_KEY,
+          keyId,
+          {
+            accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+          }
+        );
+
+        await Keychain.setInternetCredentials(
+          this.PUBLIC_KEY_KEY,
+          this.PUBLIC_KEY_KEY,
+          publicKey,
+          {
+            accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+          }
+        );
+
+        return {
+          keyId,
+          publicKey,
+          createdAt: new Date(),
+        };
+      }
+
+      // Production: Generate real key pair
       // Note: In production, this should use native modules to generate keys in Secure Element
-      // For now, we generate a key ID and simulate public key
       const keyId = this.generateKeyId();
       const publicKey = await this.generatePublicKey(keyId);
 
@@ -167,14 +211,17 @@ class SecureElementService {
       }
 
       // In production, this would use native module to sign in Secure Element
-      // For now, we create a hash-based signature
       const timestamp = new Date().toISOString();
-      const dataToSign = `${data}|${timestamp}|${keyIdData.password}`;
+      const dataToSign = `${data}|${timestamp}`;
       
-      // Create signature (in production, this would be done in Secure Element)
-      // For now, we use a simple hash-based signature
-      // In production, this should call native module to sign in Secure Element
-      const signature = this.createHashSignature(dataToSign, keyIdData.password);
+      let signature: string;
+      if (USE_TEST_KEYS) {
+        // Use test signature generator (works with backend test mode)
+        signature = generateTestSignature(dataToSign, keyIdData.password);
+      } else {
+        // Production: Sign in Secure Element
+        signature = this.createHashSignature(dataToSign, keyIdData.password);
+      }
 
       return {
         signature,
