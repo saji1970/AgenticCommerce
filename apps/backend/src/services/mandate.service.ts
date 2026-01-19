@@ -68,13 +68,16 @@ export class MandateService {
     const agentName = request.agentName || agent.agentName;
 
     // Register mandate with mandate-service
+    // Convert validUntil Date to ISO string if provided
     const clientMandate = await mandateServiceClient.registerMandate({
       userId,
       agentId: request.agentId,
       agentName,
       type: request.type,
       constraints: request.constraints,
-      validUntil: request.validUntil,
+      validUntil: request.validUntil 
+        ? (typeof request.validUntil === 'string' ? request.validUntil : request.validUntil.toISOString())
+        : undefined,
     });
 
     const mandate = mapToMandate(clientMandate);
