@@ -145,8 +145,14 @@ const { data: agentApps } = await response.json();
 ### Railway
 
 1. Create a new Railway service
-2. Set root directory to `apps/mandate-service`
-3. Set environment variables
+2. Set root directory to `apps/mandate-service` (or leave empty if using monorepo root)
+3. Set environment variables:
+   - `DATABASE_URL` - PostgreSQL connection string (auto-provided by Railway if using Railway PostgreSQL)
+   - `JWT_SECRET` - Secret key for JWT tokens
+   - `BACKEND_API_URL` - Main backend API URL (e.g., `https://agenticcommerce-production.up.railway.app/api`)
+   - `ADMIN_TOKEN` - JWT token for backend API access (generated from backend `/api/auth/login`)
+   - `PAYMENT_GATEWAY_URL` - Payment gateway service URL (e.g., `https://payment-gateway-production-db91.up.railway.app`)
+   - `CORS_ORIGIN` - CORS origin (default: `*`)
 4. Deploy
 
 ### Docker
