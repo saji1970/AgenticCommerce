@@ -1,230 +1,168 @@
-# Mandate App Architecture - Clarification
+# Mandate App Architecture - Updated
 
-## Do You Need a Separate Mandate Client App?
+## Overview
 
-**Answer: NO** ❌
+The system now consists of **two separate mobile apps**:
 
-The AgenticCommerce mobile app **already includes all mandate functionality** built-in. There is **no separate mandate client app** required.
+1. **AgenticCommerce App** - Merchant shopping app (uses AI agents)
+2. **Mandate App** - Independent mandate management app (manages authorizations)
 
-## Architecture Overview
+## Architecture
 
 ```
 ┌─────────────────────────────────────┐
-│   AgenticCommerce Mobile App        │
-│   (Single App - Everything Included)│
+│   AgenticCommerce Mobile App       │
+│   (Merchant Shopping App)           │
 ├─────────────────────────────────────┤
 │  ✅ Product Search & Shopping        │
 │  ✅ Cart Management                  │
 │  ✅ Payment Processing               │
-│  ✅ Mandate Management (Built-in)    │
-│  ✅ Mandate Signing UI (Built-in)    │
-│  ✅ Secure Element Integration       │
-│  ✅ Signature Pad                    │
-│  ✅ Biometric Authentication         │
+│  ❌ NO Mandate UI (removed)          │
+│  ✅ Calls Mandate Service API        │
 └─────────────────────────────────────┘
            │
-           │ API Calls
+           │ API Calls (check mandates)
            ▼
 ┌─────────────────────────────────────┐
 │   Mandate Service Backend            │
-│   (Railway - Backend Only)          │
+│   (Railway - Backend API)            │
 ├─────────────────────────────────────┤
 │  ✅ Mandate API                     │
+│  ✅ Merchant Management API         │
+│  ✅ AI Agent App Management API    │
 │  ✅ Signature Verification          │
 │  ✅ Public Key Management           │
 │  ✅ Admin UI (Web)                  │
 └─────────────────────────────────────┘
+           ▲
+           │ API Calls (manage mandates)
+           │
+┌─────────────────────────────────────┐
+│   Mandate Mobile App                │
+│   (Independent App)                  │
+├─────────────────────────────────────┤
+│  ✅ Add/Manage Merchants             │
+│  ✅ Add/Manage AI Agents             │
+│  ✅ View All Mandates                │
+│  ✅ Approve/Reject Mandates          │
+│  ✅ Sign Mandates (Secure Element)   │
+│  ✅ Signature Pad                    │
+│  ✅ Biometric Authentication         │
+│  ✅ Manage Authorizations            │
+└─────────────────────────────────────┘
 ```
 
-## What's Included in AgenticCommerce Mobile App
+## Mandate App Features
 
-### Built-in Mandate Features
+### 1. Merchant Management
+- **Add Merchant**: Register new merchant apps
+- **List Merchants**: View all registered merchants
+- **Edit Merchant**: Update merchant details
+- **Delete Merchant**: Remove merchant registration
 
-1. **Mandate Service Client** (`mandate-service.client.ts`)
-   - HTTP client for calling mandate service API
-   - No separate app needed
+### 2. AI Agent Management
+- **Add Agent**: Register new AI agents
+- **List Agents**: View all registered agents
+- **Edit Agent**: Update agent details
+- **Delete Agent**: Remove agent registration
 
-2. **Mandate Signing UI** (`MandateSigningModal.tsx`)
-   - Full-screen modal for mandate review and signing
-   - Built into the main app
+### 3. Mandate Management
+- **View Mandates**: See all mandates from all merchants/agents
+- **Pending Mandates**: Review mandates awaiting approval
+- **Active Mandates**: View active authorizations
+- **Approve Mandate**: Approve and sign mandates
+- **Revoke Mandate**: Revoke existing authorizations
+- **Suspend Mandate**: Temporarily suspend mandates
 
-3. **Signature Pad** (`SignaturePad.tsx`)
-   - Visual signature capture component
-   - Built into the main app
+### 4. Secure Signing
+- **Signature Pad**: Draw signature on screen
+- **Biometric Auth**: Face ID/Touch ID/Fingerprint
+- **Secure Element**: Hardware-backed key generation
+- **Digital Signatures**: Cryptographic proof of intent
 
-4. **Secure Element Integration** (`secure-element.service.ts`)
-   - Biometric authentication
-   - Key management
-   - Signature generation
-   - Built into the main app
+## AgenticCommerce App Changes
 
-5. **Mandate Utilities** (`mandateCheck.ts`)
-   - Check for mandates
-   - Register mandates
-   - Approve mandates
-   - Built into the main app
+### Removed Features
+- ❌ Mandate signing UI (moved to Mandate App)
+- ❌ Signature pad component (moved to Mandate App)
+- ❌ Mandate management screens (moved to Mandate App)
 
-6. **Mandate Context** (`MandateContext.tsx`)
-   - State management for mandates
-   - Built into the main app
+### Remaining Features
+- ✅ Product search and shopping
+- ✅ Cart management
+- ✅ Checkout flow
+- ✅ API calls to mandate service (check mandate status)
+- ✅ Redirect to Mandate App for signing (if needed)
 
-## How It Works
+## User Flow
 
-### Single App Architecture
+### Scenario: User wants to checkout in AgenticCommerce
 
-The AgenticCommerce mobile app is a **single, unified application** that includes:
+1. **User adds items to cart** (AgenticCommerce App)
+2. **User clicks "Checkout"** (AgenticCommerce App)
+3. **App checks for payment mandate** (API call to mandate service)
+4. **No mandate found?**
+   - Option A: Show message "Please approve mandate in Mandate App"
+   - Option B: Deep link to Mandate App with mandate request
+5. **User opens Mandate App**
+   - Views pending mandate request
+   - Reviews mandate details
+   - Signs mandate (with Secure Element)
+6. **Mandate approved**
+7. **User returns to AgenticCommerce App**
+8. **Checkout proceeds** (mandate now exists)
 
-1. **Shopping Features**:
-   - Product search
-   - Cart management
-   - Checkout
-   - Payment processing
+## API Integration
 
-2. **Mandate Features** (Built-in):
-   - Mandate checking
-   - Mandate registration
-   - Mandate signing UI
-   - Secure Element signing
-   - Signature management
+### AgenticCommerce App → Mandate Service
+- `GET /api/mandates?userId=xxx&type=payment` - Check for mandate
+- `POST /api/mandates/register` - Register new mandate (if merchant does it)
+- `GET /api/mandates/:id` - Get mandate details
 
-3. **Backend Communication**:
-   - Calls main backend API (`agenticcommerce-production.up.railway.app`)
-   - Calls mandate service API (`pure-wonder-production.up.railway.app`)
-
-### Flow Example: User Checks Out
-
-```
-User opens AgenticCommerce app
-    ↓
-User adds items to cart
-    ↓
-User clicks "Checkout"
-    ↓
-App automatically checks for payment mandate
-    (Built-in functionality - no separate app)
-    ↓
-If no mandate: Shows mandate signing modal
-    (Built-in UI - no separate app)
-    ↓
-User signs mandate in the same app
-    (Built-in signature pad - no separate app)
-    ↓
-Mandate approved, payment proceeds
-    (All in the same app)
-```
-
-## What IS Separate?
-
-### Backend Services (Not Mobile Apps)
-
-1. **Main Backend** (`apps/backend`)
-   - Deployed on Railway
-   - Provides product search, cart, payment APIs
-   - **Not a mobile app** - it's a backend service
-
-2. **Mandate Service** (`apps/mandate-service`)
-   - Deployed on Railway
-   - Provides mandate and signature APIs
-   - **Not a mobile app** - it's a backend service
-   - Has a web admin UI (for administrators, not end users)
-
-### Admin UI (Web Only)
-
-The mandate service has a **web-based admin UI** for administrators:
-- URL: `https://pure-wonder-production.up.railway.app/admin`
-- Purpose: Manage mandates, view signatures, monitor system
-- **Not a mobile app** - it's a web interface
-- **Not required for end users** - only for administrators
+### Mandate App → Mandate Service
+- `GET /api/merchants` - List all merchants
+- `POST /api/merchants` - Add merchant
+- `GET /api/ai-agent-apps` - List all agents
+- `POST /api/ai-agent-apps` - Add agent
+- `GET /api/mandates?userId=xxx` - Get user's mandates
+- `POST /api/mandates/:id/approve` - Approve mandate
+- `POST /api/mandates/:id/revoke` - Revoke mandate
+- `POST /api/signatures/create` - Create signature
+- `POST /api/signatures/keys/register` - Register public key
 
 ## Installation
 
 ### For End Users
 
-**Only ONE app needed**: AgenticCommerce mobile app
+**Two separate apps**:
+1. **AgenticCommerce** - For shopping
+2. **Mandate Manager** - For managing authorizations
 
-1. Install AgenticCommerce APK on Android device
-2. That's it! All mandate functionality is included
+### For Developers
 
-### For Administrators
+**Two separate codebases**:
+- `apps/mobile/` - AgenticCommerce shopping app
+- `apps/mandate-app/` - Mandate management app
 
-**Optional**: Access web admin UI
-- Open browser: `https://pure-wonder-production.up.railway.app/admin`
-- No mobile app needed for admin tasks
+**Two separate builds**:
+- AgenticCommerce APK
+- Mandate Manager APK
 
-## Code Structure
+## Benefits of Separation
 
-```
-apps/
-├── mobile/                    ← Single mobile app (everything included)
-│   ├── src/
-│   │   ├── services/
-│   │   │   ├── mandate-service.client.ts    ← Mandate API client
-│   │   │   ├── signature.service.ts         ← Signature service
-│   │   │   └── secure-element.service.ts    ← Secure Element
-│   │   ├── components/
-│   │   │   └── mandate/
-│   │   │       ├── MandateSigningModal.tsx  ← Signing UI
-│   │   │       └── SignaturePad.tsx         ← Signature pad
-│   │   ├── utils/
-│   │   │   └── mandateCheck.ts              ← Mandate utilities
-│   │   └── contexts/
-│   │       └── MandateContext.tsx            ← State management
-│   └── package.json
-│
-├── backend/                   ← Backend service (not a mobile app)
-│   └── ...
-│
-└── mandate-service/           ← Backend service (not a mobile app)
-    └── ...
-```
+1. **Independence**: Mandate app works with multiple merchant apps
+2. **Security**: Centralized authorization management
+3. **User Control**: Users manage all authorizations in one place
+4. **Scalability**: Easy to add new merchants/agents
+5. **Compliance**: Better audit trail and compliance tracking
 
-## Summary
+## Next Steps
 
-### ✅ What You Have
-
-- **One mobile app**: AgenticCommerce (includes all mandate features)
-- **Two backend services**: Main backend + Mandate service (on Railway)
-- **One web admin UI**: For administrators (optional)
-
-### ❌ What You DON'T Need
-
-- ❌ Separate mandate client app
-- ❌ Separate signature app
-- ❌ Multiple mobile apps
-- ❌ Additional installations for end users
-
-### 🎯 For End Users
-
-**Just install the AgenticCommerce app** - everything is included!
-
-### 🔧 For Developers
-
-The mandate functionality is **modular** but **integrated**:
-- All mandate code is in `apps/mobile/src/`
-- It's part of the same React Native app
-- No separate build or deployment needed
-- One EAS build creates the complete app
-
-## Technical Details
-
-### How Mandate Features Are Integrated
-
-1. **Same React Native App**: All features share the same app bundle
-2. **Same Navigation**: Mandate modals are part of the app's navigation
-3. **Same State Management**: Uses React Context (MandateContext)
-4. **Same API Client**: Uses Axios to call mandate service
-5. **Same UI Components**: Uses React Native components
-
-### API Communication
-
-The mobile app makes API calls to:
-- **Main Backend**: `https://agenticcommerce-production.up.railway.app/api`
-- **Mandate Service**: `https://pure-wonder-production.up.railway.app/api`
-
-Both are backend services, not mobile apps.
-
-## Conclusion
-
-**You only need ONE mobile app**: The AgenticCommerce app, which includes all mandate functionality built-in. No separate mandate client app is required or exists.
-
-The mandate-service is a **backend service** (like a web API), not a mobile app. It provides APIs that the AgenticCommerce app calls, but all the UI and user interaction happens within the single AgenticCommerce mobile app.
+1. ✅ Create mandate app structure
+2. ⏳ Copy Secure Element services
+3. ⏳ Create merchant management screens
+4. ⏳ Create agent management screens
+5. ⏳ Create mandate management screens
+6. ⏳ Create navigation structure
+7. ⏳ Remove mandate UI from AgenticCommerce app
+8. ⏳ Update AgenticCommerce to only call API
