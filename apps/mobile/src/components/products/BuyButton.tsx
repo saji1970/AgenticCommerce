@@ -107,14 +107,23 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
 
       const defaultAgent = AppConfig.getDefaultAgent();
 
+      // Validate and prepare request
+      const productPrice = product.price && product.price > 0 ? product.price : 0;
+      if (productPrice <= 0) {
+        throw new Error('Product price is required and must be greater than 0');
+      }
+
+      // Only include productImage if it's a valid URL (Zod validation requires valid URL if provided)
       const request: AgentCartRequest = {
         mandateId: mandate.id,
         agentId: defaultAgent.id,
         productId: product.id,
         productName: product.name,
-        productImage: product.imageUrl,
+        ...(product.imageUrl && product.imageUrl.startsWith('http') && {
+          productImage: product.imageUrl,
+        }),
         quantity: 1,
-        price: product.price,
+        price: productPrice,
         reasoning,
       };
 
