@@ -1,7 +1,7 @@
-import { MandateRepository } from '../repositories/mandate.repository';
 import { AgentActionRepository } from '../repositories/agent-action.repository';
 import { AgentRepository } from '../repositories/agent.repository';
 import { AIService } from './ai.service';
+import { mandateServiceClient, AgentMandate as ClientMandate } from '../clients/mandate-service.client';
 import {
   Mandate,
   MandateType,
@@ -12,21 +12,40 @@ import {
   PaymentMandateConstraints,
 } from '@agentic-commerce/shared-types';
 
+/**
+ * Converts AgentMandate from mandate-service to Mandate (shared-types)
+ */
+function mapToMandate(clientMandate: ClientMandate): Mandate {
+  return {
+    id: clientMandate.id,
+    userId: clientMandate.userId,
+    agentId: clientMandate.agentId,
+    agentName: clientMandate.agentName,
+    type: clientMandate.type as MandateType,
+    status: clientMandate.status as MandateStatus,
+    constraints: clientMandate.constraints,
+    validFrom: new Date(clientMandate.validFrom),
+    validUntil: clientMandate.validUntil ? new Date(clientMandate.validUntil) : undefined,
+    revokedAt: clientMandate.revokedAt ? new Date(clientMandate.revokedAt) : undefined,
+    revokedReason: clientMandate.revokedReason,
+    createdAt: new Date(clientMandate.createdAt),
+    updatedAt: new Date(clientMandate.updatedAt),
+  };
+}
+
 export class MandateService {
-  private mandateRepository: MandateRepository;
   private actionRepository: AgentActionRepository;
   private agentRepository: AgentRepository;
   private aiService: AIService;
 
   constructor() {
-    this.mandateRepository = new MandateRepository();
     this.actionRepository = new AgentActionRepository();
     this.agentRepository = new AgentRepository();
     this.aiService = new AIService();
   }
 
   async createMandate(userId: string, request: CreateMandateRequest): Promise<Mandate> {
-    // Validate agent exists and is active
+    // Validate agent exists and is active (still using local agent repository)
     const agent = await this.agentRepository.getByAgentId(request.agentId);
     if (!agent) {
       throw new Error(`Agent with ID ${request.agentId} not found. Please configure the agent first.`);
@@ -48,14 +67,19 @@ export class MandateService {
     // Use agent name from database if not provided
     const agentName = request.agentName || agent.agentName;
 
-    const mandateRequest = {
-      ...request,
+    // Register mandate with mandate-service
+    const clientMandate = await mandateServiceClient.registerMandate({
+      userId,
+      agentId: request.agentId,
       agentName,
-    };
+      type: request.type,
+      constraints: request.constraints,
+      validUntil: request.validUntil,
+    });
 
-    const mandate = await this.mandateRepository.create(userId, mandateRequest);
+    const mandate = mapToMandate(clientMandate);
 
-    // Log the action
+    // Log the action locally (for audit trail)
     await this.actionRepository.log(
       userId,
       request.agentId,
@@ -71,7 +95,15 @@ export class MandateService {
   }
 
   async getMandate(mandateId: string): Promise<Mandate | null> {
-    return await this.mandateRepository.getById(mandateId);
+    try {
+      const clientMandate = await mandateServiceClient.getMandate(mandateId);
+      return mapToMandate(clientMandate);
+    } catch (error: any) {
+      if (error.message === 'Mandate not found') {
+        return null;
+      }
+      throw error;
+    }
   }
 
   async getUserMandates(
@@ -79,12 +111,17 @@ export class MandateService {
     status?: MandateStatus,
     type?: MandateType
   ): Promise<Mandate[]> {
-    return await this.mandateRepository.getUserMandates(userId, status, type);
+    const clientMandates = await mandateServiceClient.getUserMandates(
+      userId,
+      status,
+      type
+    );
+    return clientMandates.map(mapToMandate);
   }
 
   async approveMandate(mandateId: string, userId: string): Promise<Mandate> {
-    const mandate = await this.mandateRepository.getById(mandateId);
-
+    // Get mandate first to validate
+    const mandate = await this.getMandate(mandateId);
     if (!mandate || mandate.userId !== userId) {
       throw new Error('Mandate not found');
     }
@@ -93,11 +130,11 @@ export class MandateService {
       throw new Error('Mandate is not pending approval');
     }
 
-    const updatedMandate = await this.mandateRepository.updateStatus(
-      mandateId,
-      MandateStatus.ACTIVE
-    );
+    // Approve via mandate-service
+    const clientMandate = await mandateServiceClient.approveMandate(mandateId, userId);
+    const updatedMandate = mapToMandate(clientMandate);
 
+    // Log the action locally
     await this.actionRepository.log(
       userId,
       mandate.agentId,
@@ -113,17 +150,17 @@ export class MandateService {
   }
 
   async suspendMandate(mandateId: string, userId: string): Promise<Mandate> {
-    const mandate = await this.mandateRepository.getById(mandateId);
-
+    // Get mandate first to validate
+    const mandate = await this.getMandate(mandateId);
     if (!mandate || mandate.userId !== userId) {
       throw new Error('Mandate not found');
     }
 
-    const updatedMandate = await this.mandateRepository.updateStatus(
-      mandateId,
-      MandateStatus.SUSPENDED
-    );
+    // Suspend via mandate-service
+    const clientMandate = await mandateServiceClient.suspendMandate(mandateId, userId);
+    const updatedMandate = mapToMandate(clientMandate);
 
+    // Log the action locally
     await this.actionRepository.log(
       userId,
       mandate.agentId,
@@ -139,18 +176,17 @@ export class MandateService {
   }
 
   async revokeMandate(mandateId: string, userId: string, reason: string): Promise<Mandate> {
-    const mandate = await this.mandateRepository.getById(mandateId);
-
+    // Get mandate first to validate
+    const mandate = await this.getMandate(mandateId);
     if (!mandate || mandate.userId !== userId) {
       throw new Error('Mandate not found');
     }
 
-    const updatedMandate = await this.mandateRepository.updateStatus(
-      mandateId,
-      MandateStatus.REVOKED,
-      reason
-    );
+    // Revoke via mandate-service
+    const clientMandate = await mandateServiceClient.revokeMandate(mandateId, userId, reason);
+    const updatedMandate = mapToMandate(clientMandate);
 
+    // Log the action locally
     await this.actionRepository.log(
       userId,
       mandate.agentId,
@@ -170,13 +206,14 @@ export class MandateService {
     agentId: string,
     requiredType?: MandateType
   ): Promise<Mandate> {
-    const mandate = await this.mandateRepository.getById(mandateId);
+    // Get mandate from mandate-service
+    const mandate = await this.getMandate(mandateId);
 
     if (!mandate) {
       throw new Error('Mandate not found');
     }
 
-    // Validate agent exists and is active
+    // Validate agent exists and is active (still using local agent repository)
     const agent = await this.agentRepository.getByAgentId(agentId);
     if (!agent || agent.status !== 'active') {
       throw new Error(`Agent ${agentId} not found or not active`);
@@ -191,7 +228,7 @@ export class MandateService {
     }
 
     if (mandate.validUntil && new Date() > new Date(mandate.validUntil)) {
-      await this.mandateRepository.updateStatus(mandateId, MandateStatus.EXPIRED);
+      // Note: Expiration is handled by mandate-service, but we check here for immediate validation
       throw new Error('Mandate has expired');
     }
 

@@ -79,4 +79,10 @@ export const config = {
   mcp: {
     configPath: process.env.MCP_CONFIG_PATH || './config/mcp-servers.json',
   },
+
+  mandateService: {
+    url: process.env.MANDATE_SERVICE_URL || 'http://localhost:3001/api',
+    // Optional: Admin token for mandate-service if it requires auth
+    adminToken: process.env.MANDATE_SERVICE_ADMIN_TOKEN || '',
+  },
 };
