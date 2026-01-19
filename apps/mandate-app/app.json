@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Mandate Manager",
-    "slug": "mandate-manager",
+    "slug": "mandate-service",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -63,7 +63,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "mandate-manager-project-id"
+        "projectId": "ab9a1e06-c7f4-4f88-8b70-74c62e05b540"
       }
     }
   }
