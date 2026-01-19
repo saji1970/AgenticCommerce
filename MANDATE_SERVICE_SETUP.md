@@ -26,6 +26,9 @@ NODE_ENV=development
 DATABASE_URL=postgresql://user:password@host:port/database
 JWT_SECRET=your-secret-key
 CORS_ORIGIN=*
+BACKEND_API_URL=http://localhost:3000  # Main backend API URL (for admin endpoints)
+ADMIN_TOKEN=your-admin-token  # JWT token for backend API access
+PAYMENT_GATEWAY_URL=https://payment-gateway-production-db91.up.railway.app  # Payment gateway service URL
 ```
 
 ### 3. Run Database Migrations
