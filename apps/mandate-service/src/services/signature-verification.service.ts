@@ -53,8 +53,7 @@ export class SignatureVerificationService {
         const signatureBuffer = Buffer.from(signature.signatureData, 'base64');
         const isValid = verify.verify(
           publicKey.publicKeyPem,
-          signatureBuffer.toString('base64'),
-          'base64'
+          signatureBuffer
         );
 
         if (isValid) {
@@ -121,10 +120,9 @@ export class SignatureVerificationService {
       const signatureBuffer = Buffer.from(signatureData, 'base64');
       const verifyResult = verify.verify(
         publicKeyPem,
-        signatureBuffer.toString('base64'),
-        'base64'
+        signatureBuffer
       );
-      return !!verifyResult;
+      return Boolean(verifyResult);
     } catch (error) {
       console.error('Signature verification error:', error);
       // In test mode, be more lenient
