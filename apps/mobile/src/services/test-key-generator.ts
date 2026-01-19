@@ -30,9 +30,15 @@ export function generateTestSignature(data: string, keyId: string): string {
     hash = hash & hash;
   }
   
-  // Convert to base64
+  // Convert to base64 (React Native compatible)
   const hashStr = Math.abs(hash).toString(16).padStart(64, '0');
-  return Buffer.from(hashStr).toString('base64');
+  // Use btoa for base64 encoding (available in React Native)
+  try {
+    return btoa(hashStr);
+  } catch {
+    // Fallback if btoa not available
+    return hashStr;
+  }
 }
 
 /**

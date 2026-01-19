@@ -259,7 +259,11 @@ class SecureElementService {
     };
 
     // Return a PEM-like format (in production, this would be actual PEM)
-    return `-----BEGIN PUBLIC KEY-----\n${Buffer.from(JSON.stringify(publicKeyData)).toString('base64')}\n-----END PUBLIC KEY-----`;
+    // Use btoa for base64 encoding (React Native compatible)
+    const base64Data = typeof btoa !== 'undefined' 
+      ? btoa(JSON.stringify(publicKeyData))
+      : JSON.stringify(publicKeyData);
+    return `-----BEGIN PUBLIC KEY-----\n${base64Data}\n-----END PUBLIC KEY-----`;
   }
 
   /**
