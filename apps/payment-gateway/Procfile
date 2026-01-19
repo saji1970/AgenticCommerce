@@ -1,0 +1,1 @@
+web: cd apps/payment-gateway && node dist/server.js

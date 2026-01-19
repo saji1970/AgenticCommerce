@@ -17,4 +17,7 @@ export const config = {
   },
   backendApiUrl: process.env.BACKEND_API_URL || '', // Main backend API URL for admin endpoints
   adminToken: process.env.ADMIN_TOKEN || '', // Admin token for backend API access
+  paymentGateway: {
+    url: process.env.PAYMENT_GATEWAY_URL || 'http://localhost:3002', // Mock payment gateway URL
+  },
 };
