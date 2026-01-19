@@ -16,13 +16,19 @@
       "android": {
         "buildType": "apk"
       },
-      "node": "20.18.0"
+      "node": "20.18.0",
+      "env": {
+        "EAS_BUILD_RUNNER": "eas-build-pre-install"
+      }
     },
     "production": {
       "android": {
         "buildType": "apk"
       },
-      "node": "20.18.0"
+      "node": "20.18.0",
+      "env": {
+        "EAS_BUILD_RUNNER": "eas-build-pre-install"
+      }
     }
   },
   "submit": {
