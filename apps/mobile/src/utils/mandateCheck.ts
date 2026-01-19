@@ -1,132 +1,212 @@
-import mandateServiceClient, { AgentMandate } from '../services/mandate-service.client';
-import { AppConfig } from '../config/app.config';
+import { mandateServiceClient } from '../services/mandate-service.client';
 import { storageService } from '../services/storage.service';
-
-export interface MandateCheckResult {
-  hasMandate: boolean;
-  mandate?: AgentMandate;
-  needsRegistration: boolean;
-}
+import { openMandateApp } from './deepLink';
+import { Alert } from 'react-native';
+import { PaymentMandateConstraints, CartMandateConstraints, IntentMandateConstraints } from '@agentic-commerce/shared-types';
 
 /**
- * Check if user has an active payment mandate for an agent
- * Returns mandate info if exists, or indicates if registration is needed
+ * Check if user has an active payment mandate
  */
-export async function checkPaymentMandate(
-  agentId: string,
-  agentName?: string
-): Promise<MandateCheckResult> {
+export async function checkPaymentMandate(agentId: string, agentName: string): Promise<{
+  hasMandate: boolean;
+  mandateId?: string;
+}> {
   try {
     const user = await storageService.getUser();
     if (!user || !user.id) {
       throw new Error('User not logged in');
     }
-    const userId = user.id;
 
-    // Check for active payment mandate
-    const mandates = await mandateServiceClient.getUserMandates(userId, 'active', 'payment');
-    const activeMandate = mandates.find(
-      m => m.agentId === agentId && m.status === 'active'
-    );
+    const mandates = await mandateServiceClient.getUserMandates(user.id, 'active', 'payment');
+    const mandate = mandates.find(m => m.agentId === agentId);
 
-    if (activeMandate) {
-      // Check if mandate is expired
-      if (activeMandate.validUntil) {
-        const now = new Date();
-        const validUntil = new Date(activeMandate.validUntil);
-        if (now > validUntil) {
-          return {
-            hasMandate: false,
-            needsRegistration: true,
-          };
-        }
-      }
-
-      return {
-        hasMandate: true,
-        mandate: activeMandate,
-        needsRegistration: false,
-      };
+    if (mandate && mandate.status === 'active') {
+      return { hasMandate: true, mandateId: mandate.id };
     }
 
-    // No active mandate found
-    return {
-      hasMandate: false,
-      needsRegistration: true,
-    };
+    return { hasMandate: false };
   } catch (error) {
     console.error('Error checking payment mandate:', error);
-    // If error, assume no mandate and show registration UI
-    return {
-      hasMandate: false,
-      needsRegistration: true,
-    };
+    throw error;
   }
 }
 
 /**
- * Register a payment mandate with the mandate-service
+ * Register a payment mandate and open Mandate app for approval
  */
 export async function registerPaymentMandate(
   agentId: string,
   agentName: string,
-  constraints?: Record<string, any>
-): Promise<AgentMandate> {
-  const user = await storageService.getUser();
-  if (!user || !user.id) {
-    throw new Error('User not logged in');
-  }
-  const userId = user.id;
-
-  const defaultConstraints = AppConfig.getDefaultConstraints('payment');
-  const finalConstraints = constraints || defaultConstraints;
-
-  return await mandateServiceClient.registerMandate({
-    userId,
-    agentId,
-    agentName,
-    type: 'payment',
-    constraints: finalConstraints,
-  });
-}
-
-/**
- * Approve a pending mandate
- */
-export async function approveMandate(mandateId: string): Promise<AgentMandate> {
-  const user = await storageService.getUser();
-  if (!user || !user.id) {
-    throw new Error('User not logged in');
-  }
-  const userId = user.id;
-
-  return await mandateServiceClient.approveMandate(mandateId, userId);
-}
-
-/**
- * Validate mandate before transaction (called by agents)
- */
-export async function validateMandateForTransaction(
-  agentId: string,
-  transactionAmount?: number
-): Promise<boolean> {
+  constraints: PaymentMandateConstraints
+): Promise<{ mandateId: string }> {
   try {
     const user = await storageService.getUser();
     if (!user || !user.id) {
-      return false;
+      throw new Error('User not logged in');
     }
-    const userId = user.id;
 
-    const result = await mandateServiceClient.validateMandate({
-      userId,
+    // Register mandate with mandate service
+    const mandate = await mandateServiceClient.registerMandate({
+      userId: user.id,
       agentId,
-      mandateType: 'payment',
-      transactionAmount,
+      agentName,
+      type: 'payment',
+      constraints,
     });
 
-    return result.valid;
+    // Open Mandate app for user to approve and sign
+    const opened = await openMandateApp(mandate.id);
+    if (!opened) {
+      Alert.alert(
+        'Mandate App Required',
+        'Please install the Mandate Manager app to approve this mandate. The mandate has been created and is pending your approval.',
+        [{ text: 'OK' }]
+      );
+    }
+
+    return { mandateId: mandate.id };
   } catch (error) {
-    console.error('Error validating mandate:', error);
-    return false;
+    console.error('Error registering payment mandate:', error);
+    throw error;
   }
+}
+
+/**
+ * Check if user has an active cart mandate
+ */
+export async function checkCartMandate(agentId: string, agentName: string): Promise<{
+  hasMandate: boolean;
+  mandateId?: string;
+}> {
+  try {
+    const user = await storageService.getUser();
+    if (!user || !user.id) {
+      throw new Error('User not logged in');
+    }
+
+    const mandates = await mandateServiceClient.getUserMandates(user.id, 'active', 'cart');
+    const mandate = mandates.find(m => m.agentId === agentId);
+
+    if (mandate && mandate.status === 'active') {
+      return { hasMandate: true, mandateId: mandate.id };
+    }
+
+    return { hasMandate: false };
+  } catch (error) {
+    console.error('Error checking cart mandate:', error);
+    throw error;
+  }
+}
+
+/**
+ * Register a cart mandate and open Mandate app for approval
+ */
+export async function registerCartMandate(
+  agentId: string,
+  agentName: string,
+  constraints: CartMandateConstraints
+): Promise<{ mandateId: string }> {
+  try {
+    const user = await storageService.getUser();
+    if (!user || !user.id) {
+      throw new Error('User not logged in');
+    }
+
+    const mandate = await mandateServiceClient.registerMandate({
+      userId: user.id,
+      agentId,
+      agentName,
+      type: 'cart',
+      constraints,
+    });
+
+    const opened = await openMandateApp(mandate.id);
+    if (!opened) {
+      Alert.alert(
+        'Mandate App Required',
+        'Please install the Mandate Manager app to approve this mandate.',
+        [{ text: 'OK' }]
+      );
+    }
+
+    return { mandateId: mandate.id };
+  } catch (error) {
+    console.error('Error registering cart mandate:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check if user has an active intent mandate
+ */
+export async function checkIntentMandate(agentId: string, agentName: string): Promise<{
+  hasMandate: boolean;
+  mandateId?: string;
+}> {
+  try {
+    const user = await storageService.getUser();
+    if (!user || !user.id) {
+      throw new Error('User not logged in');
+    }
+
+    const mandates = await mandateServiceClient.getUserMandates(user.id, 'active', 'intent');
+    const mandate = mandates.find(m => m.agentId === agentId);
+
+    if (mandate && mandate.status === 'active') {
+      return { hasMandate: true, mandateId: mandate.id };
+    }
+
+    return { hasMandate: false };
+  } catch (error) {
+    console.error('Error checking intent mandate:', error);
+    throw error;
+  }
+}
+
+/**
+ * Register an intent mandate and open Mandate app for approval
+ */
+export async function registerIntentMandate(
+  agentId: string,
+  agentName: string,
+  constraints: IntentMandateConstraints
+): Promise<{ mandateId: string }> {
+  try {
+    const user = await storageService.getUser();
+    if (!user || !user.id) {
+      throw new Error('User not logged in');
+    }
+
+    const mandate = await mandateServiceClient.registerMandate({
+      userId: user.id,
+      agentId,
+      agentName,
+      type: 'intent',
+      constraints,
+    });
+
+    const opened = await openMandateApp(mandate.id);
+    if (!opened) {
+      Alert.alert(
+        'Mandate App Required',
+        'Please install the Mandate Manager app to approve this mandate.',
+        [{ text: 'OK' }]
+      );
+    }
+
+    return { mandateId: mandate.id };
+  } catch (error) {
+    console.error('Error registering intent mandate:', error);
+    throw error;
+  }
+}
+
+/**
+ * Approve a mandate (this is now handled in the Mandate app)
+ * This function is kept for backward compatibility but does nothing
+ */
+export async function approveMandate(mandateId: string): Promise<void> {
+  // Approval is now handled in the Mandate app
+  // This function is kept for backward compatibility
+  console.log('Mandate approval is handled in the Mandate app');
 }

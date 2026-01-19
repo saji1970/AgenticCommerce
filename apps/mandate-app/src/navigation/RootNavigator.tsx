@@ -1,0 +1,121 @@
+import React, { useEffect, useRef } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
+import { Linking, Text } from 'react-native';
+import { useAuth } from '../contexts/AuthContext';
+import { LoginScreen } from '../screens/LoginScreen';
+import { DashboardScreen } from '../screens/DashboardScreen';
+import { MandatesScreen } from '../screens/MandatesScreen';
+import { MandateDetailScreen } from '../screens/MandateDetailScreen';
+import { MerchantsScreen } from '../screens/MerchantsScreen';
+import { AgentsScreen } from '../screens/AgentsScreen';
+
+const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+const MandatesStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen
+      name="MandatesList"
+      component={MandatesScreen}
+      options={{ title: 'Mandates' }}
+    />
+    <Stack.Screen
+      name="MandateDetail"
+      component={MandateDetailScreen}
+      options={{ title: 'Mandate Details' }}
+    />
+  </Stack.Navigator>
+);
+
+const MainTabs = () => (
+  <Tab.Navigator
+    screenOptions={{
+      tabBarActiveTintColor: '#2563EB',
+      tabBarInactiveTintColor: '#6B7280',
+      headerShown: false,
+    }}
+  >
+    <Tab.Screen
+      name="Dashboard"
+      component={DashboardScreen}
+      options={{
+        tabBarLabel: 'Dashboard',
+        tabBarIcon: ({ color }) => <Text style={{ color }}>📊</Text>,
+      }}
+    />
+    <Tab.Screen
+      name="Mandates"
+      component={MandatesStack}
+      options={{
+        tabBarLabel: 'Mandates',
+        tabBarIcon: ({ color }) => <Text style={{ color }}>📋</Text>,
+      }}
+    />
+    <Tab.Screen
+      name="Merchants"
+      component={MerchantsScreen}
+      options={{
+        tabBarLabel: 'Merchants',
+        tabBarIcon: ({ color }) => <Text style={{ color }}>🏪</Text>,
+      }}
+    />
+    <Tab.Screen
+      name="Agents"
+      component={AgentsScreen}
+      options={{
+        tabBarLabel: 'Agents',
+        tabBarIcon: ({ color }) => <Text style={{ color }}>🤖</Text>,
+      }}
+    />
+  </Tab.Navigator>
+);
+
+export const RootNavigator: React.FC = () => {
+  const { user, loading } = useAuth();
+  const navigationRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Handle deep linking
+    const handleDeepLink = (url: string) => {
+      console.log('Deep link received:', url);
+      // Parse URL: mandate://mandate/{mandateId}
+      const match = url.match(/mandate:\/\/mandate\/([^/]+)/);
+      if (match && navigationRef.current) {
+        const mandateId = match[1];
+        // Navigate to mandate detail
+        navigationRef.current.navigate('Mandates', {
+          screen: 'MandateDetail',
+          params: { mandateId },
+        });
+      }
+    };
+
+    // Get initial URL if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink(url);
+      }
+    });
+
+    // Listen for deep links while app is running
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  if (loading) {
+    return null;
+  }
+
+  return (
+    <NavigationContainer ref={navigationRef}>
+      {user ? <MainTabs /> : <LoginScreen />}
+    </NavigationContainer>
+  );
+};

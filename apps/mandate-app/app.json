@@ -30,8 +30,25 @@
         "ACCESS_NETWORK_STATE",
         "USE_BIOMETRIC",
         "USE_FINGERPRINT"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "mandate",
+              "host": "mandate"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
+    "scheme": "mandate",
     "web": {
       "favicon": "./assets/favicon.png"
     },
