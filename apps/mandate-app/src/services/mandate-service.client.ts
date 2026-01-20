@@ -236,6 +236,21 @@ class MandateServiceClient {
       throw error;
     }
   }
+
+  async processPayment(data: {
+    userId: string;
+    agentId: string;
+    mandateId: string;
+    amount: number;
+    currency?: string;
+    paymentMethod?: string;
+    cardDetails?: any;
+    paypalDetails?: any;
+    metadata?: Record<string, any>;
+  }): Promise<{ transactionId: string; status: string; amount: number; currency: string; processedAt: string; gateway: string }> {
+    const response = await this.client.post<{ success: boolean; data: any }>('/payment/process', data);
+    return response.data.data;
+  }
 }
 
 export const mandateServiceClient = new MandateServiceClient();

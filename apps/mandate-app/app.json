@@ -3,6 +3,7 @@
     "name": "Mandate Manager",
     "slug": "mandate-service",
     "version": "1.0.0",
+    "description": "User app for managing AI agent mandates - approve, revoke, and cancel your mandates",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

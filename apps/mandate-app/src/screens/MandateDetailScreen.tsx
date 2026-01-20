@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Linking,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { AgentMandate } from '../services/mandate-service.client';
@@ -15,6 +16,8 @@ import { mandateServiceClient } from '../services/mandate-service.client';
 import { useMandates } from '../contexts/MandateContext';
 import { SignaturePad } from '../components/SignaturePad';
 import signatureService from '../services/signature.service';
+
+const AGENTIC_COMMERCE_SCHEME = 'agenticcommerce://';
 
 export const MandateDetailScreen: React.FC = () => {
   const route = useRoute();
@@ -70,8 +73,49 @@ export const MandateDetailScreen: React.FC = () => {
       await mandateServiceClient.approveMandate(mandateId, mandate!.userId);
       await refreshMandates();
       
-      Alert.alert('Success', 'Mandate approved and signed', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+      // If payment mandate, process payment
+      let paymentId: string | undefined;
+      if (mandate!.type === 'payment') {
+        try {
+          // Call mandate-service to process payment
+          // The mandate-service will call the payment gateway
+          // Note: Amount and payment details should come from the intent/cart
+          // For now, we'll process a minimal payment to complete the flow
+          // In a real scenario, this would be triggered from the AgenticCommerce app after mandate approval
+          console.log('Payment mandate approved - payment processing can be initiated from AgenticCommerce app');
+          
+          // Payment processing will be handled by the AgenticCommerce app when it receives the callback
+          // The AgenticCommerce app will call the mandate-service payment endpoint with the actual amount
+        } catch (paymentError) {
+          console.error('Payment processing error:', paymentError);
+          // Still proceed with approval even if payment fails
+          // Payment can be retried later
+        }
+      }
+
+      // Send deep link back to AgenticCommerce app
+      const callbackUrl = `${AGENTIC_COMMERCE_SCHEME}payment-callback?mandateId=${mandateId}&status=approved${paymentId ? `&paymentId=${paymentId}` : ''}`;
+      
+      try {
+        const canOpen = await Linking.canOpenURL(callbackUrl);
+        if (canOpen) {
+          await Linking.openURL(callbackUrl);
+        }
+      } catch (linkError) {
+        console.error('Error opening deep link:', linkError);
+        // Continue anyway - user can manually return to AgenticCommerce app
+      }
+
+      Alert.alert('Success', 'Mandate approved and signed. Returning to AgenticCommerce...', [
+        { 
+          text: 'OK', 
+          onPress: () => {
+            // Try to open AgenticCommerce app if deep link didn't work
+            Linking.openURL(callbackUrl).catch(() => {
+              navigation.goBack();
+            });
+          }
+        },
       ]);
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to approve mandate');
@@ -80,21 +124,53 @@ export const MandateDetailScreen: React.FC = () => {
     }
   };
 
+  const handleCancel = () => {
+    Alert.alert(
+      'Cancel Mandate',
+      'Are you sure you want to cancel this pending mandate?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await mandateServiceClient.revokeMandate(mandateId, mandate!.userId, 'Cancelled by user');
+              await refreshMandates();
+              Alert.alert('Success', 'Mandate cancelled', [
+                { text: 'OK', onPress: () => navigation.goBack() },
+              ]);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to cancel mandate');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleRevoke = () => {
-    Alert.prompt(
+    Alert.alert(
       'Revoke Mandate',
-      'Enter reason for revoking (optional):',
-      async (reason) => {
-        try {
-          await mandateServiceClient.revokeMandate(mandateId, mandate!.userId, reason || undefined);
-          await refreshMandates();
-          Alert.alert('Success', 'Mandate revoked', [
-            { text: 'OK', onPress: () => navigation.goBack() },
-          ]);
-        } catch (error) {
-          Alert.alert('Error', 'Failed to revoke mandate');
-        }
-      }
+      'Are you sure you want to revoke this active mandate? This will prevent the AI agent from performing further actions.',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Revoke',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await mandateServiceClient.revokeMandate(mandateId, mandate!.userId, 'Revoked by user');
+              await refreshMandates();
+              Alert.alert('Success', 'Mandate revoked', [
+                { text: 'OK', onPress: () => navigation.goBack() },
+              ]);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to revoke mandate');
+            }
+          },
+        },
+      ]
     );
   };
 
@@ -185,13 +261,29 @@ export const MandateDetailScreen: React.FC = () => {
               <Text style={styles.approveButtonText}>Approve & Sign</Text>
             )}
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+            <Text style={styles.cancelButtonText}>Cancel Mandate</Text>
+          </TouchableOpacity>
         </View>
       )}
 
       {mandate.status === 'active' && (
-        <TouchableOpacity style={styles.revokeButton} onPress={handleRevoke}>
-          <Text style={styles.revokeButtonText}>Revoke Mandate</Text>
-        </TouchableOpacity>
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.revokeButton} onPress={handleRevoke}>
+            <Text style={styles.revokeButtonText}>Revoke Mandate</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {(mandate.status === 'revoked' || mandate.status === 'expired') && (
+        <View style={styles.actions}>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>
+              This mandate has been {mandate.status === 'revoked' ? 'revoked' : 'expired'} and is no longer active.
+            </Text>
+          </View>
+        </View>
       )}
 
       <Modal
@@ -354,6 +446,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  cancelButton: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  cancelButtonText: {
+    color: '#EF4444',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   revokeButton: {
     backgroundColor: '#EF4444',
     borderRadius: 8,
@@ -365,6 +469,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  infoBox: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    padding: 16,
+    margin: 24,
+  },
+  infoText: {
+    color: '#6B7280',
+    fontSize: 14,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,

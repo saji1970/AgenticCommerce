@@ -58,7 +58,7 @@ export const DashboardScreen: React.FC = () => {
             <TouchableOpacity
               key={mandate.id}
               style={styles.mandateCard}
-              onPress={() => navigation.navigate('MandateDetail' as never, { mandateId: mandate.id } as never)}
+              onPress={() => navigation.navigate('Mandates' as never, { screen: 'MandateDetail', params: { mandateId: mandate.id } } as never)}
             >
               <Text style={styles.mandateAgent}>{mandate.agentName}</Text>
               <Text style={styles.mandateType}>{mandate.type}</Text>
@@ -76,20 +76,30 @@ export const DashboardScreen: React.FC = () => {
         </View>
       )}
 
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Merchants' as never)}
-        >
-          <Text style={styles.actionButtonText}>Manage Merchants</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Agents' as never)}
-        >
-          <Text style={styles.actionButtonText}>Manage Agents</Text>
-        </TouchableOpacity>
-      </View>
+      {activeMandates.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Active Mandates</Text>
+          {activeMandates.slice(0, 3).map((mandate) => (
+            <TouchableOpacity
+              key={mandate.id}
+              style={styles.mandateCard}
+              onPress={() => navigation.navigate('Mandates' as never, { screen: 'MandateDetail', params: { mandateId: mandate.id } } as never)}
+            >
+              <Text style={styles.mandateAgent}>{mandate.agentName}</Text>
+              <Text style={styles.mandateType}>{mandate.type}</Text>
+              <Text style={styles.mandateStatus}>{mandate.status}</Text>
+            </TouchableOpacity>
+          ))}
+          {activeMandates.length > 3 && (
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => navigation.navigate('Mandates' as never)}
+            >
+              <Text style={styles.viewAllText}>View All ({activeMandates.length})</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </ScrollView>
   );
 };

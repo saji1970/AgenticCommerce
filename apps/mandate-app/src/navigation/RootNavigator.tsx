@@ -8,8 +8,6 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { MandatesScreen } from '../screens/MandatesScreen';
 import { MandateDetailScreen } from '../screens/MandateDetailScreen';
-import { MerchantsScreen } from '../screens/MerchantsScreen';
-import { AgentsScreen } from '../screens/AgentsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -51,22 +49,6 @@ const MainTabs = () => (
       options={{
         tabBarLabel: 'Mandates',
         tabBarIcon: ({ color }) => <Text style={{ color }}>📋</Text>,
-      }}
-    />
-    <Tab.Screen
-      name="Merchants"
-      component={MerchantsScreen}
-      options={{
-        tabBarLabel: 'Merchants',
-        tabBarIcon: ({ color }) => <Text style={{ color }}>🏪</Text>,
-      }}
-    />
-    <Tab.Screen
-      name="Agents"
-      component={AgentsScreen}
-      options={{
-        tabBarLabel: 'Agents',
-        tabBarIcon: ({ color }) => <Text style={{ color }}>🤖</Text>,
       }}
     />
   </Tab.Navigator>
