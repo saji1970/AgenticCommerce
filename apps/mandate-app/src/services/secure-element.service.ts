@@ -124,7 +124,7 @@ class SecureElementService {
         {
           accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
           authenticationPrompt: 'Access your secure key',
-          authenticationType: Keychain.AUTHENTICATION_TYPE.BIOMETRICS_ANY,
+          authenticationType: Keychain.AUTHENTICATION_TYPE.BIOMETRICS,
         }
       );
 

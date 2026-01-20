@@ -58,7 +58,7 @@ export const DashboardScreen: React.FC = () => {
             <TouchableOpacity
               key={mandate.id}
               style={styles.mandateCard}
-              onPress={() => navigation.navigate('Mandates' as never, { screen: 'MandateDetail', params: { mandateId: mandate.id } } as never)}
+              onPress={() => (navigation as any).navigate('Mandates', { screen: 'MandateDetail', params: { mandateId: mandate.id } })}
             >
               <Text style={styles.mandateAgent}>{mandate.agentName}</Text>
               <Text style={styles.mandateType}>{mandate.type}</Text>
@@ -68,7 +68,7 @@ export const DashboardScreen: React.FC = () => {
           {pendingMandates.length > 3 && (
             <TouchableOpacity
               style={styles.viewAllButton}
-              onPress={() => navigation.navigate('Mandates' as never)}
+              onPress={() => (navigation as any).navigate('Mandates')}
             >
               <Text style={styles.viewAllText}>View All ({pendingMandates.length})</Text>
             </TouchableOpacity>
@@ -83,7 +83,7 @@ export const DashboardScreen: React.FC = () => {
             <TouchableOpacity
               key={mandate.id}
               style={styles.mandateCard}
-              onPress={() => navigation.navigate('Mandates' as never, { screen: 'MandateDetail', params: { mandateId: mandate.id } } as never)}
+              onPress={() => (navigation as any).navigate('Mandates', { screen: 'MandateDetail', params: { mandateId: mandate.id } })}
             >
               <Text style={styles.mandateAgent}>{mandate.agentName}</Text>
               <Text style={styles.mandateType}>{mandate.type}</Text>

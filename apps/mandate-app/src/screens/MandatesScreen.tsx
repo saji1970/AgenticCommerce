@@ -37,7 +37,7 @@ export const MandatesScreen: React.FC = () => {
   const renderMandate = ({ item }: { item: AgentMandate }) => (
     <TouchableOpacity
       style={styles.mandateCard}
-      onPress={() => navigation.navigate('MandateDetail' as never, { mandateId: item.id } as never)}
+      onPress={() => (navigation as any).navigate('Mandates', { screen: 'MandateDetail', params: { mandateId: item.id } })}
     >
       <View style={styles.mandateHeader}>
         <Text style={styles.mandateAgent}>{item.agentName}</Text>
