@@ -25,7 +25,6 @@
         "backgroundColor": "#2563eb"
       },
       "package": "com.agentic.mandate",
-      "versionCode": 1,
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
