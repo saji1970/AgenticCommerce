@@ -59,8 +59,7 @@
         {
           "faceIDPermission": "Allow Mandate Manager to use Face ID for secure mandate signing."
         }
-      ],
-      "@react-native-community/datetimepicker"
+      ]
     ],
     "extra": {
       "eas": {
