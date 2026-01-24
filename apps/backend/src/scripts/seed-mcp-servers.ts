@@ -127,9 +127,6 @@ async function seedMCPServers() {
       },
       isActive: true,
     },
-    // Microsoft Dynamics 365 Commerce MCP - Preview (expected Feb 2026)
-    // Uncomment when available
-    /*
     {
       name: 'dynamics365-commerce',
       serverType: 'stdio',
@@ -141,6 +138,7 @@ async function seedMCPServers() {
           DYNAMICS365_TENANT_ID: process.env.DYNAMICS365_TENANT_ID || '',
           DYNAMICS365_CLIENT_ID: process.env.DYNAMICS365_CLIENT_ID || '',
           DYNAMICS365_CLIENT_SECRET: process.env.DYNAMICS365_CLIENT_SECRET || '',
+          DYNAMICS365_ENVIRONMENT: process.env.DYNAMICS365_ENVIRONMENT || 'production',
         },
         // Dynamics 365-specific tool names
         searchTool: 'search_products',
@@ -149,9 +147,8 @@ async function seedMCPServers() {
         promotionTool: 'get_promotions',
         fulfillmentTool: 'get_fulfillment_options',
       },
-      isActive: false, // Set to true when available
+      isActive: true,
     },
-    */
   ];
 
   console.log('🌱 Seeding MCP server configurations...\n');
@@ -175,13 +172,22 @@ async function seedMCPServers() {
 
   console.log('\n✨ MCP server seeding complete!');
   console.log('\n📝 Note: Make sure to set the required environment variables for each server:');
-  console.log('   - AGORA_API_KEY (for Agora MCP)');
-  console.log('   - SHOPIFY_STORE_URL, SHOPIFY_ACCESS_TOKEN (for Shopify)');
-  console.log('   - BITREFILL_API_KEY (for Bitrefill)');
-  console.log('   - MERCADOLIBRE_APP_ID, MERCADOLIBRE_SECRET_KEY (for MercadoLibre)');
-  console.log('   - COMMERCETOOLS_* (for Commercetools)');
-  console.log('   - SHUFERSAL_API_KEY (for Shufersal)');
+  console.log('   - AGORA_API_KEY (for Agora MCP - General product search)');
+  console.log('   - SHOPIFY_STORE_URL, SHOPIFY_ACCESS_TOKEN (for Shopify Catalog)');
+  console.log('   - BITREFILL_API_KEY (for Bitrefill - Gift cards)');
+  console.log('   - MERCADOLIBRE_APP_ID, MERCADOLIBRE_SECRET_KEY (for MercadoLibre marketplace)');
+  console.log('   - COMMERCETOOLS_PROJECT_KEY, COMMERCETOOLS_CLIENT_ID, COMMERCETOOLS_CLIENT_SECRET (for Commercetools)');
+  console.log('   - SHUFERSAL_API_KEY (for Shufersal - Groceries)');
+  console.log('   - DYNAMICS365_TENANT_ID, DYNAMICS365_CLIENT_ID, DYNAMICS365_CLIENT_SECRET (for Dynamics 365 Commerce)');
   console.log('\n💡 You can activate/deactivate servers via the admin portal or database.');
+  console.log('\n📋 Configured Servers:');
+  console.log('   ✅ agora-mcp - General product search');
+  console.log('   ✅ shopify-catalog - Shopify products');
+  console.log('   ✅ mercadolibre - MercadoLibre marketplace');
+  console.log('   ✅ commercetools - Commercetools platform');
+  console.log('   ✅ bitrefill - Gift cards');
+  console.log('   ✅ shufersal - Groceries');
+  console.log('   ✅ dynamics365-commerce - Microsoft Commerce');
 }
 
 // Run if called directly
