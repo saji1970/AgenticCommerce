@@ -2,6 +2,7 @@ import axios from 'axios';
 import { SearchResult, SearchOptions } from '@agentic-commerce/shared-types';
 import { config } from '../config/env';
 import { AppError } from '../middleware/errorHandler';
+import { extractPriceFromGoogleShoppingResult } from '../utils/price-extractor';
 
 export class SearchService {
   private apiKey: string;
@@ -64,19 +65,20 @@ export class SearchService {
       }
 
       return response.data.items.map((item: any) => {
-        // Extract price from multiple possible locations in Google Shopping response
-        let price = item.pagemap?.offer?.[0]?.price || 
-                   item.pagemap?.product?.[0]?.offers?.price ||
-                   item.pagemap?.product?.[0]?.price ||
-                   item.pagemap?.aggregaterating?.[0]?.price;
-        
-        // Also check if price is in the snippet
-        if (!price && item.snippet) {
-          const priceMatch = item.snippet.match(/\$[\d,]+\.?\d*/);
-          if (priceMatch) {
-            price = priceMatch[0];
-          }
-        }
+        // Use robust price extraction utility
+        const result = {
+          title: item.title,
+          url: item.link,
+          snippet: item.snippet || '',
+          displayUrl: item.displayLink || new URL(item.link).hostname,
+          rawData: item.pagemap,
+          price: item.pagemap?.offer?.[0]?.price,
+          currency: item.pagemap?.offer?.[0]?.pricecurrency || 
+                   item.pagemap?.product?.[0]?.offers?.pricecurrency ||
+                   'USD',
+        };
+
+        const extractedPrice = extractPriceFromGoogleShoppingResult(result);
         
         return {
           title: item.title,
@@ -84,14 +86,17 @@ export class SearchService {
           snippet: item.snippet || '',
           displayUrl: item.displayLink || new URL(item.link).hostname,
           // Google Shopping specific fields
-          price: price,
-          currency: item.pagemap?.offer?.[0]?.pricecurrency || 
-                   item.pagemap?.product?.[0]?.offers?.pricecurrency ||
-                   'USD',
+          price: extractedPrice?.value != null ? extractedPrice.original : null,
+          currency: extractedPrice?.currency || result.currency,
           availability: item.pagemap?.offer?.[0]?.availability,
           image: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.imageobject?.[0]?.url,
           // Store full pagemap for debugging
           rawData: item.pagemap,
+          // Store extracted price metadata for better processing downstream
+          _priceMetadata: extractedPrice ? {
+            value: extractedPrice.value,
+            confidence: extractedPrice.confidence,
+          } : null,
         };
       });
     } catch (error: any) {

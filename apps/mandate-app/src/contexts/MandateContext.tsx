@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { AgentMandate } from '../services/mandate-service.client';
 import { mandateServiceClient } from '../services/mandate-service.client';
 import { useAuth } from './AuthContext';
+import { getDemoMandates, updateDemoMandate } from '../services/demo-seed-data';
 
 interface MandateContextType {
   mandates: AgentMandate[];
@@ -34,6 +35,12 @@ export const MandateProvider: React.FC<{ children: ReactNode }> = ({ children })
       setMandates(userMandates);
     } catch (error) {
       console.error('Error fetching mandates:', error);
+      // Fallback to demo data in development or when API is unavailable
+      if (__DEV__) {
+        console.log('Using demo seed data as fallback');
+        const demoMandates = getDemoMandates(user.id);
+        setMandates(demoMandates);
+      }
     } finally {
       setLoading(false);
     }
@@ -47,6 +54,14 @@ export const MandateProvider: React.FC<{ children: ReactNode }> = ({ children })
       await refreshMandates();
     } catch (error) {
       console.error('Error approving mandate:', error);
+      // Fallback to demo data update in development
+      if (__DEV__) {
+        const updated = updateDemoMandate(mandateId, { status: 'active' });
+        if (updated) {
+          await refreshMandates();
+          return;
+        }
+      }
       throw error;
     }
   };
@@ -59,6 +74,14 @@ export const MandateProvider: React.FC<{ children: ReactNode }> = ({ children })
       await refreshMandates();
     } catch (error) {
       console.error('Error revoking mandate:', error);
+      // Fallback to demo data update in development
+      if (__DEV__) {
+        const updated = updateDemoMandate(mandateId, { status: 'revoked' });
+        if (updated) {
+          await refreshMandates();
+          return;
+        }
+      }
       throw error;
     }
   };
@@ -71,6 +94,14 @@ export const MandateProvider: React.FC<{ children: ReactNode }> = ({ children })
       await refreshMandates();
     } catch (error) {
       console.error('Error suspending mandate:', error);
+      // Fallback to demo data update in development
+      if (__DEV__) {
+        const updated = updateDemoMandate(mandateId, { status: 'suspended' });
+        if (updated) {
+          await refreshMandates();
+          return;
+        }
+      }
       throw error;
     }
   };

@@ -17,6 +17,7 @@ import { MCPService } from './mcp.service';
 import { NLPService, ParsedSearchQuery } from './nlp.service';
 import { AppError } from '../middleware/errorHandler';
 import { isDemoUserById } from '../utils/demo-users';
+import { extractPriceFromGoogleShoppingResult, parsePrice } from '../utils/price-extractor';
 
 export class ProductService {
   private productRepository: ProductRepository;
@@ -132,54 +133,32 @@ export class ProductService {
         // Google Shopping results already have price, image, etc. - extract directly
         console.log(`📦 Extracting product data from ${shoppableResults.length} Google Shopping results...`);
         extractedProducts = shoppableResults.map((result) => {
-          // Parse price from Google Shopping result
-          let price: number | undefined;
-          // Try multiple sources for price from Google Shopping
-          let priceValue = result.price;
+          // Use robust price extraction utility
+          const extractedPrice = extractPriceFromGoogleShoppingResult(result);
           
-          // Google Shopping might return price in different formats
-          // Check rawData (pagemap) if direct price is not available
-          if (!priceValue && result.rawData) {
-            const raw = typeof result.rawData === 'string' ? JSON.parse(result.rawData) : result.rawData;
-            priceValue = raw?.offer?.[0]?.price || 
-                        raw?.product?.[0]?.offers?.price ||
-                        raw?.product?.[0]?.price ||
-                        raw?.price;
-          }
+          let price: number | undefined = extractedPrice?.value ?? undefined;
+          const currency = extractedPrice?.currency || result.currency || 'USD';
           
-          // Also try extracting from snippet if still no price
-          if (!priceValue && result.snippet) {
-            const snippetPriceMatch = result.snippet.match(/\$[\d,]+\.?\d*/);
-            if (snippetPriceMatch) {
-              priceValue = snippetPriceMatch[0];
-            }
-          }
-          
-          if (priceValue) {
-            // Better price parsing - handle various formats like "$1,299.99", "1299.99", "$1,299", etc.
-            let priceStr = typeof priceValue === 'string' 
-              ? priceValue 
-              : String(priceValue);
-            
-            // Remove currency symbols, commas, and whitespace
-            priceStr = priceStr.replace(/[$€£¥,\s]/g, '');
-            
-            // Extract number (handle cases like "1299.99 USD" or "From $1299")
-            const priceMatch = priceStr.match(/(\d+\.?\d*)/);
-            if (priceMatch) {
-              price = parseFloat(priceMatch[1]) || undefined;
-            } else {
-              price = parseFloat(priceStr) || undefined;
-            }
-            
-            // Log if price parsing seems off
-            if (price && (price < 1 || price > 1000000)) {
-              console.warn(`⚠️  Suspicious price parsed: "${priceValue}" -> ${price} for product: ${result.title}`);
-            }
-          } else {
-            // Log when price is missing
+          // Log price extraction details for debugging
+          if (!price) {
             console.log(`⚠️  No price found for product: ${result.title.substring(0, 50)}...`);
-            console.log(`   Price sources checked: result.price=${result.price}, rawData=${!!result.rawData}`);
+            console.log(`   Price sources checked: result.price=${result.price}, rawData=${!!result.rawData}, snippet=${!!result.snippet}`);
+          } else if (extractedPrice?.confidence === 'low') {
+            console.log(`⚠️  Low confidence price extracted: "${extractedPrice.original}" -> ${price} for product: ${result.title.substring(0, 50)}...`);
+          }
+          
+          // Validate price range (log warnings but don't reject)
+          if (price != null) {
+            if (price < 0.01) {
+              console.warn(`⚠️  Suspiciously low price: ${price} for product: ${result.title.substring(0, 50)}...`);
+              // Set to undefined if too low (likely parsing error)
+              if (price < 0.01) {
+                price = undefined;
+              }
+            } else if (price > 1000000) {
+              console.warn(`⚠️  Very high price: ${price} for product: ${result.title.substring(0, 50)}...`);
+              // Keep it but flag as potentially incorrect
+            }
           }
 
           return {
@@ -187,7 +166,7 @@ export class ProductService {
             name: result.title,
             description: result.snippet,
             price: price,
-            currency: result.currency || 'USD',
+            currency: currency,
             imageUrl: result.image || undefined,
             productUrl: result.url,
             source: `google_shopping:${result.displayUrl}`,
@@ -195,8 +174,10 @@ export class ProductService {
               availability: result.availability,
               distance: result.distance,
               storeLocation: result.storeLocation,
-              originalPrice: result.price, // Store original price string for debugging
-              priceCurrency: result.currency,
+              originalPrice: extractedPrice?.original || result.price, // Store original price string for debugging
+              priceCurrency: currency,
+              priceConfidence: extractedPrice?.confidence || 'unknown',
+              priceExtractionMethod: extractedPrice ? 'robust_extractor' : 'legacy',
             },
             aiExtracted: false, // From Google Shopping, not AI extracted
             searchQueryId: searchQuery.id,
@@ -220,16 +201,46 @@ export class ProductService {
               return null;
             }
 
+            // Normalize price using price extractor utility (handles edge cases)
+            let normalizedPrice = productData.price;
+            let normalizedCurrency = productData.currency || 'USD';
+            
+            if (productData.price != null) {
+              // If price is a string, parse it
+              if (typeof productData.price === 'string') {
+                const parsed = parsePrice(productData.price, normalizedCurrency, 'medium');
+                if (parsed.value != null) {
+                  normalizedPrice = parsed.value;
+                  normalizedCurrency = parsed.currency;
+                } else {
+                  console.warn(`Failed to parse AI-extracted price: "${productData.price}" from ${result.url}`);
+                  normalizedPrice = undefined;
+                }
+              } else if (typeof productData.price === 'number') {
+                // Validate numeric price
+                if (productData.price < 0 || isNaN(productData.price)) {
+                  console.warn(`Invalid AI-extracted price: ${productData.price} from ${result.url}`);
+                  normalizedPrice = undefined;
+                } else if (productData.price > 1000000) {
+                  console.warn(`Suspiciously high AI-extracted price: ${productData.price} from ${result.url}`);
+                }
+              }
+            }
+
             return {
               userId,
               name: productData.name,
               description: productData.description,
-              price: productData.price,
-              currency: productData.currency || 'USD',
+              price: normalizedPrice,
+              currency: normalizedCurrency,
               imageUrl: productData.imageUrl,
               productUrl: result.url,
               source: `google_search:${result.displayUrl}`,
-              rawData: productData,
+              rawData: {
+                ...productData,
+                originalPrice: productData.price, // Store original for debugging
+                priceNormalized: true,
+              },
               aiExtracted: true,
               searchQueryId: searchQuery.id,
             } as CreateProductDTO;

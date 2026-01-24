@@ -4,13 +4,25 @@ import 'react-native-gesture-handler';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { MandateProvider } from './src/contexts/MandateContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { useDemoData } from './src/hooks/useDemoData';
+
+function AppContent() {
+  // Initialize demo data in development mode
+  useDemoData();
+
+  return (
+    <>
+      <RootNavigator />
+      <StatusBar barStyle="dark-content" />
+    </>
+  );
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <MandateProvider>
-        <RootNavigator />
-        <StatusBar barStyle="dark-content" />
+        <AppContent />
       </MandateProvider>
     </AuthProvider>
   );

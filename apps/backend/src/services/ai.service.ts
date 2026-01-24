@@ -631,12 +631,25 @@ Return a JSON object:
   ]
 }
 
+IMPORTANT PRICE EXTRACTION GUIDELINES:
+- Extract price as a NUMBER (not a string with currency symbols)
+- Look for prices in multiple formats: "$99.99", "99.99 USD", "€89.99", "£79.99", etc.
+- Check structured data (JSON-LD, microdata, schema.org)
+- Look for sale prices, discounted prices, or promotional prices
+- If multiple prices exist, prefer the lowest/sale price
+- Currency should be a 3-letter ISO code (USD, EUR, GBP, etc.)
+- If price is a range (e.g., "$50-$100"), use the lower bound
+- If price is missing but "From $X" exists, use that value
+- Validate that prices are reasonable (not negative, not extremely high unless luxury item)
+
 Look for:
 - Sale prices, original prices, discount percentages
 - Coupon codes, promo codes
 - Limited time offers
 - Bundle deals
 - Clearance indicators
+- Price in structured data (schema.org/Product, schema.org/Offer)
+- Price in meta tags (og:price:amount, product:price:amount)
 
 If a field cannot be found, set it to null.
 
