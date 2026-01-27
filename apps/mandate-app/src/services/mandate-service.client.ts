@@ -1,9 +1,15 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import { certificateManagerService } from './certificate-manager.service';
+import { cryptoService } from './crypto.service';
+import { getTestServerPublicKey, isTestCertificateFingerprint } from './test-certificate-generator';
 
 // Mandate Service API Configuration
 const MANDATE_SERVICE_URL = __DEV__
   ? 'http://10.0.2.2:3001/api' // Local mandate-service
   : 'https://pure-wonder-production.up.railway.app/api'; // Railway mandate-service
+
+// Flag to enable/disable secure payload encryption
+const ENABLE_SECURE_PAYLOAD = true;
 
 export interface AgentMandate {
   id: string;
@@ -88,6 +94,78 @@ class MandateServiceClient {
         'Content-Type': 'application/json',
       },
     });
+
+    // Add request interceptor for secure payload encryption
+    this.setupSecurePayloadInterceptor();
+  }
+
+  /**
+   * Setup request interceptor to encrypt and sign payloads when CA is configured
+   */
+  private setupSecurePayloadInterceptor() {
+    this.client.interceptors.request.use(
+      async (config: InternalAxiosRequestConfig) => {
+        // Only process POST/PUT requests with data
+        if (!ENABLE_SECURE_PAYLOAD || !config.data || (config.method !== 'post' && config.method !== 'put')) {
+          return config;
+        }
+
+        try {
+          // Check if CA certificate is configured
+          const isCAConfigured = await certificateManagerService.isCAConfigured();
+          const cert = await certificateManagerService.getCertificate();
+
+          if (!cert) {
+            // No certificate, send as plain data
+            return config;
+          }
+
+          // Get server public key for encryption
+          let serverPublicKey = await certificateManagerService.getServerPublicKey();
+
+          // In test mode, use test server public key if not configured
+          if (!serverPublicKey && (cert.isTestMode || isTestCertificateFingerprint(cert.fingerprint))) {
+            serverPublicKey = getTestServerPublicKey();
+          }
+
+          if (!serverPublicKey) {
+            console.log('[MandateServiceClient] No server public key, skipping encryption');
+            return config;
+          }
+
+          // Create secure payload (encrypted and signed)
+          const securePayload = cryptoService.createSecurePayload(
+            config.data,
+            serverPublicKey,
+            cert.privateKeyPem,
+            cert.fingerprint
+          );
+
+          // Replace request data with secure payload
+          config.data = securePayload;
+
+          // Add secure payload headers
+          config.headers = config.headers || {};
+          config.headers['X-Secure-Payload'] = 'true';
+          config.headers['X-Certificate-Fingerprint'] = cert.fingerprint;
+
+          // Mark test mode in header for backend to handle appropriately
+          if (cert.isTestMode || isTestCertificateFingerprint(cert.fingerprint)) {
+            config.headers['X-Test-Mode'] = 'true';
+          }
+
+          console.log('[MandateServiceClient] Request encrypted with certificate:', cert.fingerprint.substring(0, 20) + '...');
+        } catch (error) {
+          console.error('[MandateServiceClient] Error encrypting request:', error);
+          // On error, continue with unencrypted request
+        }
+
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
   }
 
   // ========== MERCHANTS ==========

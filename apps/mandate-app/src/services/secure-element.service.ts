@@ -1,7 +1,10 @@
 import * as Keychain from 'react-native-keychain';
-import * as LocalAuthentication from 'expo-local-authentication';
+import ReactNativeBiometrics from 'react-native-biometrics';
 import { Platform } from 'react-native';
 import { TEST_PUBLIC_KEY_PEM, generateTestSignature, generateTestKeyId } from './test-key-generator';
+import { certificateManagerService, StoredCertificate } from './certificate-manager.service';
+import { cryptoService, SecurePayload } from './crypto.service';
+import { generateTestCertificate, isTestCertificateFingerprint, getTestServerPublicKey } from './test-certificate-generator';
 
 /**
  * Secure Element Service
@@ -10,7 +13,8 @@ import { TEST_PUBLIC_KEY_PEM, generateTestSignature, generateTestKeyId } from '.
  * TEST MODE: Set USE_TEST_KEYS=true to use test keys for demo (no hardware required)
  */
 
-const USE_TEST_KEYS = __DEV__ || true; // Enable test mode in dev and for demo
+const USE_TEST_KEYS = true; // Enable test mode for demo - still shows biometric prompt
+const rnBiometrics = new ReactNativeBiometrics();
 
 export interface KeyPair {
   keyId: string;
@@ -24,6 +28,17 @@ export interface SigningResult {
   biometricType: 'face' | 'fingerprint' | 'pin' | 'none';
 }
 
+export interface CASigningResult extends SigningResult {
+  certificateFingerprint: string;
+  isTestMode: boolean;
+}
+
+export interface ActiveCertificate {
+  certificate: StoredCertificate | null;
+  isTestMode: boolean;
+  isValid: boolean;
+}
+
 class SecureElementService {
   private readonly KEYCHAIN_SERVICE = 'com.agentic.mandate.secureelement';
   private readonly KEY_ID_KEY = 'mandate_key_id';
@@ -31,10 +46,8 @@ class SecureElementService {
 
   async isBiometricAvailable(): Promise<boolean> {
     try {
-      const compatible = await LocalAuthentication.hasHardwareAsync();
-      if (!compatible) return false;
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      return enrolled;
+      const { available, biometryType } = await rnBiometrics.isSensorAvailable();
+      return available && biometryType !== ReactNativeBiometrics.BiometryType.none;
     } catch (error) {
       console.error('Error checking biometric availability:', error);
       return false;
@@ -43,15 +56,14 @@ class SecureElementService {
 
   async getBiometricType(): Promise<'face' | 'fingerprint' | 'pin' | 'none'> {
     try {
-      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+      const { biometryType } = await rnBiometrics.isSensorAvailable();
+      if (biometryType === ReactNativeBiometrics.BiometryType.FaceID || 
+          biometryType === ReactNativeBiometrics.BiometryType.Face) {
         return 'face';
       }
-      if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+      if (biometryType === ReactNativeBiometrics.BiometryType.TouchID ||
+          biometryType === ReactNativeBiometrics.BiometryType.Fingerprint) {
         return 'fingerprint';
-      }
-      if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) {
-        return 'face';
       }
       return 'pin';
     } catch (error) {
@@ -61,22 +73,27 @@ class SecureElementService {
   }
 
   async authenticate(reason: string = 'Authenticate to sign mandate'): Promise<boolean> {
-    if (USE_TEST_KEYS) {
-      console.log('[TEST MODE] Simulating biometric authentication');
-      return true;
-    }
-
     try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: reason,
-        cancelLabel: 'Cancel',
-        disableDeviceFallback: false,
-        fallbackLabel: 'Use PIN',
-      });
-      return result.success;
+      // Always try biometric authentication for demo
+      const { available } = await rnBiometrics.isSensorAvailable();
+
+      if (available) {
+        const { success } = await rnBiometrics.simplePrompt({
+          promptMessage: reason,
+          cancelButtonText: 'Cancel',
+          fallbackPromptMessage: 'Use PIN',
+        });
+        return success;
+      } else {
+        // No biometric available - show alert and simulate success for demo
+        console.log('[DEMO] No biometric sensor available, simulating authentication');
+        return true;
+      }
     } catch (error) {
       console.error('Authentication error:', error);
-      return false;
+      // For demo purposes, allow fallback
+      console.log('[DEMO] Biometric failed, allowing fallback');
+      return true;
     }
   }
 
@@ -200,7 +217,12 @@ class SecureElementService {
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash;
     }
-    return Buffer.from(hash.toString()).toString('base64');
+    // Use btoa instead of Buffer (Buffer is not available in React Native)
+    try {
+      return btoa(hash.toString());
+    } catch {
+      return hash.toString();
+    }
   }
 
   async revokeKeyPair(): Promise<void> {
@@ -209,6 +231,195 @@ class SecureElementService {
       await Keychain.resetInternetCredentials(this.PUBLIC_KEY_KEY);
     } catch (error) {
       console.error('Error revoking key pair:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a CA certificate is available
+   */
+  async hasCACertificate(): Promise<boolean> {
+    try {
+      const cert = await certificateManagerService.getCertificate();
+      if (!cert) return false;
+      return await certificateManagerService.isCertificateValid();
+    } catch (error) {
+      console.error('Error checking CA certificate:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get the active certificate (CA-issued or test)
+   */
+  async getActiveCertificate(): Promise<ActiveCertificate> {
+    try {
+      const cert = await certificateManagerService.getCertificate();
+      if (cert) {
+        const isValid = await certificateManagerService.isCertificateValid();
+        return {
+          certificate: cert,
+          isTestMode: cert.isTestMode || isTestCertificateFingerprint(cert.fingerprint),
+          isValid,
+        };
+      }
+
+      // No stored certificate - check if we should use test mode
+      if (USE_TEST_KEYS) {
+        // Generate a temporary test certificate
+        const testCert = generateTestCertificate();
+        return {
+          certificate: {
+            certificatePem: testCert.certificate,
+            privateKeyPem: testCert.privateKey,
+            publicKeyPem: testCert.publicKey,
+            fingerprint: testCert.fingerprint,
+            issuer: testCert.issuer,
+            subject: testCert.subject,
+            serialNumber: testCert.serialNumber,
+            notBefore: testCert.notBefore.toISOString(),
+            notAfter: testCert.notAfter.toISOString(),
+            isTestMode: true,
+          },
+          isTestMode: true,
+          isValid: true,
+        };
+      }
+
+      return {
+        certificate: null,
+        isTestMode: false,
+        isValid: false,
+      };
+    } catch (error) {
+      console.error('Error getting active certificate:', error);
+      return {
+        certificate: null,
+        isTestMode: false,
+        isValid: false,
+      };
+    }
+  }
+
+  /**
+   * Sign data using CA certificate
+   */
+  async signWithCACertificate(
+    data: string,
+    reason: string = 'Sign with CA certificate'
+  ): Promise<CASigningResult> {
+    try {
+      // Authenticate user first
+      const authenticated = await this.authenticate(reason);
+      if (!authenticated) {
+        throw new Error('Authentication failed');
+      }
+
+      const biometricType = await this.getBiometricType();
+      const activeCert = await this.getActiveCertificate();
+
+      if (!activeCert.certificate || !activeCert.isValid) {
+        throw new Error('No valid certificate available');
+      }
+
+      const cert = activeCert.certificate;
+      const timestamp = new Date().toISOString();
+
+      // Sign the data using crypto service
+      const signedPayload = cryptoService.signPayload(
+        data,
+        cert.privateKeyPem,
+        cert.fingerprint
+      );
+
+      return {
+        signature: signedPayload.signature,
+        timestamp,
+        biometricType,
+        certificateFingerprint: cert.fingerprint,
+        isTestMode: activeCert.isTestMode,
+      };
+    } catch (error) {
+      console.error('Error signing with CA certificate:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a secure payload (signed and encrypted) for transmission
+   */
+  async createSecurePayload(
+    data: string | object,
+    reason: string = 'Create secure payload'
+  ): Promise<SecurePayload | null> {
+    try {
+      // Authenticate user first
+      const authenticated = await this.authenticate(reason);
+      if (!authenticated) {
+        throw new Error('Authentication failed');
+      }
+
+      const activeCert = await this.getActiveCertificate();
+
+      if (!activeCert.certificate || !activeCert.isValid) {
+        console.log('[SecureElement] No valid certificate, returning null');
+        return null;
+      }
+
+      // Get server public key for encryption
+      let serverPublicKey = await certificateManagerService.getServerPublicKey();
+      if (!serverPublicKey && activeCert.isTestMode) {
+        // Use test server public key in demo mode
+        serverPublicKey = getTestServerPublicKey();
+      }
+
+      if (!serverPublicKey) {
+        throw new Error('Server public key not available');
+      }
+
+      const cert = activeCert.certificate;
+
+      // Create secure payload using crypto service
+      const securePayload = cryptoService.createSecurePayload(
+        data,
+        serverPublicKey,
+        cert.privateKeyPem,
+        cert.fingerprint
+      );
+
+      return securePayload;
+    } catch (error) {
+      console.error('Error creating secure payload:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Enhanced sign data method that uses CA certificate when available
+   */
+  async signDataWithCA(
+    data: string,
+    reason: string = 'Sign mandate'
+  ): Promise<CASigningResult> {
+    try {
+      // Check if CA certificate is available
+      const hasCACert = await this.hasCACertificate();
+
+      if (hasCACert) {
+        // Use CA certificate for signing
+        return this.signWithCACertificate(data, reason);
+      }
+
+      // Fall back to regular signing
+      const result = await this.signData(data, reason);
+
+      return {
+        ...result,
+        certificateFingerprint: 'local_key',
+        isTestMode: USE_TEST_KEYS,
+      };
+    } catch (error) {
+      console.error('Error in signDataWithCA:', error);
       throw error;
     }
   }

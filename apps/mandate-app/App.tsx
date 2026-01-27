@@ -3,6 +3,7 @@ import { StatusBar } from 'react-native';
 import 'react-native-gesture-handler';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { MandateProvider } from './src/contexts/MandateContext';
+import { CAConfigProvider } from './src/contexts/CAConfigContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { useDemoData } from './src/hooks/useDemoData';
 
@@ -21,9 +22,11 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <MandateProvider>
-        <AppContent />
-      </MandateProvider>
+      <CAConfigProvider>
+        <MandateProvider>
+          <AppContent />
+        </MandateProvider>
+      </CAConfigProvider>
     </AuthProvider>
   );
 }

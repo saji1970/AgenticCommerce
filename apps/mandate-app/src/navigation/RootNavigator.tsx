@@ -8,6 +8,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { MandatesScreen } from '../screens/MandatesScreen';
 import { MandateDetailScreen } from '../screens/MandateDetailScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -23,6 +24,16 @@ const MandatesStack = () => (
       name="MandateDetail"
       component={MandateDetailScreen}
       options={{ title: 'Mandate Details' }}
+    />
+  </Stack.Navigator>
+);
+
+const SettingsStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen
+      name="SettingsMain"
+      component={SettingsScreen}
+      options={{ title: 'CA Server Settings' }}
     />
   </Stack.Navigator>
 );
@@ -51,6 +62,14 @@ const MainTabs = () => (
         tabBarIcon: ({ color }) => <Text style={{ color }}>📋</Text>,
       }}
     />
+    <Tab.Screen
+      name="Settings"
+      component={SettingsStack}
+      options={{
+        tabBarLabel: 'Settings',
+        tabBarIcon: ({ color }) => <Text style={{ color }}>⚙️</Text>,
+      }}
+    />
   </Tab.Navigator>
 );
 
@@ -62,14 +81,36 @@ export const RootNavigator: React.FC = () => {
     // Handle deep linking
     const handleDeepLink = (url: string) => {
       console.log('Deep link received:', url);
-      // Parse URL: mandate://mandate/{mandateId}
-      const match = url.match(/mandate:\/\/mandate\/([^/]+)/);
+      // Parse URL: mandate://mandate/{mandateId}?cartData={encodedData}&intentData={encodedData}
+      const match = url.match(/mandate:\/\/mandate\/([^/?]+)/);
       if (match && navigationRef.current) {
-        const mandateId = match[1];
-        // Navigate to mandate detail
+        const mandateId = match[1].split('?')[0]; // Remove query string from mandateId
+
+        // Extract cart data and intent data from query string
+        let cartData = null;
+        let intentData = null;
+        try {
+          const urlObj = new URL(url.replace('mandate://', 'https://'));
+          const cartDataParam = urlObj.searchParams.get('cartData');
+          const intentDataParam = urlObj.searchParams.get('intentData');
+
+          if (cartDataParam) {
+            cartData = JSON.parse(decodeURIComponent(cartDataParam));
+            console.log('Cart data from deep link:', cartData);
+          }
+
+          if (intentDataParam) {
+            intentData = JSON.parse(decodeURIComponent(intentDataParam));
+            console.log('Intent data from deep link:', intentData);
+          }
+        } catch (e) {
+          console.error('Error parsing data from URL:', e);
+        }
+
+        // Navigate to mandate detail with cart/intent data
         navigationRef.current.navigate('Mandates', {
           screen: 'MandateDetail',
-          params: { mandateId },
+          params: { mandateId, cartData, intentData },
         });
       }
     };

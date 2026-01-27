@@ -6,6 +6,7 @@ import path from 'path';
 import { config } from './config/env';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
+import { securePayloadMiddleware } from './middleware/secure-payload.middleware';
 
 export const createApp = (): Application => {
   const app = express();
@@ -21,6 +22,9 @@ export const createApp = (): Application => {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(morgan('dev'));
+
+  // Secure payload middleware - decrypts and verifies encrypted payloads
+  app.use(securePayloadMiddleware);
 
   // Root endpoint for Railway health checks
   app.get('/', (req, res) => {
