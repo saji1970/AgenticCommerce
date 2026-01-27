@@ -4,7 +4,7 @@
  */
 
 import { query } from '../config/database';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 /**
  * CA Certificate entity
@@ -77,7 +77,7 @@ class CACertificateRepository {
    * Create a new CA certificate record
    */
   async create(cert: CACertificateCreate): Promise<CACertificate> {
-    const id = uuidv4();
+    const id = crypto.randomUUID();
 
     try {
       const result = await query(
@@ -195,7 +195,7 @@ class CACertificateRepository {
         [fingerprint, reason]
       );
 
-      return result.rowCount > 0;
+      return (result.rowCount ?? 0) > 0;
     } catch (error: any) {
       if (error.code === '42P01') {
         return false;
@@ -233,7 +233,7 @@ class CACertificateRepository {
          WHERE not_after < CURRENT_TIMESTAMP - INTERVAL '30 days'`
       );
 
-      return result.rowCount;
+      return result.rowCount ?? 0;
     } catch (error: any) {
       if (error.code === '42P01') {
         return 0;
@@ -298,7 +298,7 @@ class CAServerConfigRepository {
    * Create a new CA server configuration
    */
   async create(config: CAServerConfigCreate): Promise<CAServerConfig> {
-    const id = uuidv4();
+    const id = crypto.randomUUID();
 
     try {
       const result = await query(
