@@ -12,6 +12,20 @@ export class AgenticCommerceController {
   agentAddToCart = async (req: Request, res: Response) => {
     try {
       const userId = req.user!.userId;
+      
+      // Log request for debugging
+      console.log('[AgentAddToCart] Request:', {
+        userId,
+        productId: req.body.productId,
+        productName: req.body.productName,
+        price: req.body.price,
+        quantity: req.body.quantity,
+        mandateId: req.body.mandateId,
+        agentId: req.body.agentId,
+        hasProductImage: !!req.body.productImage,
+        reasoningLength: req.body.reasoning?.length || 0,
+      });
+      
       const result = await this.acpService.agentAddToCart(userId, req.body);
 
       res.status(201).json({
@@ -20,9 +34,12 @@ export class AgenticCommerceController {
       });
     } catch (error) {
       console.error('Error in agent add to cart:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add item to cart';
       res.status(400).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to add item to cart',
+        error: {
+          message: errorMessage,
+        },
       });
     }
   };
@@ -31,11 +48,65 @@ export class AgenticCommerceController {
   createIntent = async (req: Request, res: Response) => {
     try {
       const userId = req.user!.userId;
-      const intent = await this.acpService.createPurchaseIntent(userId, req.body);
+      const { agentId, agentName, items, reasoning } = req.body;
+
+      // Check/create intent mandate if not provided
+      let mandateId = req.body.mandateId;
+      if (!mandateId && agentId) {
+        try {
+          // Check for existing active intent mandate for this agent
+          const MandateService = (await import('../services/mandate.service')).MandateService;
+          const mandateService = new MandateService();
+          const { MandateType, MandateStatus } = await import('@agentic-commerce/shared-types');
+
+          const existingMandates = await mandateService.getUserMandates(
+            userId,
+            MandateStatus.ACTIVE,
+            MandateType.INTENT
+          );
+          let intentMandate = existingMandates.find(m => m.agentId === agentId);
+
+          // If no mandate exists, create one
+          if (!intentMandate) {
+            // Calculate intent value for constraints
+            const intentValue = items.reduce((sum: number, item: any) => 
+              sum + (item.price * item.quantity), 0
+            );
+            
+            intentMandate = await mandateService.createMandate(userId, {
+              agentId,
+              agentName: agentName || agentId,
+              type: MandateType.INTENT,
+              constraints: {
+                maxIntentValue: Math.max(intentValue * 2, 2000), // Allow 2x the intent value
+                maxIntentsPerDay: 20,
+                autoApproveUnder: 100,
+              },
+            });
+          }
+
+          mandateId = intentMandate.id;
+        } catch (mandateError) {
+          return res.status(400).json({
+            success: false,
+            error: mandateError instanceof Error ? mandateError.message : 'Mandate validation failed',
+            requiresMandateApproval: true,
+          });
+        }
+      }
+
+      const intent = await this.acpService.createPurchaseIntent(userId, {
+        ...req.body,
+        mandateId,
+      });
 
       res.status(201).json({
         success: true,
         data: intent,
+        mandate: mandateId ? {
+          id: mandateId,
+          requiresApproval: intent.status === 'pending', // Signal if approval needed
+        } : undefined,
       });
     } catch (error) {
       console.error('Error creating intent:', error);
