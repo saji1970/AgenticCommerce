@@ -8,6 +8,8 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { MandatesScreen } from '../screens/MandatesScreen';
 import { MandateDetailScreen } from '../screens/MandateDetailScreen';
+import { AIAppsScreen } from '../screens/AIAppsScreen';
+import { DefaultLimitsScreen } from '../screens/DefaultLimitsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -28,12 +30,27 @@ const MandatesStack = () => (
   </Stack.Navigator>
 );
 
+const AIAppsStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen
+      name="AIAppsList"
+      component={AIAppsScreen}
+      options={{ title: 'AI Apps' }}
+    />
+  </Stack.Navigator>
+);
+
 const SettingsStack = () => (
   <Stack.Navigator>
     <Stack.Screen
       name="SettingsMain"
       component={SettingsScreen}
-      options={{ title: 'CA Server Settings' }}
+      options={{ title: 'Settings' }}
+    />
+    <Stack.Screen
+      name="DefaultLimits"
+      component={DefaultLimitsScreen}
+      options={{ title: 'Default Limits' }}
     />
   </Stack.Navigator>
 );
@@ -50,8 +67,16 @@ const MainTabs = () => (
       name="Dashboard"
       component={DashboardScreen}
       options={{
-        tabBarLabel: 'Dashboard',
-        tabBarIcon: ({ color }) => <Text style={{ color }}>📊</Text>,
+        tabBarLabel: 'Home',
+        tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🏠</Text>,
+      }}
+    />
+    <Tab.Screen
+      name="AIApps"
+      component={AIAppsStack}
+      options={{
+        tabBarLabel: 'AI Apps',
+        tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🤖</Text>,
       }}
     />
     <Tab.Screen
@@ -59,7 +84,7 @@ const MainTabs = () => (
       component={MandatesStack}
       options={{
         tabBarLabel: 'Mandates',
-        tabBarIcon: ({ color }) => <Text style={{ color }}>📋</Text>,
+        tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📋</Text>,
       }}
     />
     <Tab.Screen
@@ -67,7 +92,7 @@ const MainTabs = () => (
       component={SettingsStack}
       options={{
         tabBarLabel: 'Settings',
-        tabBarIcon: ({ color }) => <Text style={{ color }}>⚙️</Text>,
+        tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>⚙️</Text>,
       }}
     />
   </Tab.Navigator>

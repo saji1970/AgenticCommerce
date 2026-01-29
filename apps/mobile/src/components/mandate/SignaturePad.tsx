@@ -24,7 +24,10 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
 }) => {
   const [paths, setPaths] = useState<Array<{ x: number; y: number }[]>>([]);
   const [currentPath, setCurrentPath] = useState<Array<{ x: number; y: number }>>([]);
-  const [isDrawing, setIsDrawing] = useState(false);
+  // Use ref to track drawing state to avoid stale closure in PanResponder
+  const isDrawingRef = useRef(false);
+  // Use ref for current path to access latest value in PanResponder callbacks
+  const currentPathRef = useRef<Array<{ x: number; y: number }>>([]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -32,27 +35,34 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        setIsDrawing(true);
-        setCurrentPath([{ x: locationX, y: locationY }]);
+        isDrawingRef.current = true;
+        const newPath = [{ x: locationX, y: locationY }];
+        currentPathRef.current = newPath;
+        setCurrentPath(newPath);
       },
       onPanResponderMove: (evt) => {
-        if (!isDrawing) return;
+        if (!isDrawingRef.current) return;
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentPath((prev) => [...prev, { x: locationX, y: locationY }]);
+        const newPoint = { x: locationX, y: locationY };
+        currentPathRef.current = [...currentPathRef.current, newPoint];
+        setCurrentPath([...currentPathRef.current]);
       },
       onPanResponderRelease: () => {
-        if (currentPath.length > 0) {
-          setPaths((prev) => [...prev, currentPath]);
-          setCurrentPath([]);
+        if (currentPathRef.current.length > 0) {
+          setPaths((prev) => [...prev, currentPathRef.current]);
         }
-        setIsDrawing(false);
+        currentPathRef.current = [];
+        setCurrentPath([]);
+        isDrawingRef.current = false;
       },
     })
   ).current;
 
   const handleClear = () => {
     setPaths([]);
-    setCurrentPath('');
+    setCurrentPath([]);
+    currentPathRef.current = [];
+    isDrawingRef.current = false;
     onClear?.();
   };
 

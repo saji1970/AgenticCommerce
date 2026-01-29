@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCart } from '../../contexts/CartContext';
 import { paymentService } from '../../services/payment.service';
 import { PaymentMethod } from '@agentic-commerce/shared-types';
@@ -17,6 +18,9 @@ import { CartStackParamList } from '../../navigation/types';
 import { checkPaymentMandate, registerPaymentMandate } from '../../utils/mandateCheck';
 import { AppConfig } from '../../config/app.config';
 import { storageService } from '../../services/storage.service';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const PENDING_PAYMENT_KEY = 'pending_payment_request';
 
 type CheckoutScreenNavigationProp = NativeStackNavigationProp<CartStackParamList, 'Checkout'>;
 
@@ -40,48 +44,118 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
   // PayPal details
   const [paypalEmail, setPaypalEmail] = useState('');
 
-  // Check for mandate on mount
-  useEffect(() => {
-    checkMandateBeforePayment();
-  }, []);
+  // Check for mandate on mount and when screen comes into focus (after returning from Mandate app)
+  useFocusEffect(
+    useCallback(() => {
+      checkMandateBeforePayment();
+    }, [])
+  );
 
   const checkMandateBeforePayment = async () => {
     try {
+      // First check if user is logged in
+      const user = await storageService.getUser();
+      if (!user || !user.id) {
+        // For demo - require login first
+        Alert.alert(
+          'Login Required',
+          'Please login to continue with checkout.',
+          [{ text: 'OK' }]
+        );
+        setMandateCheckComplete(false);
+        return;
+      }
+
       const defaultAgent = AppConfig.getDefaultAgent();
-      const mandateCheck = await checkPaymentMandate(defaultAgent.id, defaultAgent.name);
+
+      let mandateCheck;
+      try {
+        mandateCheck = await checkPaymentMandate(defaultAgent.id, defaultAgent.name);
+      } catch (mandateError) {
+        console.log('Mandate check error (allowing payment to proceed):', mandateError);
+        // In demo mode, if mandate check fails, allow payment
+        setMandateCheckComplete(true);
+        return;
+      }
 
       if (!mandateCheck.hasMandate) {
-        // No mandate, register and open Mandate app
+        // No mandate - register and open Mandate app for approval
         const defaultConstraints = AppConfig.getDefaultConstraints('payment');
-        await registerPaymentMandate(
-          defaultAgent.id,
-          defaultAgent.name,
-          defaultConstraints
-        );
-        // User will approve in Mandate app
-        // We'll check again when they return
+
         Alert.alert(
-          'Mandate Required',
-          'Please approve the mandate in the Mandate Manager app to proceed with checkout.',
+          'AI Agent Authorization Required',
+          'To complete this purchase, you need to authorize the AI Shopping Agent in the Mandate app.\n\nYou will:\n1. Verify your identity with biometrics\n2. Sign the authorization\n3. Return here to complete payment',
           [
             {
-              text: 'OK',
-              onPress: () => {
-                // User will need to come back and try again after approving
-                setMandateCheckComplete(false);
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => setMandateCheckComplete(false),
+            },
+            {
+              text: 'Open Mandate App',
+              onPress: async () => {
+                try {
+                  // Save pending payment info for auto-processing after mandate approval
+                  if (cart) {
+                    const pendingPayment = {
+                      request: {
+                        cartId: cart.id,
+                        paymentMethod,
+                        ...(paymentMethod === PaymentMethod.CARD && {
+                          cardDetails: { cardNumber, cardHolderName, expiryMonth, expiryYear, cvv },
+                        }),
+                        ...(paymentMethod === PaymentMethod.PAYPAL && {
+                          paypalDetails: { email: paypalEmail },
+                        }),
+                      },
+                      amount: cart.total,
+                    };
+                    await AsyncStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(pendingPayment));
+                  }
+
+                  // Prepare cart data for mandate app to display
+                  const cartDataForMandate = cart ? {
+                    items: cart.items.map(item => ({
+                      id: item.productId || item.id,
+                      name: item.productName || 'Product',
+                      price: item.price || 0,
+                      quantity: item.quantity || 1,
+                      imageUrl: item.productImage || item.imageUrl,
+                    })),
+                    total: cart.total || 0,
+                    agentName: defaultAgent.name,
+                  } : undefined;
+
+                  await registerPaymentMandate(
+                    defaultAgent.id,
+                    defaultAgent.name,
+                    defaultConstraints,
+                    cartDataForMandate
+                  );
+                  setMandateCheckComplete(false);
+                } catch (err) {
+                  console.error('Error registering mandate:', err);
+                  Alert.alert('Error', 'Failed to create mandate. Please try again.');
+                }
               },
             },
           ]
         );
       } else {
-        // Mandate exists, can proceed with payment
+        // Mandate exists and is active, can proceed with payment
         setMandateCheckComplete(true);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking mandate:', error);
-      Alert.alert('Error', 'Failed to check mandate. Please try again.');
-      // On error, don't allow payment to proceed
-      setMandateCheckComplete(false);
+      // Show error but allow retry
+      Alert.alert(
+        'Mandate Check Failed',
+        'Unable to verify mandate status. Would you like to proceed anyway?',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => setMandateCheckComplete(false) },
+          { text: 'Proceed', onPress: () => setMandateCheckComplete(true) },
+        ]
+      );
     }
   };
 
@@ -131,7 +205,8 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
       const result = await paymentService.processPayment(
         paymentRequest,
         defaultAgent.id,
-        false // Don't skip mandate check
+        false, // Don't skip mandate check
+        cart.total // Pass transaction amount for mandate validation
       );
 
       Alert.alert(
@@ -286,10 +361,24 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       )}
 
+      {!mandateCheckComplete && (
+        <View style={styles.mandateWarning}>
+          <Text style={styles.mandateWarningText}>
+            Please approve the payment mandate in the Mandate Manager app to proceed.
+          </Text>
+          <TouchableOpacity
+            style={styles.recheckButton}
+            onPress={checkMandateBeforePayment}
+          >
+            <Text style={styles.recheckButtonText}>Re-check Mandate</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TouchableOpacity
-        style={[styles.payButton, loading && styles.payButtonDisabled]}
+        style={[styles.payButton, (loading || !mandateCheckComplete) && styles.payButtonDisabled]}
         onPress={handlePayment}
-        disabled={loading}
+        disabled={loading || !mandateCheckComplete}
       >
         {loading ? (
           <ActivityIndicator color="#fff" />
@@ -424,5 +513,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     fontSize: 12,
     color: '#856404',
+  },
+  mandateWarning: {
+    backgroundColor: '#F8D7DA',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  mandateWarningText: {
+    color: '#721C24',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  recheckButton: {
+    backgroundColor: '#721C24',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  recheckButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -4,7 +4,6 @@ import { Product, MandateType, AgentCartRequest } from '@agentic-commerce/shared
 import { useMandate } from '../../contexts/MandateContext';
 import { useCart } from '../../contexts/CartContext';
 import { acpService } from '../../services/acp.service';
-import { AppConfig } from '../../config/app.config';
 import { MandateFlowManager } from '../mandate/MandateFlowManager';
 import { BuyConfirmationModal } from './BuyConfirmationModal';
 import { validateAgainstCartMandate } from '../../utils/mandateValidation';
@@ -26,7 +25,7 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
   onSuccess,
   onError,
 }) => {
-  const { getActiveMandateByType } = useMandate();
+  const { getActiveMandateByType, loadMandates } = useMandate();
   const { refreshCart } = useCart();
   const [showMandateFlow, setShowMandateFlow] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -78,11 +77,16 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
   /**
    * Handle mandate ready (created or already exists)
    */
-  const handleMandateReady = () => {
+  const handleMandateReady = async () => {
     setShowMandateFlow(false);
-    const mandate = getActiveMandateByType(MandateType.CART);
+    // Reload mandates and use returned value directly to avoid React state timing issues
+    const freshMandates = await loadMandates();
+    const mandate = freshMandates.cart;
+    console.log('[BuyButton] handleMandateReady - freshMandates:', freshMandates, 'cart mandate:', mandate);
     if (mandate) {
       setShowConfirmation(true);
+    } else {
+      console.warn('[BuyButton] No cart mandate found after loading mandates');
     }
   };
 
@@ -105,26 +109,28 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
         throw new Error('Cart mandate not found');
       }
 
-      const defaultAgent = AppConfig.getDefaultAgent();
-
       // Validate and prepare request
       const productPrice = product.price && product.price > 0 ? product.price : 0;
       if (productPrice <= 0) {
         throw new Error('Product price is required and must be greater than 0');
       }
 
-      // Only include productImage if it's a valid URL (Zod validation requires valid URL if provided)
+      // Only include productImage if it's a valid URL (avoid empty strings)
+      // Use the mandate's agentId to ensure authorization matches
       const request: AgentCartRequest = {
         mandateId: mandate.id,
-        agentId: defaultAgent.id,
+        agentId: mandate.agentId, // Use mandate's agent ID, not default
         productId: product.id,
         productName: product.name,
-        ...(product.imageUrl && product.imageUrl.startsWith('http') && {
+        // Only include productImage if it's a valid, non-empty URL
+        ...(product.imageUrl &&
+            product.imageUrl.trim() !== '' &&
+            (product.imageUrl.startsWith('http://') || product.imageUrl.startsWith('https://')) && {
           productImage: product.imageUrl,
         }),
         quantity: 1,
         price: productPrice,
-        reasoning,
+        reasoning: reasoning || `User requested via Buy button for ${product.name}`,
       };
 
       await acpService.agentAddToCart(request);
@@ -133,7 +139,7 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
       await refreshCart();
 
       setShowConfirmation(false);
-      Alert.alert('Success', `${product.name} added to cart by ${defaultAgent.name}`);
+      Alert.alert('Success', `${product.name} added to cart by ${mandate.agentName}`);
 
       if (onSuccess) {
         onSuccess();

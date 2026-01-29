@@ -12,7 +12,7 @@ interface CartContextType {
   itemCount: number;
   loading: boolean;
   error: string | null;
-  addToCart: (request: AddToCartRequest) => Promise<void>;
+  addToCart: (request: AddToCartRequest) => Promise<{ cartItem?: any; mandate?: { id: string; requiresApproval: boolean } } | void>;
   updateCartItem: (itemId: string, request: UpdateCartItemRequest) => Promise<void>;
   removeFromCart: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -46,8 +46,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
-      await cartService.addToCart(request);
+      const result = await cartService.addToCart(request);
       await refreshCart();
+      
+      // Return result with mandate info if present
+      return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add item to cart');
       console.error('Error adding to cart:', err);

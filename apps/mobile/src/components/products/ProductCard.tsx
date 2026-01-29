@@ -31,7 +31,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) =>
         <View style={styles.footer}>
           <View style={styles.priceContainer}>
             <Text style={styles.price}>
-              {product.currency} {product.price ? product.price.toFixed(2) : 'N/A'}
+              {product.price != null && product.price > 0
+                ? `${product.currency || '$'}${product.price.toFixed(2)}`
+                : 'Price unavailable'}
             </Text>
           </View>
 

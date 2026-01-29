@@ -6,16 +6,38 @@ import {
   CartResponse,
   CartItem,
 } from '@agentic-commerce/shared-types';
+import { AppConfig } from '../config/app.config';
+import { openMandateApp } from '../utils/deepLink';
 
 const API_URL = 'https://agenticcommerce-production.up.railway.app/api';
 
 export const cartService = {
-  async addToCart(request: AddToCartRequest): Promise<CartItem> {
+  async addToCart(request: AddToCartRequest): Promise<{ cartItem: CartItem; mandate?: { id: string; requiresApproval: boolean } }> {
     const token = await storageService.getToken();
-    const response = await axios.post(`${API_URL}/cart`, request, {
+    
+    // Add default agent info if not provided
+    const defaultAgent = AppConfig.getDefaultAgent();
+    const requestWithAgent = {
+      ...request,
+      agentId: request.agentId || defaultAgent.id,
+      agentName: request.agentName || defaultAgent.name,
+    };
+
+    const response = await axios.post(`${API_URL}/cart`, requestWithAgent, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    return response.data.data;
+
+    const result: { cartItem: CartItem; mandate?: { id: string; requiresApproval: boolean } } = {
+      cartItem: response.data.data,
+    };
+
+    // If mandate requires approval, open Mandate app
+    if (response.data.mandate?.requiresApproval && response.data.mandate.id) {
+      result.mandate = response.data.mandate;
+      await openMandateApp(response.data.mandate.id);
+    }
+
+    return result;
   },
 
   async getCart(): Promise<CartResponse> {

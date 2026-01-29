@@ -1,0 +1,182 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { mandatesApi } from '../../api/client';
+import {
+  Select,
+  Badge,
+  Card,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Pagination,
+  LoadingPage,
+  EmptyState,
+  Alert,
+} from '../../components/common';
+import { FileText } from 'lucide-react';
+import type { Mandate } from '../../types';
+
+const statusOptions = [
+  { value: '', label: 'All Statuses' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'active', label: 'Active' },
+  { value: 'suspended', label: 'Suspended' },
+  { value: 'revoked', label: 'Revoked' },
+  { value: 'expired', label: 'Expired' },
+];
+
+const typeOptions = [
+  { value: '', label: 'All Types' },
+  { value: 'cart', label: 'Cart' },
+  { value: 'intent', label: 'Intent' },
+  { value: 'payment', label: 'Payment' },
+];
+
+const ITEMS_PER_PAGE = 10;
+
+export function MandatesListPage() {
+  const [status, setStatus] = useState('');
+  const [type, setType] = useState('');
+  const [page, setPage] = useState(1);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['mandates', { status, type, page }],
+    queryFn: () =>
+      mandatesApi.getAll({
+        status: status || undefined,
+        type: type || undefined,
+        limit: ITEMS_PER_PAGE,
+        offset: (page - 1) * ITEMS_PER_PAGE,
+      }),
+  });
+
+  if (isLoading) {
+    return <LoadingPage message="Loading mandates..." />;
+  }
+
+  if (error) {
+    return (
+      <Alert variant="error" title="Error loading mandates">
+        Failed to load mandates. Please try again.
+      </Alert>
+    );
+  }
+
+  const mandates: Mandate[] = data?.mandates || [];
+
+  const getStatusBadge = (mandateStatus: string) => {
+    const variants: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
+      active: 'success',
+      pending: 'warning',
+      suspended: 'error',
+      revoked: 'error',
+      expired: 'default',
+    };
+    return <Badge variant={variants[mandateStatus] || 'default'}>{mandateStatus}</Badge>;
+  };
+
+  const getTypeBadge = (mandateType: string) => {
+    const variants: Record<string, 'info' | 'warning' | 'success'> = {
+      cart: 'info',
+      intent: 'warning',
+      payment: 'success',
+    };
+    return <Badge variant={variants[mandateType] || 'default'}>{mandateType}</Badge>;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Mandates</h1>
+        <p className="text-gray-500">View all user mandates across the platform</p>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <div className="p-4 flex flex-col sm:flex-row gap-4">
+          <div className="w-full sm:w-48">
+            <Select
+              options={statusOptions}
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div className="w-full sm:w-48">
+            <Select
+              options={typeOptions}
+              value={type}
+              onChange={(e) => {
+                setType(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Mandates Table */}
+      <Card>
+        {mandates.length === 0 ? (
+          <EmptyState
+            icon={<FileText className="h-12 w-12" />}
+            title="No mandates found"
+            description={status || type ? 'Try adjusting your filters' : 'No mandates have been created yet'}
+          />
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Agent</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Expires</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mandates.map((mandate) => (
+                  <TableRow key={mandate.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">
+                          {mandate.firstName} {mandate.lastName}
+                        </div>
+                        <div className="text-sm text-gray-500">{mandate.userEmail}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{mandate.agentName}</TableCell>
+                    <TableCell>{getTypeBadge(mandate.type)}</TableCell>
+                    <TableCell>{getStatusBadge(mandate.status)}</TableCell>
+                    <TableCell>
+                      {new Date(mandate.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      {mandate.expiresAt
+                        ? new Date(mandate.expiresAt).toLocaleDateString()
+                        : '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {mandates.length >= ITEMS_PER_PAGE && (
+              <Pagination
+                currentPage={page}
+                totalPages={Math.ceil(mandates.length / ITEMS_PER_PAGE) + 1}
+                onPageChange={setPage}
+              />
+            )}
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}

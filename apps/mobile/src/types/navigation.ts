@@ -18,6 +18,7 @@ export type CartStackParamList = {
 export type AppStackParamList = {
   Home: undefined;
   Products: undefined;
+  Intents: undefined;
   Cart: undefined;
   Profile: undefined;
   EditProfile: undefined;

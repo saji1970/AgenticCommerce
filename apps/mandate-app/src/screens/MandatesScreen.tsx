@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useMandates } from '../contexts/MandateContext';
@@ -13,7 +14,7 @@ import { AgentMandate } from '../services/mandate-service.client';
 
 export const MandatesScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { mandates, loading, refreshMandates } = useMandates();
+  const { mandates, loading, refreshMandates, revokeMandate, approveMandate } = useMandates();
   const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'revoked'>('all');
 
   useEffect(() => {
@@ -34,22 +35,100 @@ export const MandatesScreen: React.FC = () => {
     }
   };
 
+  const handleRevoke = (mandate: AgentMandate) => {
+    Alert.alert(
+      'Revoke Mandate',
+      `Are you sure you want to revoke the mandate for ${mandate.agentName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Revoke',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await revokeMandate(mandate.id, 'Revoked by user');
+              Alert.alert('Success', 'Mandate has been revoked');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to revoke mandate');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCancel = (mandate: AgentMandate) => {
+    Alert.alert(
+      'Cancel Mandate',
+      `Are you sure you want to cancel the pending mandate for ${mandate.agentName}?`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Cancel Mandate',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await revokeMandate(mandate.id, 'Cancelled by user');
+              Alert.alert('Success', 'Mandate has been cancelled');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to cancel mandate');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderMandate = ({ item }: { item: AgentMandate }) => (
-    <TouchableOpacity
-      style={styles.mandateCard}
-      onPress={() => (navigation as any).navigate('Mandates', { screen: 'MandateDetail', params: { mandateId: item.id } })}
-    >
-      <View style={styles.mandateHeader}>
-        <Text style={styles.mandateAgent}>{item.agentName}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+    <View style={styles.mandateCard}>
+      <TouchableOpacity
+        style={styles.mandateContent}
+        onPress={() => (navigation as any).navigate('Mandates', { screen: 'MandateDetail', params: { mandateId: item.id } })}
+      >
+        <View style={styles.mandateHeader}>
+          <Text style={styles.mandateAgent}>{item.agentName}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+          </View>
         </View>
+        <Text style={styles.mandateType}>Type: {item.type}</Text>
+        <Text style={styles.mandateDate}>
+          Created: {new Date(item.createdAt).toLocaleDateString()}
+        </Text>
+        {item.constraints && (
+          <Text style={styles.mandateConstraint}>
+            Max: ${(item.constraints as any).maxAmount || (item.constraints as any).maxTransactionAmount || 'N/A'}
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Action buttons */}
+      <View style={styles.actionButtons}>
+        {item.status === 'pending' && (
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => handleCancel(item)}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        )}
+        {item.status === 'active' && (
+          <TouchableOpacity
+            style={styles.revokeButton}
+            onPress={() => handleRevoke(item)}
+          >
+            <Text style={styles.revokeButtonText}>Revoke</Text>
+          </TouchableOpacity>
+        )}
+        {(item.status === 'revoked' || item.status === 'expired' || item.status === 'suspended') && (
+          <View style={styles.inactiveLabel}>
+            <Text style={styles.inactiveLabelText}>
+              {item.status === 'revoked' ? 'Revoked' : item.status === 'expired' ? 'Expired' : 'Suspended'}
+            </Text>
+          </View>
+        )}
       </View>
-      <Text style={styles.mandateType}>Type: {item.type}</Text>
-      <Text style={styles.mandateDate}>
-        Created: {new Date(item.createdAt).toLocaleDateString()}
-      </Text>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
@@ -122,10 +201,13 @@ const styles = StyleSheet.create({
   mandateCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  mandateContent: {
+    padding: 16,
   },
   mandateHeader: {
     flexDirection: 'row',
@@ -157,6 +239,50 @@ const styles = StyleSheet.create({
   mandateDate: {
     fontSize: 12,
     color: '#9CA3AF',
+  },
+  mandateConstraint: {
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+  },
+  cancelButtonText: {
+    color: '#B45309',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  revokeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+  },
+  revokeButtonText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  inactiveLabel: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  inactiveLabelText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
   emptyContainer: {
     padding: 32,

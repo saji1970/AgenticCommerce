@@ -60,13 +60,8 @@ export class PaymentGatewayService {
       };
     }
 
-    // Mock: Simulate random failures (10% failure rate)
-    if (Math.random() < 0.1) {
-      return {
-        success: false,
-        errorMessage: 'Payment declined by card issuer',
-      };
-    }
+    // Note: Random failures removed for production stability
+    // Only fail on specific test cards (ending in 0000)
 
     // Mock: Simulate specific test cards
     const lastFourDigits = cardDetails.cardNumber.slice(-4);
@@ -99,13 +94,7 @@ export class PaymentGatewayService {
       };
     }
 
-    // Mock: Simulate random failures (5% failure rate for PayPal)
-    if (Math.random() < 0.05) {
-      return {
-        success: false,
-        errorMessage: 'PayPal payment declined',
-      };
-    }
+    // Note: Random failures removed for production stability
 
     // Generate mock transaction ID
     const transactionId = `TXN_PAYPAL_${Date.now()}_${this.generateRandomString(8)}`;

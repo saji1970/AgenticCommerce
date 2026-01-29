@@ -75,6 +75,12 @@ export const CartScreen: React.FC<Props> = ({ navigation }) => {
         >
           <Text style={styles.shopButtonText}>Start Shopping</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.ordersButton}
+          onPress={() => navigation.navigate('OrderHistory')}
+        >
+          <Text style={styles.ordersButtonText}>View Order History</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -121,6 +127,13 @@ export const CartScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.checkoutButtonText}>
             {loading ? 'Loading...' : 'Proceed to Checkout'}
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.viewOrdersButton}
+          onPress={() => navigation.navigate('OrderHistory')}
+        >
+          <Text style={styles.viewOrdersButtonText}>View Order History</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -222,5 +235,25 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  ordersButton: {
+    marginTop: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  ordersButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  viewOrdersButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  viewOrdersButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

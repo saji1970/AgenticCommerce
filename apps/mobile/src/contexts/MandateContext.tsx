@@ -11,19 +11,21 @@ import mandateService, { CreateMandateParams } from '../services/mandate.service
 import { AppConfig } from '../config/app.config';
 import { AppState } from 'react-native';
 
+interface ActiveMandates {
+  cart?: Mandate;
+  intent?: Mandate;
+  payment?: Mandate;
+}
+
 interface MandateContextType {
   // State
   mandates: Mandate[];
-  activeMandates: {
-    cart?: Mandate;
-    intent?: Mandate;
-    payment?: Mandate;
-  };
+  activeMandates: ActiveMandates;
   loading: boolean;
   error: string | null;
 
   // Methods
-  loadMandates: () => Promise<void>;
+  loadMandates: () => Promise<ActiveMandates>;
   getActiveMandateByType: (type: MandateType) => Mandate | null;
   createMandate: (params: CreateMandateParams) => Promise<Mandate>;
   checkMandateExists: (type: MandateType) => Promise<boolean>;
@@ -40,11 +42,7 @@ interface MandateProviderProps {
 
 export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) => {
   const [mandates, setMandates] = useState<Mandate[]>([]);
-  const [activeMandates, setActiveMandates] = useState<{
-    cart?: Mandate;
-    intent?: Mandate;
-    payment?: Mandate;
-  }>({});
+  const [activeMandates, setActiveMandates] = useState<ActiveMandates>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,8 +63,9 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
 
   /**
    * Load all mandates and update active mandates cache
+   * Returns the active mandates directly for immediate use (avoids React state timing issues)
    */
-  const loadMandates = async () => {
+  const loadMandates = async (): Promise<ActiveMandates> => {
     try {
       setLoading(true);
       setError(null);
@@ -75,7 +74,7 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
       setMandates(allMandates);
 
       // Cache active mandates by type for quick access
-      const active: typeof activeMandates = {};
+      const active: ActiveMandates = {};
       allMandates.forEach(mandate => {
         if (mandate.status === MandateStatus.ACTIVE) {
           // Check if mandate is expired
@@ -100,11 +99,13 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
       });
 
       setActiveMandates(active);
+      return active;
     } catch (err: any) {
       const errorMessage =
         err.response?.data?.error?.message || err.message || 'Failed to load mandates';
       setError(errorMessage);
       console.error('Failed to load mandates:', err);
+      return {};
     } finally {
       setLoading(false);
     }

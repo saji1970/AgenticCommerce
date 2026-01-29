@@ -30,8 +30,8 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
   onSuccess,
   onError,
 }) => {
-  const { getActiveMandateByType } = useMandate();
-  const { createIntent } = useIntent();
+  const { getActiveMandateByType, loadMandates } = useMandate();
+  const { createIntent, requestIntentApproval } = useIntent();
   const [showMandateFlow, setShowMandateFlow] = useState(false);
   const [showIntentModal, setShowIntentModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -69,11 +69,16 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
   /**
    * Handle mandate ready (created or already exists)
    */
-  const handleMandateReady = () => {
+  const handleMandateReady = async () => {
     setShowMandateFlow(false);
-    const mandate = getActiveMandateByType(MandateType.INTENT);
+    // Reload mandates and use returned value directly to avoid React state timing issues
+    const freshMandates = await loadMandates();
+    const mandate = freshMandates.intent;
+    console.log('[IntentButton] handleMandateReady - freshMandates:', freshMandates, 'intent mandate:', mandate);
     if (mandate) {
       setShowIntentModal(true);
+    } else {
+      console.warn('[IntentButton] No intent mandate found after loading mandates');
     }
   };
 
@@ -86,46 +91,42 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
 
   /**
    * Handle intent confirmation and creation
+   * Opens Mandate app for biometric approval and signing
    */
   const handleConfirm = async (reasoning: string, conditions: IntentConditions) => {
     setLoading(true);
 
     try {
-      const mandate = getActiveMandateByType(MandateType.INTENT);
-      if (!mandate) {
-        throw new Error('Intent mandate not found');
-      }
-
       const defaultAgent = AppConfig.getDefaultAgent();
 
-      const item: PurchaseIntentItem = {
+      // Prepare intent data for Mandate app
+      const intentData = {
         productId: product.id,
         productName: product.name,
-        quantity: 1,
+        productImage: product.imageUrl || product.image,
         price: product.price,
-      };
-
-      const request: CreateIntentRequest = {
-        mandateId: mandate.id,
-        agentId: defaultAgent.id,
-        items: [item],
+        quantity: 1,
+        maxPrice: conditions.maxPrice || product.price,
         reasoning,
-        metadata: conditions,
+        agentName: defaultAgent.name,
       };
 
-      await createIntent(request);
+      // Request approval from Mandate app
+      const mandateId = await requestIntentApproval(intentData);
 
-      setShowIntentModal(false);
-      Alert.alert(
-        'Intent Created',
-        `Your purchase intent for ${product.name} has been created successfully!`
-      );
-
-      if (onSuccess) {
-        onSuccess();
+      if (mandateId) {
+        setShowIntentModal(false);
+        // Intent will be created after user approves in Mandate app
+        // and returns via deep link callback
+        Alert.alert(
+          'Approval Required',
+          'Please approve the intent in the Mandate app using biometric verification and signing.'
+        );
+      } else {
+        Alert.alert('Error', 'Failed to open Mandate app for approval');
       }
     } catch (error: any) {
-      console.error('Failed to create intent:', error);
+      console.error('Failed to request intent approval:', error);
       const errorMessage =
         error.response?.data?.error?.message || error.message || 'Failed to create intent';
       Alert.alert('Error', errorMessage);

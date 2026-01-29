@@ -9,40 +9,167 @@ import {
   ActivityIndicator,
   Modal,
   Linking,
+  Image,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { AgentMandate } from '../services/mandate-service.client';
 import { mandateServiceClient } from '../services/mandate-service.client';
 import { useMandates } from '../contexts/MandateContext';
 import { SignaturePad } from '../components/SignaturePad';
+import { MandateLimitsEditor, MandateLimits } from '../components/MandateLimitsEditor';
 import signatureService from '../services/signature.service';
+import secureElementService from '../services/secure-element.service';
 
 const AGENTIC_COMMERCE_SCHEME = 'agenticcommerce://';
+
+// Demo mode - creates local mandate data without calling service
+const DEMO_MODE = true;
+
+interface CartItemData {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  imageUrl?: string;
+}
+
+interface CartData {
+  items: CartItemData[];
+  total: number;
+  agentName: string;
+}
+
+interface IntentProductData {
+  id: string;
+  name: string;
+  image?: string;
+  price: number;
+  quantity: number;
+}
+
+interface IntentData {
+  type: string;
+  product: IntentProductData;
+  maxPrice: number;
+  reasoning?: string;
+  agentName: string;
+}
 
 export const MandateDetailScreen: React.FC = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { refreshMandates } = useMandates();
-  const { mandateId } = route.params as { mandateId: string };
-  
+  const { mandateId, cartData: routeCartData, intentData: routeIntentData } = route.params as {
+    mandateId: string;
+    cartData?: CartData;
+    intentData?: IntentData;
+  };
+
   const [mandate, setMandate] = useState<AgentMandate | null>(null);
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
+  const [biometricVerified, setBiometricVerified] = useState(false);
+  const [biometricType, setBiometricType] = useState<string>('fingerprint');
+  const [cartData, setCartData] = useState<CartData | null>(routeCartData || null);
+  const [intentData, setIntentData] = useState<IntentData | null>(routeIntentData || null);
+  const [customLimits, setCustomLimits] = useState<MandateLimits | null>(null);
+
+  // Determine if this is an intent approval flow
+  const isIntentFlow = !!intentData;
 
   useEffect(() => {
     loadMandate();
-  }, [mandateId]);
+    checkBiometricType();
+    // If cart data was passed via route params, use it
+    if (routeCartData) {
+      setCartData(routeCartData);
+    }
+    // If intent data was passed via route params, use it
+    if (routeIntentData) {
+      setIntentData(routeIntentData);
+      console.log('Intent data received:', routeIntentData);
+    }
+  }, [mandateId, routeCartData, routeIntentData]);
+
+  const checkBiometricType = async () => {
+    const type = await secureElementService.getBiometricType();
+    setBiometricType(type);
+  };
+
+  const handleBiometricVerification = async () => {
+    try {
+      const success = await secureElementService.authenticate(
+        'Authenticate to authorize AI agent payment'
+      );
+      if (success) {
+        setBiometricVerified(true);
+        Alert.alert('Success', 'Biometric verification completed!');
+      } else {
+        Alert.alert('Failed', 'Biometric verification failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Biometric error:', error);
+      Alert.alert('Error', 'Biometric verification failed');
+    }
+  };
 
   const loadMandate = async () => {
     try {
+      if (DEMO_MODE) {
+        // Demo mode - create a demo mandate object
+        const demoMandate: AgentMandate = {
+          id: mandateId,
+          userId: 'demo-user',
+          agentId: 'default-shopping-agent',
+          agentName: 'Shopping Assistant',
+          type: 'payment',
+          status: 'pending',
+          constraints: {
+            maxTransactionAmount: 500,
+            dailySpendingLimit: 1000,
+            monthlySpendingLimit: 5000,
+            allowedPaymentMethods: ['card', 'paypal'],
+            requiresTwoFactor: true,
+          },
+          validFrom: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        setMandate(demoMandate);
+        setLoading(false);
+        return;
+      }
+
       const mandateData = await mandateServiceClient.getMandate(mandateId);
       setMandate(mandateData);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load mandate');
-      navigation.goBack();
+      console.error('Error loading mandate:', error);
+      if (DEMO_MODE) {
+        // Fallback demo mandate
+        const demoMandate: AgentMandate = {
+          id: mandateId,
+          userId: 'demo-user',
+          agentId: 'default-shopping-agent',
+          agentName: 'Shopping Assistant',
+          type: 'payment',
+          status: 'pending',
+          constraints: {
+            maxTransactionAmount: 500,
+            dailySpendingLimit: 1000,
+          },
+          validFrom: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        setMandate(demoMandate);
+        setLoading(false);
+      } else {
+        Alert.alert('Error', 'Failed to load mandate');
+        navigation.goBack();
+      }
     } finally {
       setLoading(false);
     }
@@ -61,6 +188,59 @@ export const MandateDetailScreen: React.FC = () => {
 
     setSigning(true);
     try {
+      // Update mandate constraints with custom limits before approving
+      if (customLimits) {
+        mandate.constraints = {
+          ...mandate.constraints,
+          maxTransactionAmount: customLimits.maxTransactionAmount,
+          dailySpendingLimit: customLimits.dailySpendingLimit,
+          monthlySpendingLimit: customLimits.monthlySpendingLimit,
+          maxItemValue: customLimits.maxItemValue,
+          maxItemsPerDay: customLimits.maxItemsPerDay,
+          requiresTwoFactor: customLimits.requiresTwoFactor,
+        };
+        console.log('Updated mandate constraints:', mandate.constraints);
+      }
+
+      if (DEMO_MODE) {
+        // Demo mode - skip service calls, just send callback
+        console.log('Demo mode: Mandate approved with biometric + signature');
+        console.log('Custom limits applied:', customLimits);
+
+        // Generate an intent ID if this is an intent approval
+        const intentId = isIntentFlow ? `intent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` : undefined;
+
+        // Send deep link back to AgenticCommerce app with approved status
+        // Use different callback path for intent vs payment
+        const callbackUrl = isIntentFlow
+          ? `${AGENTIC_COMMERCE_SCHEME}intent-callback?mandateId=${mandateId}&status=approved${intentId ? `&intentId=${intentId}` : ''}`
+          : `${AGENTIC_COMMERCE_SCHEME}payment-callback?mandateId=${mandateId}&status=approved`;
+
+        const alertTitle = isIntentFlow ? 'Intent Approved!' : 'Mandate Approved!';
+        const alertMessage = isIntentFlow
+          ? `Your purchase intent has been approved!\n\nThe AI Agent will now be able to purchase "${intentData?.product.name}" for you when conditions are met.`
+          : 'Your authorization has been recorded with biometric verification and signature.\n\nThe AI Agent is now authorized to complete your purchase.';
+
+        Alert.alert(
+          alertTitle,
+          alertMessage,
+          [
+            {
+              text: 'Return to Shopping',
+              onPress: async () => {
+                try {
+                  await Linking.openURL(callbackUrl);
+                } catch (linkError) {
+                  console.error('Error opening deep link:', linkError);
+                  navigation.goBack();
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
       // Create signature
       const mandateText = getMandateText();
       await signatureService.createSignature({
@@ -72,30 +252,16 @@ export const MandateDetailScreen: React.FC = () => {
       // Approve mandate
       await mandateServiceClient.approveMandate(mandateId, mandate!.userId);
       await refreshMandates();
-      
+
       // If payment mandate, process payment
       let paymentId: string | undefined;
       if (mandate!.type === 'payment') {
-        try {
-          // Call mandate-service to process payment
-          // The mandate-service will call the payment gateway
-          // Note: Amount and payment details should come from the intent/cart
-          // For now, we'll process a minimal payment to complete the flow
-          // In a real scenario, this would be triggered from the AgenticCommerce app after mandate approval
-          console.log('Payment mandate approved - payment processing can be initiated from AgenticCommerce app');
-          
-          // Payment processing will be handled by the AgenticCommerce app when it receives the callback
-          // The AgenticCommerce app will call the mandate-service payment endpoint with the actual amount
-        } catch (paymentError) {
-          console.error('Payment processing error:', paymentError);
-          // Still proceed with approval even if payment fails
-          // Payment can be retried later
-        }
+        console.log('Payment mandate approved - payment processing can be initiated from AgenticCommerce app');
       }
 
       // Send deep link back to AgenticCommerce app
       const callbackUrl = `${AGENTIC_COMMERCE_SCHEME}payment-callback?mandateId=${mandateId}&status=approved${paymentId ? `&paymentId=${paymentId}` : ''}`;
-      
+
       try {
         const canOpen = await Linking.canOpenURL(callbackUrl);
         if (canOpen) {
@@ -103,18 +269,16 @@ export const MandateDetailScreen: React.FC = () => {
         }
       } catch (linkError) {
         console.error('Error opening deep link:', linkError);
-        // Continue anyway - user can manually return to AgenticCommerce app
       }
 
       Alert.alert('Success', 'Mandate approved and signed. Returning to AgenticCommerce...', [
-        { 
-          text: 'OK', 
+        {
+          text: 'OK',
           onPress: () => {
-            // Try to open AgenticCommerce app if deep link didn't work
             Linking.openURL(callbackUrl).catch(() => {
               navigation.goBack();
             });
-          }
+          },
         },
       ]);
     } catch (error) {
@@ -176,7 +340,17 @@ export const MandateDetailScreen: React.FC = () => {
 
   const getMandateText = (): string => {
     if (!mandate) return '';
-    const constraintsText = JSON.stringify(mandate.constraints, null, 2);
+    // Use custom limits if set, otherwise use mandate constraints
+    const effectiveConstraints = customLimits ? {
+      ...mandate.constraints,
+      maxTransactionAmount: customLimits.maxTransactionAmount,
+      dailySpendingLimit: customLimits.dailySpendingLimit,
+      monthlySpendingLimit: customLimits.monthlySpendingLimit,
+      maxItemValue: customLimits.maxItemValue,
+      maxItemsPerDay: customLimits.maxItemsPerDay,
+      requiresTwoFactor: customLimits.requiresTwoFactor,
+    } : mandate.constraints;
+    const constraintsText = JSON.stringify(effectiveConstraints, null, 2);
     return `I authorize ${mandate.agentName} to perform ${mandate.type} operations with the following constraints:\n\n${constraintsText}\n\nThis authorization is valid until revoked.`;
   };
 
@@ -191,22 +365,122 @@ export const MandateDetailScreen: React.FC = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.agentName}>{mandate.agentName}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(mandate.status) }]}>
-          <Text style={styles.statusText}>{mandate.status.toUpperCase()}</Text>
+        <Text style={styles.agentName}>
+          {isIntentFlow ? intentData?.agentName || mandate.agentName : mandate.agentName}
+        </Text>
+        <View style={[styles.statusBadge, { backgroundColor: isIntentFlow ? '#F59E0B' : getStatusColor(mandate.status) }]}>
+          <Text style={styles.statusText}>
+            {isIntentFlow ? 'INTENT APPROVAL' : mandate.status.toUpperCase()}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.label}>Type</Text>
-        <Text style={styles.value}>{mandate.type}</Text>
-      </View>
+      {/* Cart Items Section - Show what is being purchased */}
+      {cartData && cartData.items && cartData.items.length > 0 && (
+        <View style={styles.cartSection}>
+          <Text style={styles.cartTitle}>Items to Purchase</Text>
+          <View style={styles.cartItems}>
+            {cartData.items.map((item, index) => (
+              <View key={item.id || index} style={styles.cartItem}>
+                <View style={styles.cartItemImageContainer}>
+                  {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.cartItemImage} />
+                  ) : (
+                    <View style={styles.cartItemImagePlaceholder}>
+                      <Text style={styles.cartItemImagePlaceholderText}>
+                        {item.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.cartItemDetails}>
+                  <Text style={styles.cartItemName} numberOfLines={2}>{item.name}</Text>
+                  <Text style={styles.cartItemQuantity}>Qty: {item.quantity}</Text>
+                </View>
+                <Text style={styles.cartItemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.cartTotal}>
+            <Text style={styles.cartTotalLabel}>Total Amount</Text>
+            <Text style={styles.cartTotalValue}>${cartData.total.toFixed(2)}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Intent Section - Show what intent is being approved */}
+      {intentData && intentData.product && (
+        <View style={styles.intentSection}>
+          <Text style={styles.intentTitle}>Purchase Intent Approval</Text>
+          <View style={styles.intentCard}>
+            <View style={styles.intentProduct}>
+              <View style={styles.cartItemImageContainer}>
+                {intentData.product.image ? (
+                  <Image source={{ uri: intentData.product.image }} style={styles.cartItemImage} />
+                ) : (
+                  <View style={styles.cartItemImagePlaceholder}>
+                    <Text style={styles.cartItemImagePlaceholderText}>
+                      {intentData.product.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.intentProductDetails}>
+                <Text style={styles.intentProductName} numberOfLines={2}>
+                  {intentData.product.name}
+                </Text>
+                <Text style={styles.intentProductQuantity}>
+                  Qty: {intentData.product.quantity}
+                </Text>
+              </View>
+              <Text style={styles.intentProductPrice}>
+                ${intentData.product.price.toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.intentConstraints}>
+              <View style={styles.intentConstraintRow}>
+                <Text style={styles.intentConstraintLabel}>Max Price:</Text>
+                <Text style={styles.intentConstraintValue}>${intentData.maxPrice.toFixed(2)}</Text>
+              </View>
+              <View style={styles.intentConstraintRow}>
+                <Text style={styles.intentConstraintLabel}>AI Agent:</Text>
+                <Text style={styles.intentConstraintValue}>{intentData.agentName}</Text>
+              </View>
+            </View>
+            {intentData.reasoning && (
+              <View style={styles.intentReasoning}>
+                <Text style={styles.intentReasoningLabel}>Reasoning:</Text>
+                <Text style={styles.intentReasoningText}>{intentData.reasoning}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.intentDescription}>
+            By approving, you authorize the AI Agent to automatically purchase this item when
+            the price drops to or below your max price.
+          </Text>
+        </View>
+      )}
 
       <View style={styles.section}>
-        <Text style={styles.label}>Constraints</Text>
-        <Text style={styles.constraintsText}>
-          {JSON.stringify(mandate.constraints, null, 2)}
-        </Text>
+        <Text style={styles.label}>Authorization Type</Text>
+        <Text style={styles.value}>{mandate.type === 'payment' ? 'Payment Authorization' : mandate.type}</Text>
+      </View>
+
+      {/* Editable Spending Limits */}
+      <View style={styles.limitsSection}>
+        <MandateLimitsEditor
+          initialLimits={{
+            maxTransactionAmount: (mandate.constraints as any).maxTransactionAmount || 500,
+            dailySpendingLimit: (mandate.constraints as any).dailySpendingLimit || 1000,
+            monthlySpendingLimit: (mandate.constraints as any).monthlySpendingLimit || 5000,
+            maxItemValue: (mandate.constraints as any).maxItemValue,
+            maxItemsPerDay: (mandate.constraints as any).maxItemsPerDay,
+            requiresTwoFactor: (mandate.constraints as any).requiresTwoFactor ?? true,
+          }}
+          onLimitsChange={(limits) => setCustomLimits(limits)}
+          mandateType={mandate.type}
+          editable={mandate.status === 'pending'}
+        />
       </View>
 
       <View style={styles.section}>
@@ -231,34 +505,64 @@ export const MandateDetailScreen: React.FC = () => {
               {agreed && <Text style={styles.checkmark}>✓</Text>}
             </View>
             <Text style={styles.checkboxLabel}>
-              I have read and agree to authorize this AI agent
+              {isIntentFlow
+                ? 'I authorize this AI agent to purchase the item above on my behalf'
+                : 'I have read and agree to authorize this AI agent'}
             </Text>
           </TouchableOpacity>
 
-          {!signatureData && (
-            <TouchableOpacity
-              style={styles.signatureButton}
-              onPress={() => setShowSignaturePad(true)}
-            >
-              <Text style={styles.signatureButtonText}>Add Signature</Text>
-            </TouchableOpacity>
-          )}
+          {/* Step 1: Biometric Verification */}
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Step 1: Verify Identity</Text>
+            {!biometricVerified ? (
+              <TouchableOpacity
+                style={styles.biometricButton}
+                onPress={handleBiometricVerification}
+              >
+                <Text style={styles.biometricIcon}>
+                  {biometricType === 'face' ? '👤' : '👆'}
+                </Text>
+                <Text style={styles.biometricButtonText}>
+                  {biometricType === 'face' ? 'Verify with Face ID' : 'Verify with Fingerprint'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.verifiedBadge}>
+                <Text style={styles.verifiedText}>✓ Identity Verified</Text>
+              </View>
+            )}
+          </View>
 
-          {signatureData && (
-            <View style={styles.signatureAdded}>
-              <Text style={styles.signatureAddedText}>✓ Signature Added</Text>
-            </View>
-          )}
+          {/* Step 2: Add Signature */}
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Step 2: Add Signature</Text>
+            {!signatureData ? (
+              <TouchableOpacity
+                style={[styles.signatureButton, !biometricVerified && styles.buttonDisabled]}
+                onPress={() => setShowSignaturePad(true)}
+                disabled={!biometricVerified}
+              >
+                <Text style={styles.signatureButtonText}>Add Signature</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.signatureAdded}>
+                <Text style={styles.signatureAddedText}>✓ Signature Added</Text>
+              </View>
+            )}
+          </View>
 
+          {/* Approve Button */}
           <TouchableOpacity
-            style={[styles.approveButton, (!agreed || !signatureData || signing) && styles.buttonDisabled]}
+            style={[styles.approveButton, (!agreed || !signatureData || !biometricVerified || signing) && styles.buttonDisabled]}
             onPress={handleApprove}
-            disabled={!agreed || !signatureData || signing}
+            disabled={!agreed || !signatureData || !biometricVerified || signing}
           >
             {signing ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.approveButtonText}>Approve & Sign</Text>
+              <Text style={styles.approveButtonText}>
+                {isIntentFlow ? 'Approve Intent & Authorize' : 'Approve & Authorize Payment'}
+              </Text>
             )}
           </TouchableOpacity>
 
@@ -377,6 +681,199 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     fontFamily: 'monospace',
   },
+  limitsSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F9FAFB',
+  },
+  constraintsBox: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 12,
+  },
+  constraintRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  constraintLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  constraintValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  cartSection: {
+    padding: 16,
+    backgroundColor: '#F0FDF4',
+    borderBottomWidth: 1,
+    borderBottomColor: '#86EFAC',
+  },
+  cartTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#166534',
+    marginBottom: 12,
+  },
+  cartItems: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cartItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  cartItemImageContainer: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+  },
+  cartItemImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+  },
+  cartItemImagePlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cartItemImagePlaceholderText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  cartItemDetails: {
+    flex: 1,
+  },
+  cartItemName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  cartItemQuantity: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  cartItemPrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  cartTotal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 16,
+    marginTop: 8,
+  },
+  cartTotalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  cartTotalValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  // Intent Section Styles
+  intentSection: {
+    padding: 16,
+    backgroundColor: '#FEF3C7',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FCD34D',
+  },
+  intentTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 12,
+  },
+  intentCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  intentProduct: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  intentProductDetails: {
+    flex: 1,
+  },
+  intentProductName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  intentProductQuantity: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  intentProductPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  intentConstraints: {
+    marginBottom: 12,
+  },
+  intentConstraintRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  intentConstraintLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  intentConstraintValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  intentReasoning: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 12,
+  },
+  intentReasoningLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  intentReasoningText: {
+    fontSize: 14,
+    color: '#374151',
+    fontStyle: 'italic',
+  },
+  intentDescription: {
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 20,
+  },
   actions: {
     padding: 24,
   },
@@ -428,6 +925,43 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   signatureAddedText: {
+    color: '#065F46',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  stepContainer: {
+    marginBottom: 20,
+  },
+  stepTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  biometricButton: {
+    backgroundColor: '#4F46E5',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  biometricIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  biometricButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  verifiedBadge: {
+    backgroundColor: '#D1FAE5',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  verifiedText: {
     color: '#065F46',
     fontSize: 16,
     fontWeight: '600',

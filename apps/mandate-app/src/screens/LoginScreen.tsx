@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { DEMO_USER_ID } from '../services/demo-seed-data';
 
 export const LoginScreen: React.FC = () => {
   const { login } = useAuth();
@@ -33,10 +34,21 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    try {
+      await login(DEMO_USER_ID, 'demo@example.com', 'Demo User');
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Mandate Manager</Text>
-      <Text style={styles.subtitle}>Manage your AI agent authorizations</Text>
+      <Text style={styles.title}>User Mandate App</Text>
+      <Text style={styles.subtitle}>Manage AI app permissions and spending limits</Text>
 
       <View style={styles.form}>
         <Text style={styles.label}>User ID *</Text>
@@ -77,6 +89,23 @@ export const LoginScreen: React.FC = () => {
             <Text style={styles.buttonText}>Continue</Text>
           )}
         </TouchableOpacity>
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.demoButton, loading && styles.buttonDisabled]}
+          onPress={handleDemoLogin}
+          disabled={loading}
+        >
+          <Text style={styles.demoButtonText}>Quick Demo Login</Text>
+        </TouchableOpacity>
+        <Text style={styles.demoHint}>
+          See sample mandates with pre-filled data
+        </Text>
       </View>
     </View>
   );
@@ -119,6 +148,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: '#FFFFFF',
+    color: '#1F2937',
   },
   button: {
     backgroundColor: '#2563EB',
@@ -134,5 +164,37 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    color: '#9CA3AF',
+    paddingHorizontal: 16,
+    fontSize: 14,
+  },
+  demoButton: {
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+  },
+  demoButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  demoHint: {
+    color: '#6B7280',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

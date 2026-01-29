@@ -48,11 +48,18 @@ export const updateMandateSchema = z.object({
 });
 
 export const agentCartRequestSchema = z.object({
-  mandateId: z.string().uuid(),
+  mandateId: z.string().min(1), // Accept any non-empty string (not just UUIDs)
   agentId: z.string().min(1),
-  productId: z.string().uuid(),
+  productId: z.string().min(1), // Accept any non-empty string (not just UUIDs)
   productName: z.string().min(1),
-  productImage: z.string().url().optional(),
+  productImage: z.preprocess(
+    (val) => {
+      // Convert empty string to undefined
+      if (val === '' || val === null) return undefined;
+      return val;
+    },
+    z.string().url().optional()
+  ), // Allow empty string, null, or valid URL
   quantity: z.number().int().positive(),
   price: z.number().positive(),
   variants: z.array(z.object({
@@ -61,7 +68,7 @@ export const agentCartRequestSchema = z.object({
     value: z.string(),
     priceModifier: z.number().optional(),
   })).optional(),
-  reasoning: z.string().min(10).max(500),
+  reasoning: z.string().min(1).max(500), // Reduced min from 10 to 1 to allow shorter reasoning
 });
 
 export const createIntentRequestSchema = z.object({

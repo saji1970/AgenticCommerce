@@ -36,14 +36,9 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store",
-      [
-        "expo-local-authentication",
-        {
-          "faceIDPermission": "Allow AgenticCommerce to use Face ID for secure mandate signing."
-        }
-      ]
+      "expo-secure-store"
     ],
+    "scheme": "agenticcommerce",
     "extra": {
       "eas": {
         "projectId": "44873f97-59bb-4a78-98e5-4fa591847942"

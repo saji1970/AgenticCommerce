@@ -1,10 +1,19 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { pool } from '../config/database';
 import { MandateRepository } from '../repositories/mandate.repository';
 import { AgentActionRepository } from '../repositories/agent-action.repository';
 import { PurchaseIntentRepository } from '../repositories/purchase-intent.repository';
 import { AP2TransactionRepository } from '../repositories/ap2-transaction.repository';
 import { AgentRepository } from '../repositories/agent.repository';
+import { MerchantRepository } from '../repositories/merchant.repository';
+import { merchantAgentRepository } from '../repositories/merchant-agent.repository';
+import { userSettingsRepository } from '../repositories/user-settings.repository';
+import { auditLogRepository } from '../repositories/audit-log.repository';
+import { caCertificateRepository } from '../repositories/ca-certificate.repository';
+import { adminSettingsRepository } from '../repositories/admin-settings.repository';
+import { auditService } from '../services/audit.service';
+import { MerchantStatus, MerchantTier } from '@agentic-commerce/shared-types';
 
 export class AdminController {
   private mandateRepository: MandateRepository;
@@ -12,6 +21,7 @@ export class AdminController {
   private intentRepository: PurchaseIntentRepository;
   private transactionRepository: AP2TransactionRepository;
   private agentRepository: AgentRepository;
+  private merchantRepository: MerchantRepository;
 
   constructor() {
     this.mandateRepository = new MandateRepository();
@@ -19,6 +29,7 @@ export class AdminController {
     this.intentRepository = new PurchaseIntentRepository();
     this.transactionRepository = new AP2TransactionRepository();
     this.agentRepository = new AgentRepository();
+    this.merchantRepository = new MerchantRepository();
   }
 
   // Dashboard Statistics
@@ -452,6 +463,71 @@ export class AdminController {
     }
   };
 
+  // AP2 Transaction by ID
+  getAP2TransactionById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const result = await pool.query(`
+        SELECT
+          t.*,
+          u.email as user_email,
+          u.first_name as user_first_name,
+          u.last_name as user_last_name,
+          m.name as merchant_name,
+          m.business_name as merchant_business_name,
+          m.email as merchant_email
+        FROM ap2_transactions t
+        JOIN users u ON t.user_id = u.id
+        LEFT JOIN merchants m ON t.merchant_id = m.id
+        WHERE t.id = $1
+      `, [id]);
+
+      if (result.rows.length === 0) {
+        res.status(404).json({ error: 'Transaction not found' });
+        return;
+      }
+
+      const row = result.rows[0];
+      res.json({
+        transaction: {
+          id: row.id,
+          userId: row.user_id,
+          merchantId: row.merchant_id,
+          type: row.type,
+          amount: parseFloat(row.amount),
+          currency: row.currency,
+          status: row.status,
+          metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata,
+          requestedAt: row.requested_at,
+          authorizedAt: row.authorized_at,
+          completedAt: row.completed_at,
+          failedAt: row.failed_at,
+          failureReason: row.failure_reason,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          user: {
+            id: row.user_id,
+            email: row.user_email,
+            firstName: row.user_first_name,
+            lastName: row.user_last_name,
+          },
+          merchant: row.merchant_id ? {
+            id: row.merchant_id,
+            name: row.merchant_name,
+            businessName: row.merchant_business_name,
+            email: row.merchant_email,
+          } : null,
+        },
+      });
+    } catch (error) {
+      console.error('Error getting AP2 transaction:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to get transaction',
+      });
+    }
+  };
+
   // AP2 Transaction List
   getAllAP2Transactions = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -841,6 +917,746 @@ export class AdminController {
       res.status(500).json({
         error: error instanceof Error ? error.message : 'Failed to get agent transaction history',
       });
+    }
+  };
+
+  // Dashboard Alerts
+  getDashboardAlerts = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const alerts: Array<{ type: string; message: string; severity: string }> = [];
+
+      // Check for expiring certificates (within 30 days)
+      try {
+        const expiringCertsResult = await pool.query(`
+          SELECT COUNT(*) as count FROM ca_certificates
+          WHERE is_active = true
+            AND not_after <= CURRENT_TIMESTAMP + INTERVAL '30 days'
+            AND not_after > CURRENT_TIMESTAMP
+        `);
+        const expiringCount = parseInt(expiringCertsResult.rows[0].count || 0);
+        if (expiringCount > 0) {
+          alerts.push({
+            type: 'certificate_expiring',
+            message: `${expiringCount} certificate(s) expiring within 30 days`,
+            severity: 'warning',
+          });
+        }
+      } catch (e) {
+        // Table may not exist
+      }
+
+      // Check for blocked users
+      try {
+        const blockedUsersResult = await pool.query(`
+          SELECT COUNT(*) as count FROM user_settings WHERE is_blocked = true
+        `);
+        const blockedCount = parseInt(blockedUsersResult.rows[0].count || 0);
+        if (blockedCount > 0) {
+          alerts.push({
+            type: 'users_blocked',
+            message: `${blockedCount} user(s) currently blocked`,
+            severity: 'info',
+          });
+        }
+      } catch (e) {
+        // Table may not exist
+      }
+
+      // Check for suspended merchants
+      const suspendedMerchantsResult = await pool.query(`
+        SELECT COUNT(*) as count FROM merchants WHERE status = 'suspended'
+      `);
+      const suspendedCount = parseInt(suspendedMerchantsResult.rows[0].count || 0);
+      if (suspendedCount > 0) {
+        alerts.push({
+          type: 'merchants_suspended',
+          message: `${suspendedCount} merchant(s) currently suspended`,
+          severity: 'warning',
+        });
+      }
+
+      res.json({ alerts });
+    } catch (error) {
+      console.error('Error getting dashboard alerts:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to get alerts',
+      });
+    }
+  };
+
+  // Merchant Management
+  getAllMerchants = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { status, search, limit = '50', offset = '0' } = req.query;
+
+      let query = `SELECT * FROM merchants WHERE 1=1`;
+      const params: any[] = [];
+      let paramCount = 0;
+
+      if (status) {
+        paramCount++;
+        query += ` AND status = $${paramCount}`;
+        params.push(status);
+      }
+
+      if (search) {
+        paramCount++;
+        query += ` AND (name ILIKE $${paramCount} OR business_name ILIKE $${paramCount} OR email ILIKE $${paramCount})`;
+        params.push(`%${search}%`);
+      }
+
+      query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      params.push(parseInt(limit as string), parseInt(offset as string));
+
+      const result = await pool.query(query, params);
+
+      // Get total count
+      let countQuery = `SELECT COUNT(*) FROM merchants WHERE 1=1`;
+      const countParams: any[] = [];
+      let countParamCount = 0;
+
+      if (status) {
+        countParamCount++;
+        countQuery += ` AND status = $${countParamCount}`;
+        countParams.push(status);
+      }
+      if (search) {
+        countParamCount++;
+        countQuery += ` AND (name ILIKE $${countParamCount} OR business_name ILIKE $${countParamCount} OR email ILIKE $${countParamCount})`;
+        countParams.push(`%${search}%`);
+      }
+
+      const countResult = await pool.query(countQuery, countParams);
+      const total = parseInt(countResult.rows[0].count);
+
+      res.json({
+        merchants: result.rows.map(row => ({
+          id: row.id,
+          name: row.name,
+          businessName: row.business_name,
+          email: row.email,
+          website: row.website,
+          status: row.status,
+          tier: row.tier,
+          apiKey: row.api_key,
+          webhookUrl: row.webhook_url,
+          settings: typeof row.settings === 'string' ? JSON.parse(row.settings) : row.settings,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          lastActivityAt: row.last_activity_at,
+        })),
+        pagination: { total, limit: parseInt(limit as string), offset: parseInt(offset as string) },
+      });
+    } catch (error) {
+      console.error('Error getting merchants:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get merchants' });
+    }
+  };
+
+  getMerchantById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const merchant = await this.merchantRepository.getById(id);
+
+      if (!merchant) {
+        res.status(404).json({ error: 'Merchant not found' });
+        return;
+      }
+
+      res.json({ merchant });
+    } catch (error) {
+      console.error('Error getting merchant:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get merchant' });
+    }
+  };
+
+  createMerchant = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { name, businessName, email, website, tier, webhookUrl } = req.body;
+
+      const merchant = await this.merchantRepository.create({
+        name,
+        businessName,
+        email,
+        website,
+        tier: tier as MerchantTier,
+        webhookUrl,
+      });
+
+      await auditService.logCreate(req, 'merchant', merchant.id, { name, businessName, email, tier });
+
+      res.status(201).json({ merchant });
+    } catch (error) {
+      console.error('Error creating merchant:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to create merchant' });
+    }
+  };
+
+  updateMerchant = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const oldMerchant = await this.merchantRepository.getById(id);
+      if (!oldMerchant) {
+        res.status(404).json({ error: 'Merchant not found' });
+        return;
+      }
+
+      // Update settings if provided
+      if (updates.settings) {
+        await this.merchantRepository.updateSettings(id, updates.settings);
+      }
+
+      // Update webhook if provided
+      if (updates.webhookUrl !== undefined) {
+        await this.merchantRepository.updateWebhook(id, updates.webhookUrl);
+      }
+
+      const merchant = await this.merchantRepository.getById(id);
+
+      await auditService.logUpdate(req, 'merchant', id, { ...oldMerchant }, { ...merchant });
+
+      res.json({ merchant });
+    } catch (error) {
+      console.error('Error updating merchant:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update merchant' });
+    }
+  };
+
+  updateMerchantStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const oldMerchant = await this.merchantRepository.getById(id);
+      if (!oldMerchant) {
+        res.status(404).json({ error: 'Merchant not found' });
+        return;
+      }
+
+      const merchant = await this.merchantRepository.updateStatus(id, status as MerchantStatus);
+
+      await auditService.logStatusChange(req, 'merchant', id, oldMerchant.status, status);
+
+      res.json({ merchant });
+    } catch (error) {
+      console.error('Error updating merchant status:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update merchant status' });
+    }
+  };
+
+  deleteMerchant = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const merchant = await this.merchantRepository.getById(id);
+      if (!merchant) {
+        res.status(404).json({ error: 'Merchant not found' });
+        return;
+      }
+
+      await pool.query('DELETE FROM merchants WHERE id = $1', [id]);
+
+      await auditService.logDelete(req, 'merchant', id, { ...merchant });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting merchant:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to delete merchant' });
+    }
+  };
+
+  rotateMerchantKeys = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const merchant = await this.merchantRepository.getById(id);
+      if (!merchant) {
+        res.status(404).json({ error: 'Merchant not found' });
+        return;
+      }
+
+      const newKeys = await this.merchantRepository.rotateApiKeys(id);
+
+      await auditService.logUpdate(req, 'merchant', id, { apiKeyRotated: true }, { apiKeyRotated: true });
+
+      res.json({
+        success: true,
+        apiKey: newKeys.apiKey,
+        apiSecret: newKeys.apiSecret,
+      });
+    } catch (error) {
+      console.error('Error rotating merchant keys:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to rotate merchant keys' });
+    }
+  };
+
+  // Merchant-Agent Association
+  getMerchantAgents = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const agents = await merchantAgentRepository.getByMerchantId(id);
+      res.json({ agents });
+    } catch (error) {
+      console.error('Error getting merchant agents:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get merchant agents' });
+    }
+  };
+
+  addMerchantAgent = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { agentId, config } = req.body;
+
+      const merchantAgent = await merchantAgentRepository.create({
+        merchantId: id,
+        agentId,
+        config,
+      });
+
+      await auditService.logCreate(req, 'merchant_agent', merchantAgent.id, { merchantId: id, agentId });
+
+      res.status(201).json({ merchantAgent });
+    } catch (error) {
+      console.error('Error adding merchant agent:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to add agent to merchant' });
+    }
+  };
+
+  updateMerchantAgentConfig = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id, agentId } = req.params;
+      const { config } = req.body;
+
+      const merchantAgent = await merchantAgentRepository.updateConfig(id, agentId, config);
+
+      if (!merchantAgent) {
+        res.status(404).json({ error: 'Merchant-agent association not found' });
+        return;
+      }
+
+      await auditService.logUpdate(req, 'merchant_agent', merchantAgent.id, {}, { config });
+
+      res.json({ merchantAgent });
+    } catch (error) {
+      console.error('Error updating merchant agent config:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update agent config' });
+    }
+  };
+
+  removeMerchantAgent = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id, agentId } = req.params;
+
+      const deleted = await merchantAgentRepository.delete(id, agentId);
+
+      if (!deleted) {
+        res.status(404).json({ error: 'Merchant-agent association not found' });
+        return;
+      }
+
+      await auditService.logDelete(req, 'merchant_agent', `${id}_${agentId}`, { merchantId: id, agentId });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error removing merchant agent:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to remove agent from merchant' });
+    }
+  };
+
+  // User Settings and Block/Unblock
+  getUserSettings = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+      const settings = await userSettingsRepository.getOrCreate(userId);
+      res.json({ settings });
+    } catch (error) {
+      console.error('Error getting user settings:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get user settings' });
+    }
+  };
+
+  updateUserSettings = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+      const { defaultMaxTransaction, defaultDailyLimit, defaultMonthlyLimit } = req.body;
+
+      const oldSettings = await userSettingsRepository.getByUserId(userId);
+      const settings = await userSettingsRepository.updateSettings(userId, {
+        defaultMaxTransaction,
+        defaultDailyLimit,
+        defaultMonthlyLimit,
+      });
+
+      await auditService.logUpdate(req, 'user_settings', userId,
+        oldSettings ? { ...oldSettings } : {},
+        { defaultMaxTransaction, defaultDailyLimit, defaultMonthlyLimit }
+      );
+
+      res.json({ settings });
+    } catch (error) {
+      console.error('Error updating user settings:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update user settings' });
+    }
+  };
+
+  blockUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+      const { reason } = req.body;
+
+      if (!reason) {
+        res.status(400).json({ error: 'Block reason is required' });
+        return;
+      }
+
+      const settings = await userSettingsRepository.blockUser(userId, reason);
+
+      await auditService.logBlock(req, 'user', userId, reason);
+
+      res.json({ settings });
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to block user' });
+    }
+  };
+
+  unblockUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+
+      const settings = await userSettingsRepository.unblockUser(userId);
+
+      await auditService.logUnblock(req, 'user', userId);
+
+      res.json({ settings });
+    } catch (error) {
+      console.error('Error unblocking user:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to unblock user' });
+    }
+  };
+
+  // Certificates
+  getAllCertificates = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { limit = '50', offset = '0' } = req.query;
+
+      const result = await pool.query(`
+        SELECT * FROM ca_certificates
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2
+      `, [parseInt(limit as string), parseInt(offset as string)]);
+
+      const countResult = await pool.query('SELECT COUNT(*) FROM ca_certificates');
+      const total = parseInt(countResult.rows[0].count);
+
+      res.json({
+        certificates: result.rows.map(row => ({
+          id: row.id,
+          userId: row.user_id,
+          agentId: row.agent_id,
+          merchantId: row.merchant_id,
+          fingerprint: row.fingerprint,
+          publicKeyPem: row.public_key_pem,
+          certificatePem: row.certificate_pem,
+          issuerDn: row.issuer_dn,
+          subjectDn: row.subject_dn,
+          serialNumber: row.serial_number,
+          notBefore: row.not_before,
+          notAfter: row.not_after,
+          caServerUrl: row.ca_server_url,
+          isActive: row.is_active,
+          revokedAt: row.revoked_at,
+          revokedReason: row.revoked_reason,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })),
+        pagination: { total, limit: parseInt(limit as string), offset: parseInt(offset as string) },
+      });
+    } catch (error: any) {
+      if (error.code === '42P01') {
+        res.json({ certificates: [], pagination: { total: 0, limit: 50, offset: 0 } });
+        return;
+      }
+      console.error('Error getting certificates:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get certificates' });
+    }
+  };
+
+  getExpiringCertificates = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { days = '30' } = req.query;
+
+      const result = await pool.query(`
+        SELECT * FROM ca_certificates
+        WHERE is_active = true
+          AND not_after <= CURRENT_TIMESTAMP + INTERVAL '${parseInt(days as string)} days'
+          AND not_after > CURRENT_TIMESTAMP
+        ORDER BY not_after ASC
+      `);
+
+      res.json({
+        certificates: result.rows.map(row => ({
+          id: row.id,
+          userId: row.user_id,
+          agentId: row.agent_id,
+          merchantId: row.merchant_id,
+          fingerprint: row.fingerprint,
+          subjectDn: row.subject_dn,
+          notBefore: row.not_before,
+          notAfter: row.not_after,
+          isActive: row.is_active,
+          createdAt: row.created_at,
+        })),
+      });
+    } catch (error: any) {
+      if (error.code === '42P01') {
+        res.json({ certificates: [] });
+        return;
+      }
+      console.error('Error getting expiring certificates:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get expiring certificates' });
+    }
+  };
+
+  getAgentCertificates = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { agentId } = req.params;
+
+      const result = await pool.query(`
+        SELECT * FROM ca_certificates
+        WHERE agent_id = $1
+        ORDER BY created_at DESC
+      `, [agentId]);
+
+      res.json({
+        certificates: result.rows.map(row => ({
+          id: row.id,
+          userId: row.user_id,
+          agentId: row.agent_id,
+          fingerprint: row.fingerprint,
+          subjectDn: row.subject_dn,
+          notBefore: row.not_before,
+          notAfter: row.not_after,
+          isActive: row.is_active,
+          revokedAt: row.revoked_at,
+          revokedReason: row.revoked_reason,
+          createdAt: row.created_at,
+        })),
+      });
+    } catch (error: any) {
+      if (error.code === '42P01') {
+        res.json({ certificates: [] });
+        return;
+      }
+      console.error('Error getting agent certificates:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get agent certificates' });
+    }
+  };
+
+  uploadAgentCertificate = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { agentId } = req.params;
+      const { certificatePem } = req.body;
+
+      if (!certificatePem) {
+        res.status(400).json({ error: 'Certificate PEM is required' });
+        return;
+      }
+
+      // Verify agent exists
+      const agent = await this.agentRepository.getByAgentId(agentId);
+      if (!agent) {
+        res.status(404).json({ error: 'Agent not found' });
+        return;
+      }
+
+      // Parse the certificate using Node.js crypto
+      let x509: crypto.X509Certificate;
+      try {
+        x509 = new crypto.X509Certificate(certificatePem);
+      } catch (parseError) {
+        res.status(400).json({ error: 'Invalid certificate format. Please provide a valid PEM-encoded X.509 certificate.' });
+        return;
+      }
+
+      // Check if certificate is expired
+      const notAfter = new Date(x509.validTo);
+      const notBefore = new Date(x509.validFrom);
+      if (notAfter < new Date()) {
+        res.status(400).json({ error: 'Certificate has expired' });
+        return;
+      }
+
+      // Generate fingerprint (SHA-256)
+      const fingerprint = x509.fingerprint256.replace(/:/g, '').toLowerCase();
+
+      // Extract public key
+      const publicKeyPem = x509.publicKey.export({ type: 'spki', format: 'pem' }) as string;
+
+      // Create certificate record
+      const certificate = await caCertificateRepository.create({
+        userId: (req as any).user?.id || 'system',
+        fingerprint,
+        publicKeyPem,
+        certificatePem,
+        issuerDn: x509.issuer,
+        subjectDn: x509.subject,
+        serialNumber: x509.serialNumber,
+        notBefore,
+        notAfter,
+      });
+
+      // Update agent_id in the certificate record
+      await pool.query(
+        'UPDATE ca_certificates SET agent_id = $1 WHERE id = $2',
+        [agentId, certificate.id]
+      );
+
+      await auditService.logCreate(req, 'certificate', certificate.id, {
+        agentId,
+        fingerprint,
+        subject: x509.subject,
+        validUntil: notAfter.toISOString(),
+      });
+
+      res.status(201).json({
+        certificate: {
+          id: certificate.id,
+          agentId,
+          fingerprint,
+          subjectDn: x509.subject,
+          issuerDn: x509.issuer,
+          serialNumber: x509.serialNumber,
+          notBefore: notBefore.toISOString(),
+          notAfter: notAfter.toISOString(),
+          isActive: true,
+          createdAt: certificate.createdAt,
+        },
+      });
+    } catch (error) {
+      console.error('Error uploading certificate:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to upload certificate' });
+    }
+  };
+
+  revokeCertificate = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      if (!reason) {
+        res.status(400).json({ error: 'Revocation reason is required' });
+        return;
+      }
+
+      // Find the certificate first
+      const certResult = await pool.query('SELECT * FROM ca_certificates WHERE id = $1', [id]);
+      if (certResult.rows.length === 0) {
+        res.status(404).json({ error: 'Certificate not found' });
+        return;
+      }
+
+      const cert = certResult.rows[0];
+      const revoked = await caCertificateRepository.revoke(cert.fingerprint, reason);
+
+      if (!revoked) {
+        res.status(500).json({ error: 'Failed to revoke certificate' });
+        return;
+      }
+
+      await auditService.logRevoke(req, 'certificate', id, reason);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      if (error.code === '42P01') {
+        res.status(404).json({ error: 'Certificate not found' });
+        return;
+      }
+      console.error('Error revoking certificate:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to revoke certificate' });
+    }
+  };
+
+  // Audit Logs
+  getAuditLogs = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { action, resourceType, adminUserId, startDate, endDate, limit = '50', offset = '0' } = req.query;
+
+      const { logs, total } = await auditLogRepository.getAll({
+        action: action as string | undefined,
+        resourceType: resourceType as string | undefined,
+        adminUserId: adminUserId as string | undefined,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+      });
+
+      res.json({
+        logs,
+        pagination: { total, limit: parseInt(limit as string), offset: parseInt(offset as string) },
+      });
+    } catch (error) {
+      console.error('Error getting audit logs:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get audit logs' });
+    }
+  };
+
+  // Admin Settings
+  getSettings = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const settings = await adminSettingsRepository.getAll();
+      res.json({ settings });
+    } catch (error) {
+      console.error('Error getting settings:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get settings' });
+    }
+  };
+
+  getSettingsByCategory = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { category } = req.params;
+      const settings = await adminSettingsRepository.getByCategory(category);
+      res.json({ settings });
+    } catch (error) {
+      console.error('Error getting settings by category:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get settings' });
+    }
+  };
+
+  updateSettings = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { updates } = req.body;
+      const adminUserId = (req as any).user?.id;
+
+      if (!updates || !Array.isArray(updates)) {
+        res.status(400).json({ error: 'Updates array is required' });
+        return;
+      }
+
+      // Validate updates
+      for (const update of updates) {
+        if (!update.category || !update.key || update.value === undefined) {
+          res.status(400).json({ error: 'Each update must have category, key, and value' });
+          return;
+        }
+      }
+
+      const updatedCount = await adminSettingsRepository.bulkUpdate(updates, adminUserId);
+
+      // Log the settings update
+      await auditService.logUpdate(req, 'admin_settings', 'bulk', {}, {
+        updatedCount,
+        categories: [...new Set(updates.map((u: any) => u.category))],
+      });
+
+      const settings = await adminSettingsRepository.getAll();
+      res.json({ success: true, updatedCount, settings });
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update settings' });
     }
   };
 }

@@ -1,0 +1,19 @@
+{
+  "name": "mandate-marketing",
+  "version": "1.0.0",
+  "description": "Marketing website for Mandate - AI Payment Authorization Platform",
+  "private": true,
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve . -l 3000",
+    "preview": "npx serve . -l 8080"
+  },
+  "keywords": [
+    "mandate",
+    "ai-commerce",
+    "payment-authorization",
+    "marketing"
+  ],
+  "author": "AgenticCommerce",
+  "license": "UNLICENSED"
+}

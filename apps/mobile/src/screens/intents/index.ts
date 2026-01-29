@@ -1,0 +1,1 @@
+export { IntentsScreen } from './IntentsScreen';

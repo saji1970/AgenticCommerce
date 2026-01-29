@@ -1,22 +1,23 @@
 import * as Keychain from 'react-native-keychain';
-import * as LocalAuthentication from 'expo-local-authentication';
+import ReactNativeBiometrics from 'react-native-biometrics';
 import { Platform } from 'react-native';
 import { TEST_PUBLIC_KEY_PEM, generateTestSignature, generateTestKeyId } from './test-key-generator';
 
 /**
  * Secure Element Service
  * Manages cryptographic keys in Secure Element (iOS Secure Enclave / Android StrongBox)
- * 
+ *
  * TEST MODE: Set USE_TEST_KEYS=true to use test keys for demo (no hardware required)
- * 
+ *
  * Note: React Native doesn't have direct Secure Element access, so we use:
  * - react-native-keychain for secure key storage
- * - expo-local-authentication for biometric auth
+ * - react-native-biometrics for biometric auth
  * - Test keys for demo mode (no hardware Secure Element required)
  */
 
 // Enable test mode for demo (set to false in production)
 const USE_TEST_KEYS = __DEV__ || true; // Enable test mode in dev and for demo
+const rnBiometrics = new ReactNativeBiometrics();
 
 export interface KeyPair {
   keyId: string;
@@ -40,11 +41,8 @@ class SecureElementService {
    */
   async isBiometricAvailable(): Promise<boolean> {
     try {
-      const compatible = await LocalAuthentication.hasHardwareAsync();
-      if (!compatible) return false;
-
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      return enrolled;
+      const { available, biometryType } = await rnBiometrics.isSensorAvailable();
+      return available && biometryType !== ReactNativeBiometrics.BiometryType.none;
     } catch (error) {
       console.error('Error checking biometric availability:', error);
       return false;
@@ -56,16 +54,14 @@ class SecureElementService {
    */
   async getBiometricType(): Promise<'face' | 'fingerprint' | 'pin' | 'none'> {
     try {
-      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      
-      if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+      const { biometryType } = await rnBiometrics.isSensorAvailable();
+      if (biometryType === ReactNativeBiometrics.BiometryType.FaceID ||
+          biometryType === ReactNativeBiometrics.BiometryType.Face) {
         return 'face';
       }
-      if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+      if (biometryType === ReactNativeBiometrics.BiometryType.TouchID ||
+          biometryType === ReactNativeBiometrics.BiometryType.Fingerprint) {
         return 'fingerprint';
-      }
-      if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) {
-        return 'face'; // Treat iris as face
       }
       return 'pin';
     } catch (error) {
@@ -86,14 +82,12 @@ class SecureElementService {
     }
 
     try {
-      const result = await LocalAuthentication.authenticateAsync({
+      const { success } = await rnBiometrics.simplePrompt({
         promptMessage: reason,
-        cancelLabel: 'Cancel',
-        disableDeviceFallback: false, // Allow PIN fallback
-        fallbackLabel: 'Use PIN',
+        cancelButtonText: 'Cancel',
+        fallbackPromptMessage: 'Use PIN',
       });
-
-      return result.success;
+      return success;
     } catch (error) {
       console.error('Authentication error:', error);
       return false;
@@ -280,7 +274,12 @@ class SecureElementService {
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
-    return Buffer.from(hash.toString()).toString('base64');
+    // Use btoa instead of Buffer (Buffer is not available in React Native)
+    try {
+      return btoa(hash.toString());
+    } catch {
+      return hash.toString();
+    }
   }
 
   /**
