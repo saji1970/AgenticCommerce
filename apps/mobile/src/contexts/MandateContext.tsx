@@ -10,6 +10,7 @@ import {
 import mandateService, { CreateMandateParams } from '../services/mandate.service';
 import { AppConfig } from '../config/app.config';
 import { AppState } from 'react-native';
+import { openMandateApp } from '../utils/deepLink';
 
 interface ActiveMandates {
   cart?: Mandate;
@@ -121,6 +122,8 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
 
   /**
    * Create a new mandate with default constraints
+   * For CART and PAYMENT mandates, opens the Mandate app for user approval
+   * Returns the mandate (PENDING status) - caller must wait for approval callback
    */
   const createMandate = async (params: CreateMandateParams): Promise<Mandate> => {
     try {
@@ -135,7 +138,28 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
 
       const mandate = await mandateService.createMandate(finalParams);
 
-      // Auto-approve the mandate
+      // For CART and PAYMENT mandates, open Mandate app for user approval
+      // The user must approve with biometric verification and signature
+      if (params.type === MandateType.CART || params.type === MandateType.PAYMENT) {
+        console.log('[MandateContext] Opening Mandate app for user approval:', mandate.id);
+        const opened = await openMandateApp(mandate.id);
+
+        if (!opened) {
+          // Mandate app not installed or failed to open
+          // Clean up the pending mandate
+          try {
+            await mandateService.revokeMandate(mandate.id, 'Mandate app not available');
+          } catch (cleanupErr) {
+            console.error('[MandateContext] Failed to cleanup mandate:', cleanupErr);
+          }
+          throw new Error('Mandate app is required to approve this authorization. Please install the Mandate Manager app.');
+        }
+
+        // Return the pending mandate - caller should wait for approval via app state/deep link callback
+        return mandate;
+      }
+
+      // For INTENT mandates, auto-approve as they have their own approval flow
       const approvedMandate = await mandateService.approveMandate(mandate.id);
 
       // Reload mandates to update cache

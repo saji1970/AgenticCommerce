@@ -72,9 +72,9 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
       try {
         mandateCheck = await checkPaymentMandate(defaultAgent.id, defaultAgent.name);
       } catch (mandateError) {
-        console.log('Mandate check error (allowing payment to proceed):', mandateError);
-        // In demo mode, if mandate check fails, allow payment
-        setMandateCheckComplete(true);
+        console.log('Mandate check error:', mandateError);
+        // Show error and keep payment disabled until mandate is approved
+        setMandateCheckComplete(false);
         return;
       }
 

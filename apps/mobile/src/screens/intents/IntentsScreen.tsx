@@ -11,12 +11,20 @@ import {
 } from 'react-native';
 import { useIntent } from '../../contexts/IntentContext';
 import { useCart } from '../../contexts/CartContext';
-import { PurchaseIntent } from '@agentic-commerce/shared-types';
+import { useMandate } from '../../contexts/MandateContext';
+import { PurchaseIntent, MandateType, AgentCartRequest } from '@agentic-commerce/shared-types';
+import { acpService } from '../../services/acp.service';
+import { MandateFlowManager } from '../../components/mandate/MandateFlowManager';
+import { validateAgainstCartMandate } from '../../utils/mandateValidation';
 
 export const IntentsScreen: React.FC = () => {
   const { intents, loading, loadIntents } = useIntent();
-  const { addToCart } = useCart();
+  const { refreshCart } = useCart();
+  const { getActiveMandateByType } = useMandate();
   const [refreshing, setRefreshing] = useState(false);
+  const [showMandateFlow, setShowMandateFlow] = useState(false);
+  const [pendingIntent, setPendingIntent] = useState<PurchaseIntent | null>(null);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
     loadIntents();
@@ -74,21 +82,85 @@ export const IntentsScreen: React.FC = () => {
     return { met: false, reason: `Current price $${currentPrice} above max $${maxPrice}` };
   };
 
+  /**
+   * Handle adding intent item to cart via ACP with mandate validation
+   */
   const handleAddToCart = async (intent: PurchaseIntent) => {
     try {
-      await addToCart({
+      // Check for active cart mandate
+      const mandate = getActiveMandateByType(MandateType.CART);
+
+      if (!mandate) {
+        // No mandate, need to get user approval first
+        setPendingIntent(intent);
+        setShowMandateFlow(true);
+        return;
+      }
+
+      // Validate intent product against mandate constraints
+      const mockProduct = {
+        id: intent.productId,
+        name: intent.productName || 'Unknown Product',
+        price: intent.maxPrice || 0,
+        category: (intent as any).category,
+      };
+
+      const validation = validateAgainstCartMandate(mockProduct as any, mandate);
+      if (!validation.valid) {
+        Alert.alert(
+          'Mandate Constraint Violation',
+          validation.errors.join('\n'),
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Add to cart via ACP (with mandate validation)
+      setAddingToCart(true);
+      const request: AgentCartRequest = {
+        mandateId: mandate.id,
+        agentId: mandate.agentId,
         productId: intent.productId,
+        productName: intent.productName || 'Unknown Product',
         quantity: intent.quantity || 1,
-      });
+        price: intent.maxPrice || 0,
+        reasoning: `Added from approved purchase intent: ${intent.id}`,
+      };
+
+      await acpService.agentAddToCart(request);
+      await refreshCart();
 
       Alert.alert(
         'Added to Cart',
-        `${intent.productName} has been added to your cart.`,
+        `${intent.productName} has been added to your cart by ${mandate.agentName}.`,
         [{ text: 'OK' }]
       );
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add item to cart');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to add item to cart';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setAddingToCart(false);
     }
+  };
+
+  /**
+   * Handle mandate ready callback - proceed with pending intent
+   */
+  const handleMandateReady = async () => {
+    setShowMandateFlow(false);
+    if (pendingIntent) {
+      // Retry adding to cart now that we have a mandate
+      await handleAddToCart(pendingIntent);
+      setPendingIntent(null);
+    }
+  };
+
+  /**
+   * Handle mandate flow cancellation
+   */
+  const handleMandateCancel = () => {
+    setShowMandateFlow(false);
+    setPendingIntent(null);
   };
 
   const handleTriggerPurchase = async (intent: PurchaseIntent) => {
@@ -200,6 +272,16 @@ export const IntentsScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      {/* Mandate Flow Manager for cart mandate approval */}
+      {showMandateFlow && (
+        <MandateFlowManager
+          mandateType={MandateType.CART}
+          onMandateReady={handleMandateReady}
+          onCancel={handleMandateCancel}
+          autoCheck={true}
+        />
+      )}
+
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>

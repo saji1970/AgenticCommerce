@@ -12,6 +12,7 @@ import {
   Image,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AgentMandate } from '../services/mandate-service.client';
 import { mandateServiceClient } from '../services/mandate-service.client';
 import { useMandates } from '../contexts/MandateContext';
@@ -24,6 +25,7 @@ const AGENTIC_COMMERCE_SCHEME = 'agenticcommerce://';
 
 // Demo mode - creates local mandate data without calling service
 const DEMO_MODE = true;
+const LOCAL_MANDATES_KEY = 'demo_mandates';
 
 interface CartItemData {
   id: string;
@@ -119,13 +121,26 @@ export const MandateDetailScreen: React.FC = () => {
   const loadMandate = async () => {
     try {
       if (DEMO_MODE) {
-        // Demo mode - create a demo mandate object
+        // Demo mode - first try to load from local storage
+        const localMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
+        const localMandates: AgentMandate[] = localMandatesStr ? JSON.parse(localMandatesStr) : [];
+        const foundMandate = localMandates.find(m => m.id === mandateId);
+
+        if (foundMandate) {
+          console.log('Found mandate in local storage:', foundMandate.type);
+          setMandate(foundMandate);
+          setLoading(false);
+          return;
+        }
+
+        // Not in local storage - create demo mandate based on intent data if available
+        const mandateType = intentData ? 'intent' : (cartData ? 'payment' : 'payment');
         const demoMandate: AgentMandate = {
           id: mandateId,
           userId: 'demo-user',
           agentId: 'default-shopping-agent',
-          agentName: 'Shopping Assistant',
-          type: 'payment',
+          agentName: intentData?.agentName || cartData?.agentName || 'Shopping Assistant',
+          type: mandateType,
           status: 'pending',
           constraints: {
             maxTransactionAmount: 500,
@@ -148,13 +163,14 @@ export const MandateDetailScreen: React.FC = () => {
     } catch (error) {
       console.error('Error loading mandate:', error);
       if (DEMO_MODE) {
-        // Fallback demo mandate
+        // Fallback demo mandate - detect type from data
+        const mandateType = intentData ? 'intent' : (cartData ? 'payment' : 'payment');
         const demoMandate: AgentMandate = {
           id: mandateId,
           userId: 'demo-user',
           agentId: 'default-shopping-agent',
-          agentName: 'Shopping Assistant',
-          type: 'payment',
+          agentName: intentData?.agentName || cartData?.agentName || 'Shopping Assistant',
+          type: mandateType,
           status: 'pending',
           constraints: {
             maxTransactionAmount: 500,
@@ -299,12 +315,25 @@ export const MandateDetailScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              if (DEMO_MODE) {
+                // Update local storage to remove or mark as cancelled
+                const localMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
+                const localMandates: AgentMandate[] = localMandatesStr ? JSON.parse(localMandatesStr) : [];
+                const updatedMandates = localMandates.filter(m => m.id !== mandateId);
+                await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(updatedMandates));
+                await refreshMandates();
+                Alert.alert('Success', 'Mandate cancelled', [
+                  { text: 'OK', onPress: () => navigation.goBack() },
+                ]);
+                return;
+              }
               await mandateServiceClient.revokeMandate(mandateId, mandate!.userId, 'Cancelled by user');
               await refreshMandates();
               Alert.alert('Success', 'Mandate cancelled', [
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
             } catch (error) {
+              console.error('Error cancelling mandate:', error);
               Alert.alert('Error', 'Failed to cancel mandate');
             }
           },
@@ -324,12 +353,29 @@ export const MandateDetailScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              if (DEMO_MODE) {
+                // Update local storage to mark as revoked
+                const localMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
+                const localMandates: AgentMandate[] = localMandatesStr ? JSON.parse(localMandatesStr) : [];
+                const index = localMandates.findIndex(m => m.id === mandateId);
+                if (index >= 0) {
+                  localMandates[index].status = 'revoked';
+                  localMandates[index].updatedAt = new Date().toISOString();
+                  await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(localMandates));
+                }
+                await refreshMandates();
+                Alert.alert('Success', 'Mandate revoked', [
+                  { text: 'OK', onPress: () => navigation.goBack() },
+                ]);
+                return;
+              }
               await mandateServiceClient.revokeMandate(mandateId, mandate!.userId, 'Revoked by user');
               await refreshMandates();
               Alert.alert('Success', 'Mandate revoked', [
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
             } catch (error) {
+              console.error('Error revoking mandate:', error);
               Alert.alert('Error', 'Failed to revoke mandate');
             }
           },

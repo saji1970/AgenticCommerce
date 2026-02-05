@@ -8,6 +8,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIGNATURE_WIDTH = SCREEN_WIDTH - 48;
@@ -22,12 +23,10 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   onSignatureComplete,
   onClear,
 }) => {
-  const [paths, setPaths] = useState<Array<{ x: number; y: number }[]>>([]);
-  const [currentPath, setCurrentPath] = useState<Array<{ x: number; y: number }>>([]);
-  // Use ref to track drawing state to avoid stale closure in PanResponder
+  const [paths, setPaths] = useState<string[]>([]);
+  const [currentPath, setCurrentPath] = useState<string>('');
   const isDrawingRef = useRef(false);
-  // Use ref for current path to access latest value in PanResponder callbacks
-  const currentPathRef = useRef<Array<{ x: number; y: number }>>([]);
+  const currentPathRef = useRef<string>('');
 
   const panResponder = useRef(
     PanResponder.create({
@@ -36,23 +35,23 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
         isDrawingRef.current = true;
-        const newPath = [{ x: locationX, y: locationY }];
+        const newPath = `M${locationX.toFixed(2)},${locationY.toFixed(2)}`;
         currentPathRef.current = newPath;
         setCurrentPath(newPath);
       },
       onPanResponderMove: (evt) => {
         if (!isDrawingRef.current) return;
         const { locationX, locationY } = evt.nativeEvent;
-        const newPoint = { x: locationX, y: locationY };
-        currentPathRef.current = [...currentPathRef.current, newPoint];
-        setCurrentPath([...currentPathRef.current]);
+        const newPath = `${currentPathRef.current} L${locationX.toFixed(2)},${locationY.toFixed(2)}`;
+        currentPathRef.current = newPath;
+        setCurrentPath(newPath);
       },
       onPanResponderRelease: () => {
-        if (currentPathRef.current.length > 0) {
+        if (currentPathRef.current) {
           setPaths((prev) => [...prev, currentPathRef.current]);
         }
-        currentPathRef.current = [];
-        setCurrentPath([]);
+        currentPathRef.current = '';
+        setCurrentPath('');
         isDrawingRef.current = false;
       },
     })
@@ -60,19 +59,19 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
 
   const handleClear = () => {
     setPaths([]);
-    setCurrentPath([]);
-    currentPathRef.current = [];
+    setCurrentPath('');
+    currentPathRef.current = '';
     isDrawingRef.current = false;
     onClear?.();
   };
 
   const handleSave = () => {
-    if (paths.length === 0 && currentPath.length === 0) {
+    if (paths.length === 0 && !currentPath) {
       Alert.alert('No Signature', 'Please draw your signature first');
       return;
     }
 
-    const allPaths = [...paths, currentPath].filter(p => p.length > 0);
+    const allPaths = currentPath ? [...paths, currentPath] : paths;
     const signatureData = JSON.stringify({
       paths: allPaths,
       width: SIGNATURE_WIDTH,
@@ -87,51 +86,30 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     <View style={styles.container}>
       <Text style={styles.label}>Sign Here</Text>
       <View style={styles.signatureContainer} {...panResponder.panHandlers}>
-        {paths.map((path, pathIndex) => (
-          <View key={pathIndex} style={StyleSheet.absoluteFill}>
-            {path.map((point, pointIndex) => {
-              if (pointIndex === 0) return null;
-              const prevPoint = path[pointIndex - 1];
-              return (
-                <View
-                  key={pointIndex}
-                  style={[
-                    styles.line,
-                    {
-                      left: Math.min(prevPoint.x, point.x),
-                      top: Math.min(prevPoint.y, point.y),
-                      width: Math.abs(point.x - prevPoint.x) || 2,
-                      height: Math.abs(point.y - prevPoint.y) || 2,
-                    },
-                  ]}
-                />
-              );
-            })}
-          </View>
-        ))}
-        {currentPath.length > 0 && (
-          <View style={StyleSheet.absoluteFill}>
-            {currentPath.map((point, pointIndex) => {
-              if (pointIndex === 0) return null;
-              const prevPoint = currentPath[pointIndex - 1];
-              return (
-                <View
-                  key={pointIndex}
-                  style={[
-                    styles.line,
-                    {
-                      left: Math.min(prevPoint.x, point.x),
-                      top: Math.min(prevPoint.y, point.y),
-                      width: Math.abs(point.x - prevPoint.x) || 2,
-                      height: Math.abs(point.y - prevPoint.y) || 2,
-                    },
-                  ]}
-                />
-              );
-            })}
-          </View>
-        )}
-        {paths.length === 0 && currentPath.length === 0 && (
+        <Svg width={SIGNATURE_WIDTH} height={SIGNATURE_HEIGHT} style={styles.svg}>
+          {paths.map((path, index) => (
+            <Path
+              key={index}
+              d={path}
+              stroke="#000000"
+              strokeWidth={3}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+          {currentPath ? (
+            <Path
+              d={currentPath}
+              stroke="#000000"
+              strokeWidth={3}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ) : null}
+        </Svg>
+        {paths.length === 0 && !currentPath && (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderText}>Draw your signature above</Text>
           </View>
@@ -168,6 +146,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginBottom: 12,
     position: 'relative',
+    overflow: 'hidden',
+  },
+  svg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   placeholder: {
     position: 'absolute',
@@ -181,10 +165,6 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 14,
     color: '#9CA3AF',
-  },
-  line: {
-    position: 'absolute',
-    backgroundColor: '#000000',
   },
   actions: {
     flexDirection: 'row',

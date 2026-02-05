@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { MandateType } from '@agentic-commerce/shared-types';
+import React, { useState, useEffect, useRef } from 'react';
+import { MandateType, MandateStatus } from '@agentic-commerce/shared-types';
 import { useMandate } from '../../contexts/MandateContext';
 import { MandateSigningModal } from './MandateSigningModal';
 import { AppConfig } from '../../config/app.config';
+import { AppState, AppStateStatus } from 'react-native';
 
 interface MandateFlowManagerProps {
   mandateType: MandateType;
@@ -14,6 +15,7 @@ interface MandateFlowManagerProps {
 /**
  * MandateFlowManager
  * Orchestrates the mandate checking and creation flow
+ * For CART/PAYMENT mandates, opens Mandate app for user approval
  */
 export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
   mandateType,
@@ -21,15 +23,48 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
   onCancel,
   autoCheck = true,
 }) => {
-  const { getActiveMandateByType, createMandate, loading } = useMandate();
+  const { getActiveMandateByType, createMandate, loadMandates, loading } = useMandate();
   const [showSigningModal, setShowSigningModal] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [waitingForApproval, setWaitingForApproval] = useState(false);
+  const pendingMandateId = useRef<string | null>(null);
 
   useEffect(() => {
     if (autoCheck) {
       checkMandate();
     }
   }, [autoCheck]);
+
+  // Listen for app state changes to detect when user returns from Mandate app
+  useEffect(() => {
+    if (!waitingForApproval) return;
+
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active' && waitingForApproval) {
+        console.log('[MandateFlowManager] App became active, checking mandate status...');
+        // User returned from Mandate app, check if mandate was approved
+        const freshMandates = await loadMandates();
+        const mandate = freshMandates[mandateType as keyof typeof freshMandates];
+
+        if (mandate && mandate.status === MandateStatus.ACTIVE) {
+          console.log('[MandateFlowManager] Mandate approved:', mandate.id);
+          setWaitingForApproval(false);
+          pendingMandateId.current = null;
+          setShowSigningModal(false);
+          onMandateReady();
+        } else {
+          console.log('[MandateFlowManager] Mandate not yet approved, status:', mandate?.status);
+          // User returned but didn't approve - they can try again or cancel
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [waitingForApproval, mandateType, loadMandates, onMandateReady]);
 
   /**
    * Check if mandate exists, if not show signing modal
@@ -58,20 +93,31 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
 
   /**
    * Handle mandate signing
+   * For CART/PAYMENT, this creates a pending mandate and opens Mandate app
    */
   const handleSignMandate = async () => {
     try {
       const defaultAgent = AppConfig.getDefaultAgent();
       const defaultConstraints = AppConfig.getDefaultConstraints(mandateType);
 
-      await createMandate({
+      const mandate = await createMandate({
         agentId: defaultAgent.id,
         agentName: defaultAgent.name,
         type: mandateType,
         constraints: defaultConstraints,
       });
 
-      // Mandate created and approved, proceed
+      // For CART/PAYMENT mandates, createMandate opens Mandate app
+      // We need to wait for user to return with approval
+      if (mandateType === MandateType.CART || mandateType === MandateType.PAYMENT) {
+        console.log('[MandateFlowManager] Waiting for mandate approval from Mandate app...');
+        pendingMandateId.current = mandate.id;
+        setWaitingForApproval(true);
+        // Don't close modal yet - user will return from Mandate app
+        return;
+      }
+
+      // For INTENT mandates, proceed immediately (they have their own approval)
       setShowSigningModal(false);
       onMandateReady();
     } catch (error) {
