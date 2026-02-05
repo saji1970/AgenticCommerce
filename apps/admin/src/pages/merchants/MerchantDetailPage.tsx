@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { merchantsApi, agentsApi } from '../../api/client';
 import {
@@ -388,10 +388,13 @@ export function MerchantDetailPage() {
                 {merchantAgents.map((ma) => (
                   <TableRow key={ma.id}>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <Link
+                        to={`/merchants/${id}/apps/${ma.agent?.agentId}`}
+                        className="flex items-center gap-2 text-primary-600 hover:text-primary-800"
+                      >
                         <Bot className="h-4 w-4 text-gray-400" />
                         {ma.agent?.name || ma.agentId}
-                      </div>
+                      </Link>
                     </TableCell>
                     <TableCell>
                       <Badge variant={ma.isActive ? 'success' : 'default'}>

@@ -134,7 +134,7 @@ export class AdminController {
   // All Mandates (Admin View)
   getAllMandates = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { status, type, limit = '50', offset = '0' } = req.query;
+      const { status, type, agentId, limit = '50', offset = '0' } = req.query;
 
       let query = `
         SELECT m.*, u.email as user_email, u.first_name, u.last_name
@@ -155,6 +155,12 @@ export class AdminController {
         paramCount++;
         query += ` AND m.type = $${paramCount}`;
         params.push(type);
+      }
+
+      if (agentId) {
+        paramCount++;
+        query += ` AND m.agent_id = $${paramCount}`;
+        params.push(agentId);
       }
 
       query += ` ORDER BY m.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
@@ -179,7 +185,7 @@ export class AdminController {
   // All Intents (Admin View)
   getAllIntents = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { status, limit = '50', offset = '0' } = req.query;
+      const { status, agentId, limit = '50', offset = '0' } = req.query;
 
       let query = `
         SELECT pi.*, u.email as user_email, u.first_name, u.last_name
@@ -194,6 +200,12 @@ export class AdminController {
         paramCount++;
         query += ` AND pi.status = $${paramCount}`;
         params.push(status);
+      }
+
+      if (agentId) {
+        paramCount++;
+        query += ` AND pi.agent_id = $${paramCount}`;
+        params.push(agentId);
       }
 
       query += ` ORDER BY pi.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
@@ -531,7 +543,7 @@ export class AdminController {
   // AP2 Transaction List
   getAllAP2Transactions = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { status, type, merchantId, limit = '50', offset = '0' } = req.query;
+      const { status, type, merchantId, agentId, limit = '50', offset = '0' } = req.query;
 
       let query = `
         SELECT t.*, u.email as user_email, m.name as merchant_name
@@ -559,6 +571,12 @@ export class AdminController {
         paramCount++;
         query += ` AND t.merchant_id = $${paramCount}`;
         params.push(merchantId);
+      }
+
+      if (agentId) {
+        paramCount++;
+        query += ` AND t.agent_id = $${paramCount}`;
+        params.push(agentId);
       }
 
       query += ` ORDER BY t.requested_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { agentsApi, certificatesApi } from '../../api/client';
+import { merchantsApi, agentsApi, certificatesApi } from '../../api/client';
 import {
   Button,
   Badge,
@@ -16,7 +16,6 @@ import {
   TableHead,
   TableCell,
   Modal,
-  ConfirmDialog,
   LoadingPage,
   Alert,
   Input,
@@ -30,6 +29,9 @@ import {
   Upload,
   XCircle,
   Calendar,
+  ChevronRight,
+  ShoppingCart,
+  CreditCard,
 } from 'lucide-react';
 import {
   LineChart,
@@ -42,10 +44,10 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
-import type { Certificate } from '../../types';
+import type { Certificate, MerchantAgent } from '../../types';
 
-export function AgentDetailPage() {
-  const { id: agentId } = useParams<{ id: string }>();
+export function MerchantAppProfilePage() {
+  const { id, agentId } = useParams<{ id: string; agentId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -54,6 +56,18 @@ export function AgentDetailPage() {
   const [certificateToRevoke, setCertificateToRevoke] = useState<Certificate | null>(null);
   const [revokeReason, setRevokeReason] = useState('');
   const [certificatePem, setCertificatePem] = useState('');
+
+  const { data: merchantData } = useQuery({
+    queryKey: ['merchant', id],
+    queryFn: () => merchantsApi.getById(id!),
+    enabled: !!id,
+  });
+
+  const { data: agentsData } = useQuery({
+    queryKey: ['merchant', id, 'agents'],
+    queryFn: () => merchantsApi.getAgents(id!),
+    enabled: !!id,
+  });
 
   const { data: monitoringData, isLoading: monitoringLoading } = useQuery({
     queryKey: ['agent', agentId, 'monitoring'],
@@ -97,17 +111,24 @@ export function AgentDetailPage() {
     return <LoadingPage message="Loading agent details..." />;
   }
 
+  const merchant = merchantData?.merchant;
   const agent = monitoringData?.agent;
   const monitoring = monitoringData;
   const certificates: Certificate[] = certificatesData?.certificates || [];
   const transactions = transactionsData?.transactions || [];
 
+  // Find the merchant-agent config for this agent
+  const merchantAgents: MerchantAgent[] = agentsData?.agents || [];
+  const merchantAgent = merchantAgents.find(
+    (ma) => ma.agent?.agentId === agentId
+  );
+
   if (!agent) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={() => navigate('/agents')}>
+        <Button variant="ghost" onClick={() => navigate(`/merchants/${id}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Agents
+          Back to Merchant
         </Button>
         <Alert variant="error" title="Agent not found">
           The requested agent could not be found.
@@ -132,27 +153,78 @@ export function AgentDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={() => navigate('/agents')}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
+      {/* Breadcrumb Header */}
+      <div className="space-y-4">
+        <nav className="flex items-center gap-2 text-sm text-gray-500">
+          <Link to="/merchants" className="hover:text-gray-700">
+            Merchant Profiles
+          </Link>
+          <ChevronRight className="h-4 w-4" />
+          <Link to={`/merchants/${id}`} className="hover:text-gray-700">
+            {merchant?.businessName || merchant?.name || 'Merchant'}
+          </Link>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-gray-900 font-medium">{agent.name}</span>
+        </nav>
+
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-primary-100 rounded-lg">
-            <Bot className="h-8 w-8 text-primary-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{agent.name}</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <code className="text-sm bg-gray-100 px-2 py-0.5 rounded">
-                {agent.agentId}
-              </code>
-              {getStatusBadge(agent.status)}
+          <Button variant="ghost" onClick={() => navigate(`/merchants/${id}`)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary-100 rounded-lg">
+              <Bot className="h-8 w-8 text-primary-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{agent.name}</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="text-sm bg-gray-100 px-2 py-0.5 rounded">
+                  {agent.agentId}
+                </code>
+                {getStatusBadge(agent.status)}
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Merchant-specific config card */}
+      {merchantAgent && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Merchant Configuration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Status</dt>
+                <dd className="mt-1">
+                  <Badge variant={merchantAgent.isActive ? 'success' : 'default'}>
+                    {merchantAgent.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Added</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {new Date(merchantAgent.createdAt).toLocaleDateString()}
+                </dd>
+              </div>
+              {merchantAgent.config && Object.keys(merchantAgent.config).length > 0 && (
+                <div className="col-span-full">
+                  <dt className="text-sm font-medium text-gray-500">Configuration</dt>
+                  <dd className="mt-1">
+                    <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto">
+                      {JSON.stringify(merchantAgent.config, null, 2)}
+                    </pre>
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -464,6 +536,60 @@ export function AgentDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Navigation Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link to={`/merchants/${id}/apps/${agentId}/mandates`} className="block">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <FileText className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Mandates</h3>
+                  <p className="text-sm text-gray-500">View all mandates for this agent</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-400 ml-auto" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to={`/merchants/${id}/apps/${agentId}/intents`} className="block">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-orange-100 rounded-lg">
+                  <ShoppingCart className="h-6 w-6 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Purchase Intents</h3>
+                  <p className="text-sm text-gray-500">View all intents for this agent</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-400 ml-auto" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to={`/merchants/${id}/apps/${agentId}/transactions`} className="block">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-100 rounded-lg">
+                  <CreditCard className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Transactions</h3>
+                  <p className="text-sm text-gray-500">View all transactions for this agent</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-400 ml-auto" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
 
       {/* Upload Certificate Modal */}
       <Modal

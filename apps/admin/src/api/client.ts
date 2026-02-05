@@ -215,7 +215,7 @@ export const auditLogsApi = {
 
 // Mandates API (admin view)
 export const mandatesApi = {
-  getAll: async (params?: { status?: string; type?: string; limit?: number; offset?: number }) => {
+  getAll: async (params?: { status?: string; type?: string; agentId?: string; limit?: number; offset?: number }) => {
     const response = await apiClient.get('/admin/mandates', { params });
     return response.data;
   },
@@ -223,7 +223,7 @@ export const mandatesApi = {
 
 // Intents API (admin view)
 export const intentsApi = {
-  getAll: async (params?: { status?: string; limit?: number; offset?: number }) => {
+  getAll: async (params?: { status?: string; agentId?: string; limit?: number; offset?: number }) => {
     const response = await apiClient.get('/admin/intents', { params });
     return response.data;
   },
@@ -231,7 +231,7 @@ export const intentsApi = {
 
 // AP2 Transactions API (admin view)
 export const ap2Api = {
-  getAll: async (params?: { status?: string; type?: string; merchantId?: string; limit?: number; offset?: number }) => {
+  getAll: async (params?: { status?: string; type?: string; merchantId?: string; agentId?: string; limit?: number; offset?: number }) => {
     const response = await apiClient.get('/admin/ap2/transactions', { params });
     return response.data;
   },

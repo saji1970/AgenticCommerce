@@ -2,24 +2,17 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Building2,
-  Bot,
   Shield,
   Users,
   FileText,
   Settings,
-  ShoppingCart,
-  CreditCard,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Merchants', href: '/merchants', icon: Building2 },
-  { name: 'Agents', href: '/agents', icon: Bot },
+  { name: 'Merchant Profiles', href: '/merchants', icon: Building2 },
   { name: 'Certificates', href: '/certificates', icon: Shield },
   { name: 'Users', href: '/users', icon: Users },
-  { name: 'Mandates', href: '/mandates', icon: FileText },
-  { name: 'Intents', href: '/intents', icon: ShoppingCart },
-  { name: 'Transactions', href: '/transactions', icon: CreditCard },
   { name: 'Audit Logs', href: '/audit-logs', icon: FileText },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

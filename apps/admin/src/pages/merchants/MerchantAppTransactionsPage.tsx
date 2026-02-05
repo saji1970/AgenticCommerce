@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ap2Api } from '../../api/client';
+import { ap2Api, merchantsApi, agentsApi } from '../../api/client';
 import {
   Select,
   Badge,
@@ -16,9 +16,8 @@ import {
   LoadingPage,
   EmptyState,
   Alert,
-  Button,
 } from '../../components/common';
-import { CreditCard, Eye } from 'lucide-react';
+import { CreditCard, ChevronRight } from 'lucide-react';
 import type { AP2Transaction } from '../../types';
 
 const statusOptions = [
@@ -39,21 +38,36 @@ const typeOptions = [
 
 const ITEMS_PER_PAGE = 10;
 
-export function TransactionsListPage() {
-  const navigate = useNavigate();
+export function MerchantAppTransactionsPage() {
+  const { id, agentId } = useParams<{ id: string; agentId: string }>();
   const [status, setStatus] = useState('');
   const [type, setType] = useState('');
   const [page, setPage] = useState(1);
 
+  const { data: merchantData } = useQuery({
+    queryKey: ['merchant', id],
+    queryFn: () => merchantsApi.getById(id!),
+    enabled: !!id,
+  });
+
+  const { data: monitoringData } = useQuery({
+    queryKey: ['agent', agentId, 'monitoring'],
+    queryFn: () => agentsApi.getMonitoring(agentId!, 7),
+    enabled: !!agentId,
+  });
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['transactions', { status, type, page }],
+    queryKey: ['ap2-transactions', { merchantId: id, agentId, status, type, page }],
     queryFn: () =>
       ap2Api.getAll({
+        merchantId: id,
+        agentId: agentId,
         status: status || undefined,
         type: type || undefined,
         limit: ITEMS_PER_PAGE,
         offset: (page - 1) * ITEMS_PER_PAGE,
       }),
+    enabled: !!id && !!agentId,
   });
 
   if (isLoading) {
@@ -68,6 +82,8 @@ export function TransactionsListPage() {
     );
   }
 
+  const merchant = merchantData?.merchant;
+  const agentName = monitoringData?.agent?.name || agentId;
   const transactions: AP2Transaction[] = data?.transactions || [];
 
   const getStatusBadge = (txStatus: string) => {
@@ -92,9 +108,26 @@ export function TransactionsListPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm text-gray-500">
+        <Link to="/merchants" className="hover:text-gray-700">
+          Merchant Profiles
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <Link to={`/merchants/${id}`} className="hover:text-gray-700">
+          {merchant?.businessName || merchant?.name || 'Merchant'}
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <Link to={`/merchants/${id}/apps/${agentId}`} className="hover:text-gray-700">
+          {agentName}
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <span className="text-gray-900 font-medium">Transactions</span>
+      </nav>
+
       <div>
         <h1 className="text-2xl font-bold text-gray-900">AP2 Transactions</h1>
-        <p className="text-gray-500">View all payment transactions across the platform</p>
+        <p className="text-gray-500">Transactions for {agentName}</p>
       </div>
 
       {/* Filters */}
@@ -143,7 +176,6 @@ export function TransactionsListPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Requested</TableHead>
                   <TableHead>Completed</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -180,15 +212,6 @@ export function TransactionsListPage() {
                       ) : (
                         '-'
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/transactions/${tx.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

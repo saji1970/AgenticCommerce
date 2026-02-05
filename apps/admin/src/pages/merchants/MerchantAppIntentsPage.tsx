@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { intentsApi } from '../../api/client';
+import { intentsApi, merchantsApi, agentsApi } from '../../api/client';
 import {
   Select,
   Badge,
@@ -16,7 +17,7 @@ import {
   EmptyState,
   Alert,
 } from '../../components/common';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, ChevronRight } from 'lucide-react';
 import type { PurchaseIntent } from '../../types';
 
 const statusOptions = [
@@ -30,18 +31,33 @@ const statusOptions = [
 
 const ITEMS_PER_PAGE = 10;
 
-export function IntentsListPage() {
+export function MerchantAppIntentsPage() {
+  const { id, agentId } = useParams<{ id: string; agentId: string }>();
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
 
+  const { data: merchantData } = useQuery({
+    queryKey: ['merchant', id],
+    queryFn: () => merchantsApi.getById(id!),
+    enabled: !!id,
+  });
+
+  const { data: monitoringData } = useQuery({
+    queryKey: ['agent', agentId, 'monitoring'],
+    queryFn: () => agentsApi.getMonitoring(agentId!, 7),
+    enabled: !!agentId,
+  });
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['intents', { status, page }],
+    queryKey: ['intents', { agentId, status, page }],
     queryFn: () =>
       intentsApi.getAll({
+        agentId: agentId,
         status: status || undefined,
         limit: ITEMS_PER_PAGE,
         offset: (page - 1) * ITEMS_PER_PAGE,
       }),
+    enabled: !!agentId,
   });
 
   if (isLoading) {
@@ -56,6 +72,8 @@ export function IntentsListPage() {
     );
   }
 
+  const merchant = merchantData?.merchant;
+  const agentName = monitoringData?.agent?.name || agentId;
   const intents: PurchaseIntent[] = data?.intents || [];
 
   const getStatusBadge = (intentStatus: string) => {
@@ -71,9 +89,26 @@ export function IntentsListPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm text-gray-500">
+        <Link to="/merchants" className="hover:text-gray-700">
+          Merchant Profiles
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <Link to={`/merchants/${id}`} className="hover:text-gray-700">
+          {merchant?.businessName || merchant?.name || 'Merchant'}
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <Link to={`/merchants/${id}/apps/${agentId}`} className="hover:text-gray-700">
+          {agentName}
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <span className="text-gray-900 font-medium">Purchase Intents</span>
+      </nav>
+
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Purchase Intents</h1>
-        <p className="text-gray-500">View all purchase intents across the platform</p>
+        <p className="text-gray-500">Purchase intents for {agentName}</p>
       </div>
 
       {/* Filters */}

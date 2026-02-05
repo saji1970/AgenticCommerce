@@ -5,15 +5,13 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MerchantsListPage } from './pages/merchants/MerchantsListPage';
 import { MerchantDetailPage } from './pages/merchants/MerchantDetailPage';
-import { AgentsListPage } from './pages/agents/AgentsListPage';
-import { AgentDetailPage } from './pages/agents/AgentDetailPage';
+import { MerchantAppProfilePage } from './pages/merchants/MerchantAppProfilePage';
+import { MerchantAppMandatesPage } from './pages/merchants/MerchantAppMandatesPage';
+import { MerchantAppIntentsPage } from './pages/merchants/MerchantAppIntentsPage';
+import { MerchantAppTransactionsPage } from './pages/merchants/MerchantAppTransactionsPage';
 import { CertificatesListPage } from './pages/certificates/CertificatesListPage';
 import { UsersListPage } from './pages/users/UsersListPage';
 import { UserDetailPage } from './pages/users/UserDetailPage';
-import { MandatesListPage } from './pages/mandates/MandatesListPage';
-import { IntentsListPage } from './pages/intents/IntentsListPage';
-import { TransactionsListPage } from './pages/transactions/TransactionsListPage';
-import { TransactionDetailPage } from './pages/transactions/TransactionDetailPage';
 import { AuditLogsPage } from './pages/audit/AuditLogsPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { LoadingPage } from './components/common';
@@ -73,20 +71,35 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       <Route
-        path="/agents"
+        path="/merchants/:id/apps/:agentId"
         element={
           <ProtectedRoute>
-            <AgentsListPage />
+            <MerchantAppProfilePage />
           </ProtectedRoute>
         }
       />
       <Route
-        path="/agents/:id"
+        path="/merchants/:id/apps/:agentId/mandates"
         element={
           <ProtectedRoute>
-            <AgentDetailPage />
+            <MerchantAppMandatesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/merchants/:id/apps/:agentId/intents"
+        element={
+          <ProtectedRoute>
+            <MerchantAppIntentsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/merchants/:id/apps/:agentId/transactions"
+        element={
+          <ProtectedRoute>
+            <MerchantAppTransactionsPage />
           </ProtectedRoute>
         }
       />
@@ -113,41 +126,6 @@ function App() {
         element={
           <ProtectedRoute>
             <UserDetailPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/mandates"
-        element={
-          <ProtectedRoute>
-            <MandatesListPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/intents"
-        element={
-          <ProtectedRoute>
-            <IntentsListPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/transactions"
-        element={
-          <ProtectedRoute>
-            <TransactionsListPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/transactions/:id"
-        element={
-          <ProtectedRoute>
-            <TransactionDetailPage />
           </ProtectedRoute>
         }
       />
