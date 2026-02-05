@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from './config/env';
 import routes from './routes';
+import v1Routes from './routes/v1.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { getAdminHtml } from './utils/admin-ui';
 
@@ -27,8 +28,11 @@ export const createApp = (): Application => {
     res.json({ status: 'ok', service: 'mandate-service' });
   });
 
-  // Routes
+  // Routes (legacy)
   app.use('/api', routes);
+
+  // V1 API routes (full mandate server)
+  app.use('/api/v1', v1Routes);
 
   // Admin UI - serve HTML at root
   app.get('/', (req, res) => {

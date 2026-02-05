@@ -1,0 +1,47 @@
+{
+  "mandate": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "userId": "user_550e8400-e29b-41d4-a716-446655440000",
+    "agentId": "agent_f47ac10b58cc4372",
+    "merchantId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "type": "payment",
+    "status": "active",
+
+    "constraints": {
+      "maxTransactionAmount": 500.00,
+      "dailySpendingLimit": 1000.00,
+      "monthlySpendingLimit": 5000.00,
+      "allowedPaymentMethods": ["card", "paypal"],
+      "requiresTwoFactor": false,
+      "allowedMerchants": ["3fa85f64-5717-4562-b3fc-2c963f66afa6"]
+    },
+
+    "maxAmount": 500.00,
+    "dailyLimit": 1000.00,
+    "monthlyLimit": 5000.00,
+    "maxFrequency": 10,
+
+    "amountUsed": 250.00,
+    "amountUsedToday": 75.00,
+    "amountUsedMonth": 250.00,
+    "transactionsToday": 2,
+
+    "mandateHash": "a3f7b2c1d4e5f60789abcdef01234567890abcdef01234567890abcdef012345",
+
+    "validFrom": "2026-02-01T00:00:00.000Z",
+    "validUntil": "2026-03-01T00:00:00.000Z",
+    "activatedAt": "2026-02-01T12:30:00.000Z",
+
+    "createdAt": "2026-02-01T10:00:00.000Z",
+    "updatedAt": "2026-02-05T14:22:00.000Z"
+  },
+
+  "_comment_lifecycle": [
+    "1. Agent or system calls POST /api/v1/mandates/draft → status: 'draft'",
+    "2. User reviews mandate text in Mandate App",
+    "3. User signs with biometric + device key → POST /api/v1/mandates/submit-signed → status: 'awaiting_consent'",
+    "4. System or user activates → POST /api/v1/mandates/:id/activate → status: 'active'",
+    "5. Agent validates before each use → POST /api/v1/mandates/validate",
+    "6. Mandate expires, is revoked by user, or is consumed after single use"
+  ]
+}

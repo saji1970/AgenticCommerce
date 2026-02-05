@@ -9,7 +9,9 @@
     "postinstall": "cd ../.. && pnpm build:shared && cd apps/mandate-service && pnpm run build",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
-    "migrate": "tsx src/scripts/run-migration.ts"
+    "migrate": "tsx src/scripts/run-migration.ts",
+    "test": "jest --forceExit",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@agentic-commerce/shared-types": "workspace:*",
@@ -32,7 +34,16 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.10.6",
     "@types/pg": "^8.10.9",
+    "@types/jest": "^29.5.12",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": ["**/__tests__/**/*.test.ts"],
+    "moduleFileExtensions": ["ts", "js", "json"]
   }
 }

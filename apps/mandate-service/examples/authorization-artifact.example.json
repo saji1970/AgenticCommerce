@@ -1,0 +1,44 @@
+{
+  "artifact": {
+    "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "mandateId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "userId": "user_550e8400-e29b-41d4-a716-446655440000",
+    "agentId": "agent_f47ac10b58cc4372",
+    "merchantId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+
+    "amount": 149.99,
+    "currency": "USD",
+    "idempotencyKey": "pay_20260205_agent_f47ac10b_order_42",
+
+    "artifactHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "serverSignature": "MEUCIQC7vFqpU4V+8kSu1C5bCOeE9GV1kRkAx7FcO8v1wHQk4AIgPqMR7mZ3fY6JkS2G8F1h0T9dY3K7e+W2cQ/L1rN4v2s=",
+    "signatureAlgorithm": "Ed25519",
+    "serverKeyFingerprint": "A1:B2:C3:D4:E5:F6:78:90:AB:CD:EF:12:34:56:78:90:A1:B2:C3:D4:E5:F6:78:90:AB:CD:EF:12:34:56:78:90",
+
+    "status": "submitted",
+    "gatewayProvider": "mock",
+    "gatewayTxId": "mock_tx_a1b2c3d4e5f67890",
+
+    "issuedAt": "2026-02-05T14:30:00.000Z",
+    "expiresAt": "2026-02-05T14:45:00.000Z",
+    "submittedAt": "2026-02-05T14:30:01.000Z"
+  },
+
+  "_comment_verification": [
+    "To verify this artifact independently:",
+    "1. Recompute artifact_hash from content (sorted JSON keys, SHA-256)",
+    "2. Verify server_signature over artifact_hash using server's public key",
+    "3. Check expires_at has not passed",
+    "4. Check idempotency_key was not previously submitted",
+    "5. Validate mandate_id is active and agent_id matches"
+  ],
+
+  "_comment_flow": [
+    "1. Agent calls POST /api/v1/payments/authorize with mandate + amount + nonce",
+    "2. Server validates mandate, runs all security checks",
+    "3. Server creates artifact, signs it, submits to gateway",
+    "4. Gateway processes payment, returns txId",
+    "5. Server returns signed artifact to agent as proof of authorization",
+    "6. Gateway later calls POST /api/v1/payments/callback with settlement result"
+  ]
+}
