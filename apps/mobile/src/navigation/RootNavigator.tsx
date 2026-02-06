@@ -9,7 +9,7 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { paymentService } from '../services/payment.service';
 import { AppConfig } from '../config/app.config';
-import { approveMandate } from '../utils/mandateCheck';
+import { handleMandateCallback } from '../utils/mandateCheck';
 
 const PENDING_PAYMENT_KEY = 'pending_payment_request';
 
@@ -25,70 +25,113 @@ export const RootNavigator = () => {
       console.log('Deep link received:', url);
 
       // Parse URL: agenticcommerce://payment-callback?mandateId=xxx&status=approved&paymentId=yyy
-      if (url.startsWith('agenticcommerce://payment-callback')) {
+      // or: agenticcommerce://intent-callback?mandateId=xxx&status=approved&intentId=yyy
+      const isPaymentCallback = url.startsWith('agenticcommerce://payment-callback');
+      const isIntentCallback = url.startsWith('agenticcommerce://intent-callback');
+
+      if (isPaymentCallback || isIntentCallback) {
         try {
           const urlObj = new URL(url);
           const mandateId = urlObj.searchParams.get('mandateId');
           const status = urlObj.searchParams.get('status');
 
           if (mandateId && status) {
+            // Update local mandate status
+            await handleMandateCallback(mandateId, status);
+
             if (status === 'approved') {
-              // Approve mandate locally (demo mode)
-              if (mandateId) {
-                await approveMandate(mandateId);
-              }
-
-              // Mandate approved - show processing message
-              Alert.alert(
-                'Mandate Approved!',
-                'AI Agent is now authorized. Processing your payment...',
-                [{ text: 'OK' }]
-              );
-
-              // Auto-trigger payment with stored cart info
-              try {
-                const pendingPaymentStr = await AsyncStorage.getItem(PENDING_PAYMENT_KEY);
-                if (pendingPaymentStr) {
-                  const pendingPayment = JSON.parse(pendingPaymentStr);
-                  const defaultAgent = AppConfig.getDefaultAgent();
-
-                  // Process payment automatically (AI Agent triggered)
-                  const result = await paymentService.processPayment(
-                    pendingPayment.request,
-                    defaultAgent.id,
-                    true, // Skip mandate check since we just approved
-                    pendingPayment.amount
-                  );
-
-                  // Clear pending payment
-                  await AsyncStorage.removeItem(PENDING_PAYMENT_KEY);
-
-                  // Show success
-                  Alert.alert(
-                    'Payment Successful!',
-                    `AI Agent has completed your purchase.\n\nTransaction ID: ${result.payment?.transactionId || 'N/A'}`,
-                    [
-                      {
-                        text: 'View Order',
-                        onPress: () => {
-                          if (navigationRef.current && isAuthenticated) {
-                            navigationRef.current.navigate('App', {
-                              screen: 'Cart',
-                              params: { screen: 'OrderHistory' },
-                            });
-                          }
-                        },
+              if (isIntentCallback) {
+                // Intent approved
+                Alert.alert(
+                  'Intent Approved!',
+                  'The AI Agent is now authorized to purchase this item for you when conditions are met.',
+                  [
+                    {
+                      text: 'View Intents',
+                      onPress: () => {
+                        if (navigationRef.current && isAuthenticated) {
+                          navigationRef.current.navigate('App', {
+                            screen: 'Products',
+                            params: { screen: 'Intents' },
+                          });
+                        }
                       },
-                    ]
-                  );
-                } else {
-                  // No pending payment - just navigate to checkout
+                    },
+                    { text: 'OK' },
+                  ]
+                );
+              } else {
+                // Payment mandate approved
+                Alert.alert(
+                  'Mandate Approved!',
+                  'AI Agent is now authorized. Processing your payment...',
+                  [{ text: 'OK' }]
+                );
+
+                // Auto-trigger payment with stored cart info
+                try {
+                  const pendingPaymentStr = await AsyncStorage.getItem(PENDING_PAYMENT_KEY);
+                  if (pendingPaymentStr) {
+                    const pendingPayment = JSON.parse(pendingPaymentStr);
+                    const defaultAgent = AppConfig.getDefaultAgent();
+
+                    // Process payment automatically (AI Agent triggered)
+                    const result = await paymentService.processPayment(
+                      pendingPayment.request,
+                      defaultAgent.id,
+                      true, // Skip mandate check since we just approved
+                      pendingPayment.amount
+                    );
+
+                    // Clear pending payment
+                    await AsyncStorage.removeItem(PENDING_PAYMENT_KEY);
+
+                    // Show success
+                    Alert.alert(
+                      'Payment Successful!',
+                      `AI Agent has completed your purchase.\n\nTransaction ID: ${result.payment?.transactionId || 'N/A'}`,
+                      [
+                        {
+                          text: 'View Order',
+                          onPress: () => {
+                            if (navigationRef.current && isAuthenticated) {
+                              navigationRef.current.navigate('App', {
+                                screen: 'Cart',
+                                params: { screen: 'OrderHistory' },
+                              });
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  } else {
+                    // No pending payment - just navigate to checkout
+                    Alert.alert(
+                      'Mandate Approved',
+                      'You can now complete your purchase.',
+                      [
+                        {
+                          text: 'Continue to Checkout',
+                          onPress: () => {
+                            if (navigationRef.current && isAuthenticated) {
+                              navigationRef.current.navigate('App', {
+                                screen: 'Cart',
+                                params: { screen: 'Checkout' },
+                              });
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }
+                } catch (paymentError: any) {
+                  console.error('Auto-payment failed:', paymentError);
                   Alert.alert(
-                    'Mandate Approved',
-                    'You can now complete your purchase.',
+                    'Payment Processing',
+                    'Mandate approved but payment needs manual completion. Please return to checkout.',
                     [
                       {
-                        text: 'Continue to Checkout',
+                        text: 'Go to Checkout',
                         onPress: () => {
                           if (navigationRef.current && isAuthenticated) {
                             navigationRef.current.navigate('App', {
@@ -101,30 +144,13 @@ export const RootNavigator = () => {
                     ]
                   );
                 }
-              } catch (paymentError: any) {
-                console.error('Auto-payment failed:', paymentError);
-                Alert.alert(
-                  'Payment Processing',
-                  'Mandate approved but payment needs manual completion. Please return to checkout.',
-                  [
-                    {
-                      text: 'Go to Checkout',
-                      onPress: () => {
-                        if (navigationRef.current && isAuthenticated) {
-                          navigationRef.current.navigate('App', {
-                            screen: 'Cart',
-                            params: { screen: 'Checkout' },
-                          });
-                        }
-                      },
-                    },
-                  ]
-                );
               }
             } else if (status === 'rejected') {
               Alert.alert(
-                'Mandate Rejected',
-                'The authorization was rejected. No payment will be processed.',
+                isIntentCallback ? 'Intent Rejected' : 'Mandate Rejected',
+                isIntentCallback
+                  ? 'The intent authorization was rejected.'
+                  : 'The authorization was rejected. No payment will be processed.',
                 [{ text: 'OK' }]
               );
             }

@@ -11,12 +11,15 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCAConfig, CertificateInfo } from '../contexts/CAConfigContext';
 import { caServerService } from '../services/ca-server.service';
 import { certificateManagerService } from '../services/certificate-manager.service';
 import { generateTestCertificate, getTestServerPublicKey } from '../services/test-certificate-generator';
 
 export const SettingsScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const {
     config,
     updateConfig,
@@ -27,6 +30,7 @@ export const SettingsScreen: React.FC = () => {
     setDemoMode,
     loading: configLoading,
   } = useCAConfig();
+  const [paymentMethodCount, setPaymentMethodCount] = useState(0);
 
   // Form state
   const [serverUrl, setServerUrl] = useState(config.serverUrl);
@@ -53,6 +57,23 @@ export const SettingsScreen: React.FC = () => {
   useEffect(() => {
     loadCertificateInfo();
   }, []);
+
+  // Refresh payment method count when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadPaymentMethodCount();
+    }, [])
+  );
+
+  const loadPaymentMethodCount = async () => {
+    try {
+      const data = await AsyncStorage.getItem('payment_methods');
+      const methods = data ? JSON.parse(data) : [];
+      setPaymentMethodCount(methods.length);
+    } catch {
+      setPaymentMethodCount(0);
+    }
+  };
 
   const loadCertificateInfo = async () => {
     try {
@@ -545,6 +566,32 @@ export const SettingsScreen: React.FC = () => {
         )}
       </View>
 
+      {/* Payment Methods */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Payment Methods</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.paymentMethodsCard}
+          onPress={() => {
+            navigation.navigate('PaymentMethods');
+            // Refresh count when navigating back
+            setTimeout(loadPaymentMethodCount, 500);
+          }}
+        >
+          <Text style={styles.paymentMethodsIcon}>💳</Text>
+          <View style={styles.paymentMethodsText}>
+            <Text style={styles.paymentMethodsLabel}>Manage Payment Methods</Text>
+            <Text style={styles.paymentMethodsCount}>
+              {paymentMethodCount === 0
+                ? 'No methods saved'
+                : `${paymentMethodCount} method${paymentMethodCount !== 1 ? 's' : ''} saved`}
+            </Text>
+          </View>
+          <Text style={styles.paymentMethodsChevron}>›</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Clear Configuration */}
       <View style={styles.section}>
         <TouchableOpacity
@@ -823,6 +870,37 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     marginBottom: 16,
+  },
+  paymentMethodsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  paymentMethodsIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  paymentMethodsText: {
+    flex: 1,
+  },
+  paymentMethodsLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  paymentMethodsCount: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  paymentMethodsChevron: {
+    fontSize: 24,
+    color: '#9CA3AF',
+    fontWeight: '300',
   },
   bottomPadding: {
     height: 32,

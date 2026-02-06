@@ -10,7 +10,9 @@ import {
   Modal,
   Linking,
   Image,
+  Dimensions,
 } from 'react-native';
+import Svg, { Path as SvgPath } from 'react-native-svg';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AgentMandate } from '../services/mandate-service.client';
@@ -591,8 +593,41 @@ export const MandateDetailScreen: React.FC = () => {
                 <Text style={styles.signatureButtonText}>Add Signature</Text>
               </TouchableOpacity>
             ) : (
-              <View style={styles.signatureAdded}>
-                <Text style={styles.signatureAddedText}>✓ Signature Added</Text>
+              <View>
+                <View style={styles.signatureAdded}>
+                  <Text style={styles.signatureAddedText}>✓ Signature Added</Text>
+                </View>
+                {(() => {
+                  try {
+                    const sigData = JSON.parse(signatureData);
+                    if (sigData.paths && sigData.paths.length > 0) {
+                      const previewWidth = Dimensions.get('window').width - 96;
+                      const scale = previewWidth / (sigData.width || previewWidth);
+                      const previewHeight = (sigData.height || 120) * scale;
+                      return (
+                        <View style={styles.signaturePreview}>
+                          <Text style={styles.signaturePreviewLabel}>Your Signature</Text>
+                          <View style={styles.signaturePreviewBox}>
+                            <Svg width={previewWidth} height={previewHeight} viewBox={`0 0 ${sigData.width || previewWidth} ${sigData.height || previewHeight}`}>
+                              {sigData.paths.map((pathD: string, i: number) => (
+                                <SvgPath
+                                  key={i}
+                                  d={pathD}
+                                  stroke="#1F2937"
+                                  strokeWidth={3}
+                                  fill="none"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              ))}
+                            </Svg>
+                          </View>
+                        </View>
+                      );
+                    }
+                  } catch {}
+                  return null;
+                })()}
               </View>
             )}
           </View>
@@ -968,12 +1003,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   signatureAddedText: {
     color: '#065F46',
     fontSize: 16,
     fontWeight: '600',
+  },
+  signaturePreview: {
+    marginBottom: 16,
+  },
+  signaturePreviewLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 6,
+  },
+  signaturePreviewBox: {
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
   },
   stepContainer: {
     marginBottom: 20,

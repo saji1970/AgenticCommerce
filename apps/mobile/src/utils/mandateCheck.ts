@@ -390,6 +390,31 @@ export async function getMandateById(mandateId: string): Promise<any | null> {
 }
 
 /**
+ * Handle deep link callback from the Mandate App.
+ * Updates the local mandate status based on the callback parameters.
+ */
+export async function handleMandateCallback(
+  mandateId: string,
+  status: string
+): Promise<void> {
+  if (status === 'approved') {
+    await approveMandate(mandateId);
+    console.log('Mandate callback processed - approved:', mandateId);
+  } else if (status === 'rejected') {
+    if (DEMO_MODE) {
+      const localMandates = await getLocalMandates();
+      const index = localMandates.findIndex((m: any) => m.id === mandateId);
+      if (index >= 0) {
+        localMandates[index].status = 'rejected';
+        localMandates[index].updatedAt = new Date().toISOString();
+        await saveLocalMandates(localMandates);
+      }
+    }
+    console.log('Mandate callback processed - rejected:', mandateId);
+  }
+}
+
+/**
  * Validate mandate for a transaction
  * Used to check if an agent has a valid mandate before processing a payment
  */

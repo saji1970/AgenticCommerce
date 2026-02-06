@@ -8,11 +8,12 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Line } from 'react-native-svg';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIGNATURE_WIDTH = SCREEN_WIDTH - 48;
 const SIGNATURE_HEIGHT = 200;
+const SIGNATURE_LINE_Y = SIGNATURE_HEIGHT * 0.75;
 
 interface SignaturePadProps {
   onSignatureComplete?: (signatureData: string) => void;
@@ -82,17 +83,41 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     onSignatureComplete?.(signatureData);
   };
 
+  const hasContent = paths.length > 0 || !!currentPath;
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Sign Here</Text>
       <View style={styles.signatureContainer} {...panResponder.panHandlers}>
-        <Svg width={SIGNATURE_WIDTH} height={SIGNATURE_HEIGHT} style={styles.svg}>
+        {!hasContent && (
+          <View style={styles.placeholder} pointerEvents="none">
+            <Text style={styles.placeholderText}>Draw your signature above</Text>
+          </View>
+        )}
+        <Svg width={SIGNATURE_WIDTH} height={SIGNATURE_HEIGHT}>
+          {/* Signature baseline */}
+          <Line
+            x1={20}
+            y1={SIGNATURE_LINE_Y}
+            x2={SIGNATURE_WIDTH - 20}
+            y2={SIGNATURE_LINE_Y}
+            stroke="#93C5FD"
+            strokeWidth={1.5}
+            strokeDasharray="6,3"
+          />
+          {/* X mark at start of signature line */}
+          <Path
+            d={`M${16},${SIGNATURE_LINE_Y - 8} L${24},${SIGNATURE_LINE_Y + 8} M${24},${SIGNATURE_LINE_Y - 8} L${16},${SIGNATURE_LINE_Y + 8}`}
+            stroke="#93C5FD"
+            strokeWidth={1.5}
+            fill="none"
+          />
           {paths.map((path, index) => (
             <Path
               key={index}
               d={path}
               stroke="#000000"
-              strokeWidth={3}
+              strokeWidth={3.5}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -102,18 +127,13 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
             <Path
               d={currentPath}
               stroke="#000000"
-              strokeWidth={3}
+              strokeWidth={3.5}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           ) : null}
         </Svg>
-        {paths.length === 0 && !currentPath && (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>Draw your signature above</Text>
-          </View>
-        )}
       </View>
       <View style={styles.actions}>
         <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
@@ -145,13 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
     marginBottom: 12,
-    position: 'relative',
     overflow: 'hidden',
-  },
-  svg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
   },
   placeholder: {
     position: 'absolute',

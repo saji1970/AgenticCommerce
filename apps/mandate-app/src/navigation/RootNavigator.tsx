@@ -11,6 +11,7 @@ import { MandateDetailScreen } from '../screens/MandateDetailScreen';
 import { AIAppsScreen } from '../screens/AIAppsScreen';
 import { DefaultLimitsScreen } from '../screens/DefaultLimitsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { PaymentMethodsScreen } from '../screens/PaymentMethodsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -51,6 +52,11 @@ const SettingsStack = () => (
       name="DefaultLimits"
       component={DefaultLimitsScreen}
       options={{ title: 'Default Limits' }}
+    />
+    <Stack.Screen
+      name="PaymentMethods"
+      component={PaymentMethodsScreen}
+      options={{ title: 'Payment Methods' }}
     />
   </Stack.Navigator>
 );

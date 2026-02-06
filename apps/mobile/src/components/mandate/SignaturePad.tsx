@@ -8,10 +8,12 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
+import Svg, { Path, Line } from 'react-native-svg';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIGNATURE_WIDTH = SCREEN_WIDTH - 48;
 const SIGNATURE_HEIGHT = 200;
+const SIGNATURE_LINE_Y = SIGNATURE_HEIGHT * 0.75;
 
 interface SignaturePadProps {
   onSignatureComplete?: (signatureData: string) => void;
@@ -22,12 +24,10 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   onSignatureComplete,
   onClear,
 }) => {
-  const [paths, setPaths] = useState<Array<{ x: number; y: number }[]>>([]);
-  const [currentPath, setCurrentPath] = useState<Array<{ x: number; y: number }>>([]);
-  // Use ref to track drawing state to avoid stale closure in PanResponder
+  const [paths, setPaths] = useState<string[]>([]);
+  const [currentPath, setCurrentPath] = useState<string>('');
   const isDrawingRef = useRef(false);
-  // Use ref for current path to access latest value in PanResponder callbacks
-  const currentPathRef = useRef<Array<{ x: number; y: number }>>([]);
+  const currentPathRef = useRef<string>('');
 
   const panResponder = useRef(
     PanResponder.create({
@@ -36,23 +36,23 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
         isDrawingRef.current = true;
-        const newPath = [{ x: locationX, y: locationY }];
+        const newPath = `M${locationX.toFixed(2)},${locationY.toFixed(2)}`;
         currentPathRef.current = newPath;
         setCurrentPath(newPath);
       },
       onPanResponderMove: (evt) => {
         if (!isDrawingRef.current) return;
         const { locationX, locationY } = evt.nativeEvent;
-        const newPoint = { x: locationX, y: locationY };
-        currentPathRef.current = [...currentPathRef.current, newPoint];
-        setCurrentPath([...currentPathRef.current]);
+        const newPath = `${currentPathRef.current} L${locationX.toFixed(2)},${locationY.toFixed(2)}`;
+        currentPathRef.current = newPath;
+        setCurrentPath(newPath);
       },
       onPanResponderRelease: () => {
-        if (currentPathRef.current.length > 0) {
+        if (currentPathRef.current) {
           setPaths((prev) => [...prev, currentPathRef.current]);
         }
-        currentPathRef.current = [];
-        setCurrentPath([]);
+        currentPathRef.current = '';
+        setCurrentPath('');
         isDrawingRef.current = false;
       },
     })
@@ -60,22 +60,19 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
 
   const handleClear = () => {
     setPaths([]);
-    setCurrentPath([]);
-    currentPathRef.current = [];
+    setCurrentPath('');
+    currentPathRef.current = '';
     isDrawingRef.current = false;
     onClear?.();
   };
 
   const handleSave = () => {
-    if (paths.length === 0 && currentPath.length === 0) {
+    if (paths.length === 0 && !currentPath) {
       Alert.alert('No Signature', 'Please draw your signature first');
       return;
     }
 
-    // Combine all paths into a single data structure
-    const allPaths = [...paths, currentPath].filter(p => p.length > 0);
-    
-    // Convert to JSON string (in production, you might want to convert to image)
+    const allPaths = currentPath ? [...paths, currentPath] : paths;
     const signatureData = JSON.stringify({
       paths: allPaths,
       width: SIGNATURE_WIDTH,
@@ -86,62 +83,57 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     onSignatureComplete?.(signatureData);
   };
 
+  const hasContent = paths.length > 0 || !!currentPath;
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Sign Here</Text>
       <View style={styles.signatureContainer} {...panResponder.panHandlers}>
-        {/* Render paths as simple lines */}
-        {paths.map((path, pathIndex) => (
-          <View key={pathIndex} style={StyleSheet.absoluteFill}>
-            {path.map((point, pointIndex) => {
-              if (pointIndex === 0) return null;
-              const prevPoint = path[pointIndex - 1];
-              return (
-                <View
-                  key={pointIndex}
-                  style={[
-                    styles.line,
-                    {
-                      left: Math.min(prevPoint.x, point.x),
-                      top: Math.min(prevPoint.y, point.y),
-                      width: Math.abs(point.x - prevPoint.x) || 2,
-                      height: Math.abs(point.y - prevPoint.y) || 2,
-                    },
-                  ]}
-                />
-              );
-            })}
-          </View>
-        ))}
-        {currentPath.length > 0 && (
-          <View style={StyleSheet.absoluteFill}>
-            {currentPath.map((point, pointIndex) => {
-              if (pointIndex === 0) return null;
-              const prevPoint = currentPath[pointIndex - 1];
-              return (
-                <View
-                  key={pointIndex}
-                  style={[
-                    styles.line,
-                    {
-                      left: Math.min(prevPoint.x, point.x),
-                      top: Math.min(prevPoint.y, point.y),
-                      width: Math.abs(point.x - prevPoint.x) || 2,
-                      height: Math.abs(point.y - prevPoint.y) || 2,
-                    },
-                  ]}
-                />
-              );
-            })}
+        {!hasContent && (
+          <View style={styles.placeholder} pointerEvents="none">
+            <Text style={styles.placeholderText}>Draw your signature above</Text>
           </View>
         )}
-        {paths.length === 0 && currentPath.length === 0 && (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>
-              Draw your signature above
-            </Text>
-          </View>
-        )}
+        <Svg width={SIGNATURE_WIDTH} height={SIGNATURE_HEIGHT}>
+          {/* Signature baseline */}
+          <Line
+            x1={20}
+            y1={SIGNATURE_LINE_Y}
+            x2={SIGNATURE_WIDTH - 20}
+            y2={SIGNATURE_LINE_Y}
+            stroke="#93C5FD"
+            strokeWidth={1.5}
+            strokeDasharray="6,3"
+          />
+          {/* X mark at start of signature line */}
+          <Path
+            d={`M${16},${SIGNATURE_LINE_Y - 8} L${24},${SIGNATURE_LINE_Y + 8} M${24},${SIGNATURE_LINE_Y - 8} L${16},${SIGNATURE_LINE_Y + 8}`}
+            stroke="#93C5FD"
+            strokeWidth={1.5}
+            fill="none"
+          />
+          {paths.map((path, index) => (
+            <Path
+              key={index}
+              d={path}
+              stroke="#000000"
+              strokeWidth={3.5}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+          {currentPath ? (
+            <Path
+              d={currentPath}
+              stroke="#000000"
+              strokeWidth={3.5}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ) : null}
+        </Svg>
       </View>
       <View style={styles.actions}>
         <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
@@ -173,7 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
     marginBottom: 12,
-    position: 'relative',
+    overflow: 'hidden',
   },
   placeholder: {
     position: 'absolute',
@@ -187,10 +179,6 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 14,
     color: '#9CA3AF',
-  },
-  line: {
-    position: 'absolute',
-    backgroundColor: '#000000',
   },
   actions: {
     flexDirection: 'row',
