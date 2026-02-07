@@ -7,6 +7,9 @@ import { acpService } from '../../services/acp.service';
 import { MandateFlowManager } from '../mandate/MandateFlowManager';
 import { BuyConfirmationModal } from './BuyConfirmationModal';
 import { validateAgainstCartMandate } from '../../utils/mandateValidation';
+import { openMandateApp, CartData } from '../../utils/deepLink';
+
+const DEMO_MODE = true;
 
 interface BuyButtonProps {
   product: Product;
@@ -113,6 +116,38 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
       const productPrice = product.price && product.price > 0 ? product.price : 0;
       if (productPrice <= 0) {
         throw new Error('Product price is required and must be greater than 0');
+      }
+
+      if (DEMO_MODE) {
+        // Demo mode: open Mandate App for payment authorization
+        const cartData: CartData = {
+          items: [{
+            id: product.id,
+            name: product.name,
+            price: productPrice,
+            quantity: 1,
+            imageUrl: product.imageUrl,
+          }],
+          total: productPrice,
+          agentName: mandate.agentName || 'Smart Shopper AI',
+        };
+
+        setShowConfirmation(false);
+
+        const mandateId = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const opened = await openMandateApp(mandateId, cartData);
+        if (!opened) {
+          Alert.alert(
+            'Mandate App Required',
+            'Please install the Mandate Manager app to authorize this purchase.',
+            [{ text: 'OK' }]
+          );
+        }
+
+        if (onSuccess) {
+          onSuccess();
+        }
+        return;
       }
 
       // Only include productImage if it's a valid URL (avoid empty strings)
