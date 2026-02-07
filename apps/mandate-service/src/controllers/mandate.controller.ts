@@ -42,31 +42,33 @@ export class MandateController {
     }
   };
 
-  // Get user's mandates
+  // Get mandates - all mandates if no userId, or user-specific
   getUserMandates = async (req: Request, res: Response) => {
     try {
-      const { userId } = req.query;
+      const { userId, status, type, limit } = req.query;
 
-      if (!userId) {
-        return res.status(400).json({
-          success: false,
-          error: 'userId query parameter is required',
-        });
+      let mandates;
+      if (userId) {
+        mandates = await this.mandateService.getUserMandates(
+          userId as string,
+          status as string,
+          type as string
+        );
+      } else {
+        // No userId - return all mandates (admin view)
+        mandates = await this.mandateService.getAllMandates(
+          status as string,
+          type as string,
+          limit ? parseInt(limit as string) : undefined
+        );
       }
-
-      const { status, type } = req.query;
-      const mandates = await this.mandateService.getUserMandates(
-        userId as string,
-        status as string,
-        type as string
-      );
 
       res.json({
         success: true,
         data: mandates,
       });
     } catch (error) {
-      console.error('Error getting user mandates:', error);
+      console.error('Error getting mandates:', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get mandates',

@@ -88,6 +88,27 @@ export class MandateRepository {
     return result.rows.map(row => this.mapRowToMandate(row));
   }
 
+  async getAllMandates(status?: string, type?: string, limit: number = 100): Promise<AgentMandate[]> {
+    let queryText = 'SELECT * FROM agent_mandates WHERE 1=1';
+    const params: any[] = [];
+
+    if (status) {
+      params.push(status);
+      queryText += ` AND status = $${params.length}`;
+    }
+
+    if (type) {
+      params.push(type);
+      queryText += ` AND type = $${params.length}`;
+    }
+
+    params.push(limit);
+    queryText += ` ORDER BY created_at DESC LIMIT $${params.length}`;
+
+    const result = await query(queryText, params);
+    return result.rows.map(row => this.mapRowToMandate(row));
+  }
+
   async getByUserAndAgent(
     userId: string,
     agentId: string,

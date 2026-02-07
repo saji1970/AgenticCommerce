@@ -7,15 +7,12 @@ import {
   IntentMandateConstraints,
   PaymentMandateConstraints,
 } from '@agentic-commerce/shared-types';
-import mandateService, { CreateMandateParams } from '../services/mandate.service';
+import { CreateMandateParams } from '../services/mandate.service';
+import { mandateServiceClient } from '../services/mandate-service.client';
+import { storageService } from '../services/storage.service';
 import { AppConfig } from '../config/app.config';
 import { AppState } from 'react-native';
 import { openMandateApp } from '../utils/deepLink';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Demo mode - uses local storage instead of backend API
-const DEMO_MODE = true;
-const LOCAL_MANDATES_KEY = 'demo_mandates';
 
 interface ActiveMandates {
   cart?: Mandate;
@@ -44,25 +41,6 @@ const MandateContext = createContext<MandateContextType | undefined>(undefined);
 
 interface MandateProviderProps {
   children: ReactNode;
-}
-
-/**
- * Get local mandates from AsyncStorage (demo mode)
- */
-async function getLocalMandates(): Promise<any[]> {
-  try {
-    const data = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Save local mandates to AsyncStorage (demo mode)
- */
-async function saveLocalMandates(mandates: any[]): Promise<void> {
-  await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(mandates));
 }
 
 export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) => {
@@ -116,6 +94,17 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
   };
 
   /**
+   * Get current user ID from storage
+   */
+  const getUserId = async (): Promise<string> => {
+    const user = await storageService.getUser();
+    if (!user || !user.id) {
+      throw new Error('User not logged in');
+    }
+    return user.id;
+  };
+
+  /**
    * Load all mandates and update active mandates cache
    * Returns the active mandates directly for immediate use (avoids React state timing issues)
    */
@@ -124,14 +113,10 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
       setLoading(true);
       setError(null);
 
-      let allMandates: Mandate[];
-
-      if (DEMO_MODE) {
-        // Demo mode - load from local AsyncStorage
-        allMandates = await getLocalMandates() as Mandate[];
-      } else {
-        allMandates = await mandateService.getMyMandates();
-      }
+      const userId = await getUserId();
+      const apiMandates = await mandateServiceClient.getUserMandates(userId);
+      // Cast AgentMandate[] to Mandate[] - structurally compatible
+      const allMandates = apiMandates as any as Mandate[];
 
       setMandates(allMandates);
 
@@ -167,89 +152,47 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
       setLoading(true);
       setError(null);
 
+      const userId = await getUserId();
+
       // If constraints not provided, use defaults from config
       const finalParams = {
         ...params,
         constraints: params.constraints || AppConfig.getDefaultConstraints(params.type),
       };
 
-      if (DEMO_MODE) {
-        // Demo mode - create mandate locally in AsyncStorage
-        const mandateId = `mandate_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const mandate: any = {
-          id: mandateId,
-          userId: 'demo-user',
-          agentId: finalParams.agentId,
-          agentName: finalParams.agentName,
-          type: finalParams.type,
-          status: 'pending',
-          constraints: finalParams.constraints,
-          validFrom: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+      // Register mandate with mandate-service directly
+      const apiMandate = await mandateServiceClient.registerMandate({
+        userId,
+        agentId: finalParams.agentId,
+        agentName: finalParams.agentName,
+        type: finalParams.type as 'cart' | 'intent' | 'payment',
+        constraints: finalParams.constraints,
+      });
 
-        // Save to local storage
-        const localMandates = await getLocalMandates();
-        localMandates.push(mandate);
-        await saveLocalMandates(localMandates);
-
-        // For CART and PAYMENT mandates, open Mandate app for user approval
-        if (params.type === MandateType.CART || params.type === MandateType.PAYMENT) {
-          console.log('[MandateContext] Demo: Opening Mandate app for approval:', mandateId);
-          const opened = await openMandateApp(mandateId);
-
-          if (!opened) {
-            throw new Error('Mandate app is required to approve this authorization. Please install the Mandate Manager app.');
-          }
-
-          return mandate as Mandate;
-        }
-
-        // For INTENT mandates, auto-approve
-        mandate.status = 'active';
-        mandate.updatedAt = new Date().toISOString();
-        const updatedMandates = await getLocalMandates();
-        const idx = updatedMandates.findIndex((m: any) => m.id === mandateId);
-        if (idx >= 0) {
-          updatedMandates[idx] = mandate;
-          await saveLocalMandates(updatedMandates);
-        }
-
-        await loadMandates();
-        return mandate as Mandate;
-      }
-
-      const mandate = await mandateService.createMandate(finalParams);
+      const mandate = apiMandate as any as Mandate;
 
       // For CART and PAYMENT mandates, open Mandate app for user approval
-      // The user must approve with biometric verification and signature
       if (params.type === MandateType.CART || params.type === MandateType.PAYMENT) {
         console.log('[MandateContext] Opening Mandate app for user approval:', mandate.id);
         const opened = await openMandateApp(mandate.id);
 
         if (!opened) {
           // Mandate app not installed or failed to open
-          // Clean up the pending mandate
           try {
-            await mandateService.revokeMandate(mandate.id, 'Mandate app not available');
+            await mandateServiceClient.revokeMandate(mandate.id, userId, 'Mandate app not available');
           } catch (cleanupErr) {
             console.error('[MandateContext] Failed to cleanup mandate:', cleanupErr);
           }
           throw new Error('Mandate app is required to approve this authorization. Please install the Mandate Manager app.');
         }
 
-        // Return the pending mandate - caller should wait for approval via app state/deep link callback
         return mandate;
       }
 
-      // For INTENT mandates, auto-approve as they have their own approval flow
-      const approvedMandate = await mandateService.approveMandate(mandate.id);
-
-      // Reload mandates to update cache
+      // For INTENT mandates, auto-approve
+      const approvedMandate = await mandateServiceClient.approveMandate(mandate.id, userId);
       await loadMandates();
-
-      return approvedMandate;
+      return approvedMandate as any as Mandate;
     } catch (err: any) {
       const errorMessage =
         err.response?.data?.error?.message || err.message || 'Failed to create mandate';
@@ -282,19 +225,8 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
       setLoading(true);
       setError(null);
 
-      if (DEMO_MODE) {
-        const localMandates = await getLocalMandates();
-        const index = localMandates.findIndex((m: any) => m.id === mandateId);
-        if (index >= 0) {
-          localMandates[index].status = 'revoked';
-          localMandates[index].updatedAt = new Date().toISOString();
-          await saveLocalMandates(localMandates);
-        }
-        await loadMandates();
-        return;
-      }
-
-      await mandateService.revokeMandate(mandateId, reason);
+      const userId = await getUserId();
+      await mandateServiceClient.revokeMandate(mandateId, userId, reason);
 
       // Reload mandates to update cache
       await loadMandates();
@@ -316,19 +248,8 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
       setLoading(true);
       setError(null);
 
-      if (DEMO_MODE) {
-        const localMandates = await getLocalMandates();
-        const index = localMandates.findIndex((m: any) => m.id === mandateId);
-        if (index >= 0) {
-          localMandates[index].status = 'active';
-          localMandates[index].updatedAt = new Date().toISOString();
-          await saveLocalMandates(localMandates);
-        }
-        await loadMandates();
-        return;
-      }
-
-      await mandateService.approveMandate(mandateId);
+      const userId = await getUserId();
+      await mandateServiceClient.approveMandate(mandateId, userId);
 
       // Reload mandates to update cache
       await loadMandates();

@@ -48,6 +48,10 @@ export class MandateService {
     return await this.mandateRepository.getUserMandates(userId, status, type);
   }
 
+  async getAllMandates(status?: string, type?: string, limit?: number) {
+    return await this.mandateRepository.getAllMandates(status, type, limit);
+  }
+
   async getByUserAndAgent(userId: string, agentId: string, type?: string) {
     return await this.mandateRepository.getByUserAndAgent(userId, agentId, type);
   }

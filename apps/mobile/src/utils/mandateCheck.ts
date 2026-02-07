@@ -5,8 +5,8 @@ import { Alert } from 'react-native';
 import { PaymentMandateConstraints, CartMandateConstraints, IntentMandateConstraints } from '@agentic-commerce/shared-types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Demo mode - uses local storage instead of mandate service
-const DEMO_MODE = true;
+// Production mode - uses mandate service API
+const DEMO_MODE = false;
 const LOCAL_MANDATES_KEY = 'demo_mandates';
 
 /**

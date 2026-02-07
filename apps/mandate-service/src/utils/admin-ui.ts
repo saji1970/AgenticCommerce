@@ -375,18 +375,14 @@ export function getAdminHtml(backendApiUrl: string = '', adminToken: string = ''
     
     async function loadMandates() {
       const c = document.getElementById('mandates-list');
-      if (!BACKEND_API_URL) {
-        c.innerHTML = '<div class="error">Backend API URL not configured. Set BACKEND_API_URL environment variable.</div>';
-        return;
-      }
       try {
-        const r = await fetch(BACKEND_API_URL + '/api/admin/mandates?limit=50', { headers });
+        const r = await fetch(API_URL + '/api/mandates?limit=50');
         if (!r.ok) throw new Error('Failed to load mandates');
         const d = await r.json();
-        const m = d.mandates || [];
+        const m = d.data || [];
         c.innerHTML = m.length === 0 ? '<div class="empty">No mandates found.</div>' :
-          '<table><thead><tr><th>Agent</th><th>Type</th><th>Status</th><th>User</th><th>Created</th></tr></thead><tbody>' +
-          m.map(x => '<tr><td>' + x.agent_name + '</td><td>' + x.type + '</td><td><span class="status ' + x.status + '">' + x.status + '</span></td><td>' + (x.user_email || 'N/A') + '</td><td>' + new Date(x.created_at).toLocaleDateString() + '</td></tr>').join('') +
+          '<table><thead><tr><th>ID</th><th>Agent</th><th>Type</th><th>Status</th><th>User ID</th><th>Constraints</th><th>Created</th></tr></thead><tbody>' +
+          m.map(x => '<tr><td title="' + x.id + '">' + x.id.substring(0, 8) + '...</td><td>' + (x.agentName || x.agent_name || 'N/A') + '</td><td>' + x.type + '</td><td><span class="status ' + x.status + '">' + x.status + '</span></td><td title="' + (x.userId || x.user_id || '') + '">' + (x.userId || x.user_id || 'N/A').substring(0, 12) + '...</td><td><small>' + JSON.stringify(x.constraints || {}).substring(0, 60) + '...</small></td><td>' + new Date(x.createdAt || x.created_at).toLocaleString() + '</td></tr>').join('') +
           '</tbody></table>';
       } catch (e) {
         c.innerHTML = '<div class="error">Error: ' + e.message + '</div>';

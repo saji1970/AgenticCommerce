@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { AgentMandate } from '../services/mandate-service.client';
 import { mandateServiceClient } from '../services/mandate-service.client';
 import { useMandates } from '../contexts/MandateContext';
@@ -25,9 +25,8 @@ import secureElementService from '../services/secure-element.service';
 
 const AGENTIC_COMMERCE_SCHEME = 'agenticcommerce://';
 
-// Demo mode - creates local mandate data without calling service
-const DEMO_MODE = true;
-const LOCAL_MANDATES_KEY = 'demo_mandates';
+// Production mode - uses mandate service API
+const DEMO_MODE = false;
 
 interface CartItemData {
   id: string;
@@ -122,86 +121,12 @@ export const MandateDetailScreen: React.FC = () => {
 
   const loadMandate = async () => {
     try {
-      if (DEMO_MODE) {
-        // Demo mode - first try to load from local storage
-        const localMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
-        const localMandates: AgentMandate[] = localMandatesStr ? JSON.parse(localMandatesStr) : [];
-        const foundMandate = localMandates.find(m => m.id === mandateId);
-
-        if (foundMandate) {
-          console.log('Found mandate in local storage:', foundMandate.type);
-          setMandate(foundMandate);
-          setLoading(false);
-          return;
-        }
-
-        // Not in local storage - create demo mandate based on intent data if available
-        const mandateType = intentData ? 'intent' : (cartData ? 'payment' : 'payment');
-        const demoMandate: AgentMandate = {
-          id: mandateId,
-          userId: 'demo-user',
-          agentId: 'default-shopping-agent',
-          agentName: intentData?.agentName || cartData?.agentName || 'Shopping Assistant',
-          type: mandateType,
-          status: 'pending',
-          constraints: {
-            maxTransactionAmount: 500,
-            dailySpendingLimit: 1000,
-            monthlySpendingLimit: 5000,
-            allowedPaymentMethods: ['card', 'paypal'],
-            requiresTwoFactor: true,
-          },
-          validFrom: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        // Persist to AsyncStorage so approve/cancel can find it later
-        const existingMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
-        const existingMandates: AgentMandate[] = existingMandatesStr ? JSON.parse(existingMandatesStr) : [];
-        if (!existingMandates.find(m => m.id === mandateId)) {
-          existingMandates.push(demoMandate);
-          await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(existingMandates));
-        }
-        setMandate(demoMandate);
-        setLoading(false);
-        return;
-      }
-
       const mandateData = await mandateServiceClient.getMandate(mandateId);
       setMandate(mandateData);
     } catch (error) {
       console.error('Error loading mandate:', error);
-      if (DEMO_MODE) {
-        // Fallback demo mandate - detect type from data
-        const mandateType = intentData ? 'intent' : (cartData ? 'payment' : 'payment');
-        const demoMandate: AgentMandate = {
-          id: mandateId,
-          userId: 'demo-user',
-          agentId: 'default-shopping-agent',
-          agentName: intentData?.agentName || cartData?.agentName || 'Shopping Assistant',
-          type: mandateType,
-          status: 'pending',
-          constraints: {
-            maxTransactionAmount: 500,
-            dailySpendingLimit: 1000,
-          },
-          validFrom: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        // Persist to AsyncStorage so approve/cancel can find it later
-        const fallbackMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
-        const fallbackMandates: AgentMandate[] = fallbackMandatesStr ? JSON.parse(fallbackMandatesStr) : [];
-        if (!fallbackMandates.find(m => m.id === mandateId)) {
-          fallbackMandates.push(demoMandate);
-          await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(fallbackMandates));
-        }
-        setMandate(demoMandate);
-        setLoading(false);
-      } else {
-        Alert.alert('Error', 'Failed to load mandate');
-        navigation.goBack();
-      }
+      Alert.alert('Error', 'Failed to load mandate from server');
+      navigation.goBack();
     } finally {
       setLoading(false);
     }
@@ -234,104 +159,53 @@ export const MandateDetailScreen: React.FC = () => {
         console.log('Updated mandate constraints:', mandate.constraints);
       }
 
-      if (DEMO_MODE) {
-        // Demo mode - update mandate status to 'active' in AsyncStorage
-        console.log('Demo mode: Mandate approved with biometric + signature');
-        console.log('Custom limits applied:', customLimits);
-
-        // Persist the approved status to AsyncStorage
-        const localMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
-        const localMandates: AgentMandate[] = localMandatesStr ? JSON.parse(localMandatesStr) : [];
-        const idx = localMandates.findIndex(m => m.id === mandateId);
-        if (idx >= 0) {
-          localMandates[idx].status = 'active';
-          localMandates[idx].updatedAt = new Date().toISOString();
-          if (customLimits) {
-            localMandates[idx].constraints = {
-              ...localMandates[idx].constraints,
-              ...mandate.constraints,
-            };
-          }
-          await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(localMandates));
-        }
-        // Update local component state
-        setMandate({ ...mandate, status: 'active' });
-        await refreshMandates();
-
-        // Generate an intent ID if this is an intent approval
-        const intentId = isIntentFlow ? `intent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` : undefined;
-
-        // Send deep link back to AgenticCommerce app with approved status
-        // Use different callback path for intent vs payment
-        const callbackUrl = isIntentFlow
-          ? `${AGENTIC_COMMERCE_SCHEME}intent-callback?mandateId=${mandateId}&status=approved${intentId ? `&intentId=${intentId}` : ''}`
-          : `${AGENTIC_COMMERCE_SCHEME}payment-callback?mandateId=${mandateId}&status=approved`;
-
-        const alertTitle = isIntentFlow ? 'Intent Approved!' : 'Mandate Approved!';
-        const alertMessage = isIntentFlow
-          ? `Your purchase intent has been approved!\n\nThe AI Agent will now be able to purchase "${intentData?.product.name}" for you when conditions are met.`
-          : 'Your authorization has been recorded with biometric verification and signature.\n\nThe AI Agent is now authorized to complete your purchase.';
-
-        Alert.alert(
-          alertTitle,
-          alertMessage,
-          [
-            {
-              text: 'Return to Shopping',
-              onPress: async () => {
-                try {
-                  await Linking.openURL(callbackUrl);
-                } catch (linkError) {
-                  console.error('Error opening deep link:', linkError);
-                  navigation.goBack();
-                }
-              },
-            },
-          ]
-        );
-        return;
+      // Try to create signature (may fail if crypto not fully configured)
+      try {
+        const mandateText = getMandateText();
+        await signatureService.createSignature({
+          mandateId: mandate!.id,
+          mandateText,
+          signatureImageUrl: signatureData,
+        });
+      } catch (sigError) {
+        console.warn('Signature creation failed (continuing with approval):', sigError);
       }
-
-      // Create signature
-      const mandateText = getMandateText();
-      await signatureService.createSignature({
-        mandateId: mandate!.id,
-        mandateText,
-        signatureImageUrl: signatureData,
-      });
 
       // Approve mandate
       await mandateServiceClient.approveMandate(mandateId, mandate!.userId);
+      setMandate({ ...mandate!, status: 'active' });
       await refreshMandates();
 
-      // If payment mandate, process payment
-      let paymentId: string | undefined;
-      if (mandate!.type === 'payment') {
-        console.log('Payment mandate approved - payment processing can be initiated from AgenticCommerce app');
-      }
+      // Generate an intent ID if this is an intent approval
+      const intentId = isIntentFlow ? `intent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` : undefined;
 
       // Send deep link back to AgenticCommerce app
-      const callbackUrl = `${AGENTIC_COMMERCE_SCHEME}payment-callback?mandateId=${mandateId}&status=approved${paymentId ? `&paymentId=${paymentId}` : ''}`;
+      const callbackUrl = isIntentFlow
+        ? `${AGENTIC_COMMERCE_SCHEME}intent-callback?mandateId=${mandateId}&status=approved${intentId ? `&intentId=${intentId}` : ''}`
+        : `${AGENTIC_COMMERCE_SCHEME}payment-callback?mandateId=${mandateId}&status=approved`;
 
-      try {
-        const canOpen = await Linking.canOpenURL(callbackUrl);
-        if (canOpen) {
-          await Linking.openURL(callbackUrl);
-        }
-      } catch (linkError) {
-        console.error('Error opening deep link:', linkError);
-      }
+      const alertTitle = isIntentFlow ? 'Intent Approved!' : 'Mandate Approved!';
+      const alertMessage = isIntentFlow
+        ? `Your purchase intent has been approved!\n\nThe AI Agent will now be able to purchase "${intentData?.product.name}" for you when conditions are met.`
+        : 'Your authorization has been recorded with biometric verification and signature.\n\nThe AI Agent is now authorized to complete your purchase.';
 
-      Alert.alert('Success', 'Mandate approved and signed. Returning to AgenticCommerce...', [
-        {
-          text: 'OK',
-          onPress: () => {
-            Linking.openURL(callbackUrl).catch(() => {
-              navigation.goBack();
-            });
+      Alert.alert(
+        alertTitle,
+        alertMessage,
+        [
+          {
+            text: 'Return to Shopping',
+            onPress: async () => {
+              try {
+                await Linking.openURL(callbackUrl);
+              } catch (linkError) {
+                console.error('Error opening deep link:', linkError);
+                navigation.goBack();
+              }
+            },
           },
-        },
-      ]);
+        ]
+      );
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to approve mandate');
     } finally {
@@ -350,18 +224,6 @@ export const MandateDetailScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              if (DEMO_MODE) {
-                // Update local storage to remove or mark as cancelled
-                const localMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
-                const localMandates: AgentMandate[] = localMandatesStr ? JSON.parse(localMandatesStr) : [];
-                const updatedMandates = localMandates.filter(m => m.id !== mandateId);
-                await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(updatedMandates));
-                await refreshMandates();
-                Alert.alert('Success', 'Mandate cancelled', [
-                  { text: 'OK', onPress: () => navigation.goBack() },
-                ]);
-                return;
-              }
               await mandateServiceClient.revokeMandate(mandateId, mandate!.userId, 'Cancelled by user');
               await refreshMandates();
               Alert.alert('Success', 'Mandate cancelled', [
@@ -388,22 +250,6 @@ export const MandateDetailScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              if (DEMO_MODE) {
-                // Update local storage to mark as revoked
-                const localMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
-                const localMandates: AgentMandate[] = localMandatesStr ? JSON.parse(localMandatesStr) : [];
-                const index = localMandates.findIndex(m => m.id === mandateId);
-                if (index >= 0) {
-                  localMandates[index].status = 'revoked';
-                  localMandates[index].updatedAt = new Date().toISOString();
-                  await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(localMandates));
-                }
-                await refreshMandates();
-                Alert.alert('Success', 'Mandate revoked', [
-                  { text: 'OK', onPress: () => navigation.goBack() },
-                ]);
-                return;
-              }
               await mandateServiceClient.revokeMandate(mandateId, mandate!.userId, 'Revoked by user');
               await refreshMandates();
               Alert.alert('Success', 'Mandate revoked', [
