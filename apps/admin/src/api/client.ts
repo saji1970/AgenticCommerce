@@ -241,6 +241,14 @@ export const ap2Api = {
   },
 };
 
+// Actions API (admin view)
+export const actionsApi = {
+  getAll: async (params?: { limit?: number; offset?: number }) => {
+    const response = await apiClient.get('/admin/actions', { params });
+    return response.data;
+  },
+};
+
 // Admin Settings API
 export const settingsApi = {
   getAll: async () => {

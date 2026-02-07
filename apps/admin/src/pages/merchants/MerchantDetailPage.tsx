@@ -362,7 +362,7 @@ export function MerchantDetailPage() {
       {/* Associated Agents */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Associated Agentic Apps</CardTitle>
+          <CardTitle>AI Agents ({merchantAgents.length})</CardTitle>
           <Button size="sm" onClick={() => setIsAddAgentModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add App

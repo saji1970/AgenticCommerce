@@ -37,18 +37,6 @@ export function UsersListPage() {
       }),
   });
 
-  if (isLoading) {
-    return <LoadingPage message="Loading users..." />;
-  }
-
-  if (error) {
-    return (
-      <Alert variant="error" title="Error loading users">
-        Failed to load users. Please try again.
-      </Alert>
-    );
-  }
-
   const users: User[] = data?.users || [];
   const pagination = data?.pagination || { total: 0, limit: ITEMS_PER_PAGE, offset: 0 };
   const totalPages = Math.ceil(pagination.total / ITEMS_PER_PAGE);
@@ -86,7 +74,16 @@ export function UsersListPage() {
         </div>
       </Card>
 
-      {/* Users Table */}
+      {error && (
+        <Alert variant="error" title="Error loading users">
+          Failed to load users. Please try again.
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <LoadingPage message="Loading users..." />
+      ) : (
+      /* Users Table */
       <Card>
         {users.length === 0 ? (
           <EmptyState
@@ -148,6 +145,7 @@ export function UsersListPage() {
           </>
         )}
       </Card>
+      )}
     </div>
   );
 }

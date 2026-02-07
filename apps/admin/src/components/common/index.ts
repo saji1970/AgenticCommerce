@@ -11,3 +11,5 @@ export { ConfirmDialog } from './ConfirmDialog';
 export { Alert } from './Alert';
 export { LoadingSpinner, LoadingPage } from './LoadingSpinner';
 export { EmptyState } from './EmptyState';
+export { TabBar } from './TabBar';
+export type { Tab } from './TabBar';

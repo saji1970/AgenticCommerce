@@ -39,6 +39,14 @@ export class AdminController {
       const usersResult = await pool.query('SELECT COUNT(*) FROM users');
       const totalUsers = parseInt(usersResult.rows[0].count);
 
+      // Total merchants
+      const merchantsResult = await pool.query('SELECT COUNT(*) FROM merchants');
+      const totalMerchants = parseInt(merchantsResult.rows[0].count);
+
+      // Total agents
+      const agentsResult = await pool.query('SELECT COUNT(*) FROM ai_agents');
+      const totalAgents = parseInt(agentsResult.rows[0].count);
+
       // Total mandates by status
       const mandatesResult = await pool.query(`
         SELECT status, COUNT(*) as count
@@ -105,6 +113,8 @@ export class AdminController {
       res.json({
         stats: {
           totalUsers,
+          totalMerchants,
+          totalAgents,
           mandates: {
             byStatus: mandatesByStatus,
             byType: mandatesByType,

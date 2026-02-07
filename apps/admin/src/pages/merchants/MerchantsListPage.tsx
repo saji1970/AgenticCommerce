@@ -61,10 +61,6 @@ export function MerchantsListPage() {
     },
   });
 
-  const merchants: Merchant[] = data?.merchants || [];
-  const pagination = data?.pagination || { total: 0, limit: ITEMS_PER_PAGE, offset: 0 };
-  const totalPages = Math.ceil(pagination.total / ITEMS_PER_PAGE);
-
   const getStatusBadge = (merchantStatus: string) => {
     const variants: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
       active: 'success',
@@ -84,17 +80,9 @@ export function MerchantsListPage() {
     return <Badge variant={variants[tier] || 'default'}>{tier}</Badge>;
   };
 
-  if (isLoading) {
-    return <LoadingPage message="Loading merchants..." />;
-  }
-
-  if (error) {
-    return (
-      <Alert variant="error" title="Error loading merchants">
-        Failed to load merchants. Please try again.
-      </Alert>
-    );
-  }
+  const merchants: Merchant[] = data?.merchants || [];
+  const pagination = data?.pagination || { total: 0, limit: ITEMS_PER_PAGE, offset: 0 };
+  const totalPages = Math.ceil(pagination.total / ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -139,7 +127,16 @@ export function MerchantsListPage() {
         </div>
       </Card>
 
-      {/* Merchants Table */}
+      {error && (
+        <Alert variant="error" title="Error loading merchants">
+          Failed to load merchants. Please try again.
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <LoadingPage message="Loading merchants..." />
+      ) : (
+      /* Merchants Table */
       <Card>
         {merchants.length === 0 ? (
           <EmptyState
@@ -198,6 +195,7 @@ export function MerchantsListPage() {
           </>
         )}
       </Card>
+      )}
 
       {/* Create Modal */}
       <Modal

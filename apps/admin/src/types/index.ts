@@ -178,6 +178,8 @@ export interface AuditLog {
 
 export interface DashboardStats {
   totalUsers: number;
+  totalMerchants: number;
+  totalAgents: number;
   mandates: {
     byStatus: Record<string, number>;
     byType: Record<string, number>;
@@ -197,6 +199,23 @@ export interface DashboardStats {
     totalTransactions: number;
     totalVolume: number;
   };
+}
+
+export interface AgentAction {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  agentId: string;
+  mandateId?: string;
+  mandateType?: string;
+  action: string;
+  resourceType?: string;
+  resourceId?: string;
+  metadata?: Record<string, unknown>;
+  success: boolean;
+  errorMessage?: string;
+  timestamp: string;
 }
 
 export interface PaginationInfo {

@@ -10,7 +10,7 @@ import {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Merchant Profiles', href: '/merchants', icon: Building2 },
+  { name: 'Merchants & Agents', href: '/merchants', icon: Building2 },
   { name: 'Certificates', href: '/certificates', icon: Shield },
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Audit Logs', href: '/audit-logs', icon: FileText },

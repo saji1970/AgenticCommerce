@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
@@ -6,9 +6,6 @@ import { DashboardPage } from './pages/DashboardPage';
 import { MerchantsListPage } from './pages/merchants/MerchantsListPage';
 import { MerchantDetailPage } from './pages/merchants/MerchantDetailPage';
 import { MerchantAppProfilePage } from './pages/merchants/MerchantAppProfilePage';
-import { MerchantAppMandatesPage } from './pages/merchants/MerchantAppMandatesPage';
-import { MerchantAppIntentsPage } from './pages/merchants/MerchantAppIntentsPage';
-import { MerchantAppTransactionsPage } from './pages/merchants/MerchantAppTransactionsPage';
 import { CertificatesListPage } from './pages/certificates/CertificatesListPage';
 import { UsersListPage } from './pages/users/UsersListPage';
 import { UserDetailPage } from './pages/users/UserDetailPage';
@@ -28,6 +25,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <AppLayout>{children}</AppLayout>;
+}
+
+function AgentTabRedirect({ tab }: { tab: string }) {
+  const { id, agentId } = useParams<{ id: string; agentId: string }>();
+  return <Navigate to={`/merchants/${id}/apps/${agentId}?tab=${tab}`} replace />;
 }
 
 function App() {
@@ -79,29 +81,18 @@ function App() {
           </ProtectedRoute>
         }
       />
+      {/* Backward-compatible redirects to tabbed view */}
       <Route
         path="/merchants/:id/apps/:agentId/mandates"
-        element={
-          <ProtectedRoute>
-            <MerchantAppMandatesPage />
-          </ProtectedRoute>
-        }
+        element={<AgentTabRedirect tab="mandates" />}
       />
       <Route
         path="/merchants/:id/apps/:agentId/intents"
-        element={
-          <ProtectedRoute>
-            <MerchantAppIntentsPage />
-          </ProtectedRoute>
-        }
+        element={<AgentTabRedirect tab="intents" />}
       />
       <Route
         path="/merchants/:id/apps/:agentId/transactions"
-        element={
-          <ProtectedRoute>
-            <MerchantAppTransactionsPage />
-          </ProtectedRoute>
-        }
+        element={<AgentTabRedirect tab="transactions" />}
       />
 
       <Route

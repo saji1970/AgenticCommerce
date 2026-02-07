@@ -61,18 +61,6 @@ export function AuditLogsPage() {
       }),
   });
 
-  if (isLoading) {
-    return <LoadingPage message="Loading audit logs..." />;
-  }
-
-  if (error) {
-    return (
-      <Alert variant="error" title="Error loading audit logs">
-        Failed to load audit logs. Please try again.
-      </Alert>
-    );
-  }
-
   const logs: AuditLog[] = data?.logs || [];
   const pagination = data?.pagination || { total: 0, limit: ITEMS_PER_PAGE, offset: 0 };
   const totalPages = Math.ceil(pagination.total / ITEMS_PER_PAGE);
@@ -135,7 +123,16 @@ export function AuditLogsPage() {
         </div>
       </Card>
 
-      {/* Audit Logs Table */}
+      {error && (
+        <Alert variant="error" title="Error loading audit logs">
+          Failed to load audit logs. Please try again.
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <LoadingPage message="Loading audit logs..." />
+      ) : (
+      /* Audit Logs Table */
       <Card>
         <CardHeader>
           <CardTitle>Activity Log</CardTitle>
@@ -220,6 +217,7 @@ export function AuditLogsPage() {
           </>
         )}
       </Card>
+      )}
     </div>
   );
 }
