@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Product, MandateType, AgentCartRequest } from '@agentic-commerce/shared-types';
 import { useMandate } from '../../contexts/MandateContext';
 import { useCart } from '../../contexts/CartContext';
@@ -10,6 +11,7 @@ import { validateAgainstCartMandate } from '../../utils/mandateValidation';
 import { openMandateApp, CartData } from '../../utils/deepLink';
 
 const DEMO_MODE = true;
+const PENDING_CART_ITEM_KEY = 'pending_demo_cart_item';
 
 interface BuyButtonProps {
   product: Product;
@@ -119,7 +121,7 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
       }
 
       if (DEMO_MODE) {
-        // Demo mode: open Mandate App for payment authorization
+        // Demo mode: save pending cart item, then open Mandate App for payment authorization
         const cartData: CartData = {
           items: [{
             id: product.id,
@@ -132,11 +134,22 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
           agentName: mandate.agentName || 'Smart Shopper AI',
         };
 
+        // Save the pending cart item so it can be added to cart after mandate approval
+        await AsyncStorage.setItem(PENDING_CART_ITEM_KEY, JSON.stringify({
+          productId: product.id,
+          productName: product.name,
+          productImage: product.imageUrl,
+          price: productPrice,
+          quantity: 1,
+        }));
+
         setShowConfirmation(false);
 
         const mandateId = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const opened = await openMandateApp(mandateId, cartData);
         if (!opened) {
+          // Clean up pending item if we couldn't open the app
+          await AsyncStorage.removeItem(PENDING_CART_ITEM_KEY);
           Alert.alert(
             'Mandate App Required',
             'Please install the Mandate Manager app to authorize this purchase.',

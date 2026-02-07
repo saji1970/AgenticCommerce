@@ -1,10 +1,11 @@
-import React, { createContext, useState, useContext, useCallback } from 'react';
+import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import {
   Cart,
   CartItem,
   AddToCartRequest,
   UpdateCartItemRequest,
 } from '@agentic-commerce/shared-types';
+import { AppState } from 'react-native';
 import { cartService } from '../services/cart.service';
 
 interface CartContextType {
@@ -26,6 +27,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [itemCount, setItemCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-refresh cart when app comes to foreground (e.g., returning from Mandate app)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        refreshCart();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   const refreshCart = useCallback(async () => {
     try {

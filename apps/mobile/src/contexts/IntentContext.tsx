@@ -1,9 +1,9 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { PurchaseIntent, CreateIntentRequest } from '@agentic-commerce/shared-types';
 import mandateService from '../services/mandate.service';
-import { AppState, Linking } from 'react-native';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { openMandateAppForIntent, IntentData, getPendingIntentData, clearPendingIntentData } from '../utils/deepLink';
+import { openMandateAppForIntent, IntentData, clearPendingIntentData } from '../utils/deepLink';
 import { AppConfig } from '../config/app.config';
 
 // Demo mode - uses local storage instead of backend API
@@ -53,75 +53,9 @@ export const IntentProvider: React.FC<IntentProviderProps> = ({ children }) => {
     };
   }, []);
 
-  // Handle deep link callback from Mandate app for intent approval
-  useEffect(() => {
-    const handleDeepLink = async (event: { url: string }) => {
-      const url = event.url;
-      console.log('[IntentContext] Received deep link:', url);
-
-      if (url.includes('intent-callback')) {
-        const params = new URLSearchParams(url.split('?')[1]);
-        const status = params.get('status');
-        const mandateId = params.get('mandateId');
-        const intentId = params.get('intentId');
-
-        console.log('[IntentContext] Intent callback:', { status, mandateId, intentId });
-
-        if (status === 'approved') {
-          // Get the pending intent data
-          const pendingIntent = await getPendingIntentData();
-          if (pendingIntent) {
-            // Create the approved intent
-            const defaultAgent = AppConfig.getDefaultAgent();
-            const newIntent: PurchaseIntent = {
-              id: intentId || `intent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              userId: 'demo-user',
-              productId: pendingIntent.productId,
-              productName: pendingIntent.productName,
-              quantity: pendingIntent.quantity,
-              maxPrice: pendingIntent.maxPrice || pendingIntent.price,
-              status: 'approved',
-              agentId: defaultAgent.id,
-              constraints: {},
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            } as PurchaseIntent;
-
-            // Save to local storage
-            const localIntents = await getLocalIntents();
-            localIntents.push(newIntent);
-            await saveLocalIntents(localIntents);
-
-            // Clear pending intent data
-            await clearPendingIntentData();
-
-            // Reload intents
-            await loadIntents();
-
-            console.log('[IntentContext] Intent approved and saved:', newIntent.id);
-          }
-        } else {
-          // Intent was rejected, clear pending data
-          await clearPendingIntentData();
-          console.log('[IntentContext] Intent was rejected');
-        }
-      }
-    };
-
-    // Listen for deep links
-    const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
-
-    // Check for initial URL (app was opened via deep link)
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url });
-      }
-    });
-
-    return () => {
-      linkingSubscription.remove();
-    };
-  }, []);
+  // Reload intents when app comes back from Mandate app
+  // (Deep link handling is done in RootNavigator which updates AsyncStorage directly)
+  // IntentContext just needs to reload from storage when app regains focus
 
   /**
    * Helper to get local intents (needed for deep link handler)

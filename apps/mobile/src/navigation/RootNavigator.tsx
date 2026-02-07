@@ -7,11 +7,13 @@ import { AuthNavigator } from './AuthNavigator';
 import { AppNavigator } from './AppNavigator';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { paymentService } from '../services/payment.service';
-import { AppConfig } from '../config/app.config';
 import { handleMandateCallback } from '../utils/mandateCheck';
+import { cartService } from '../services/cart.service';
+import { getPendingIntentData, clearPendingIntentData } from '../utils/deepLink';
+import { AppConfig } from '../config/app.config';
 
-const PENDING_PAYMENT_KEY = 'pending_payment_request';
+const PENDING_CART_ITEM_KEY = 'pending_demo_cart_item';
+const LOCAL_INTENTS_KEY = 'demo_intents';
 
 const Stack = createStackNavigator();
 
@@ -41,7 +43,40 @@ export const RootNavigator = () => {
 
             if (status === 'approved') {
               if (isIntentCallback) {
-                // Intent approved
+                // Intent approved - update intent status in local storage
+                const intentId = urlObj.searchParams.get('intentId');
+                try {
+                  const pendingIntent = await getPendingIntentData();
+                  if (pendingIntent) {
+                    const defaultAgent = AppConfig.getDefaultAgent();
+                    const newIntent = {
+                      id: intentId || `intent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                      userId: 'demo-user',
+                      productId: pendingIntent.productId,
+                      productName: pendingIntent.productName,
+                      quantity: pendingIntent.quantity,
+                      maxPrice: pendingIntent.maxPrice || pendingIntent.price,
+                      status: 'approved',
+                      agentId: defaultAgent.id,
+                      constraints: {},
+                      createdAt: new Date(),
+                      updatedAt: new Date(),
+                    };
+
+                    // Save approved intent to local storage
+                    const existingData = await AsyncStorage.getItem(LOCAL_INTENTS_KEY);
+                    const localIntents = existingData ? JSON.parse(existingData) : [];
+                    localIntents.push(newIntent);
+                    await AsyncStorage.setItem(LOCAL_INTENTS_KEY, JSON.stringify(localIntents));
+
+                    // Clear pending intent data
+                    await clearPendingIntentData();
+                    console.log('[RootNavigator] Intent approved and saved:', newIntent.id);
+                  }
+                } catch (intentError) {
+                  console.error('Failed to save approved intent:', intentError);
+                }
+
                 Alert.alert(
                   'Intent Approved!',
                   'The AI Agent is now authorized to purchase this item for you when conditions are met.',
@@ -61,91 +96,62 @@ export const RootNavigator = () => {
                   ]
                 );
               } else {
-                // Payment mandate approved
-                Alert.alert(
-                  'Mandate Approved!',
-                  'AI Agent is now authorized. Processing your payment...',
-                  [{ text: 'OK' }]
-                );
-
-                // Auto-trigger payment with stored cart info
+                // Payment mandate approved - add pending item to demo cart
                 try {
-                  const pendingPaymentStr = await AsyncStorage.getItem(PENDING_PAYMENT_KEY);
-                  if (pendingPaymentStr) {
-                    const pendingPayment = JSON.parse(pendingPaymentStr);
-                    const defaultAgent = AppConfig.getDefaultAgent();
+                  const pendingItemStr = await AsyncStorage.getItem(PENDING_CART_ITEM_KEY);
+                  if (pendingItemStr) {
+                    const pendingItem = JSON.parse(pendingItemStr);
 
-                    // Process payment automatically (AI Agent triggered)
-                    const result = await paymentService.processPayment(
-                      pendingPayment.request,
-                      defaultAgent.id,
-                      true, // Skip mandate check since we just approved
-                      pendingPayment.amount
-                    );
+                    // Add item to local demo cart
+                    await cartService.addToCart({
+                      productId: pendingItem.productId,
+                      productName: pendingItem.productName,
+                      productImage: pendingItem.productImage,
+                      quantity: pendingItem.quantity || 1,
+                      price: pendingItem.price,
+                    });
 
-                    // Clear pending payment
-                    await AsyncStorage.removeItem(PENDING_PAYMENT_KEY);
+                    // Clear pending item
+                    await AsyncStorage.removeItem(PENDING_CART_ITEM_KEY);
 
-                    // Show success
                     Alert.alert(
-                      'Payment Successful!',
-                      `AI Agent has completed your purchase.\n\nTransaction ID: ${result.payment?.transactionId || 'N/A'}`,
+                      'Purchase Approved!',
+                      `${pendingItem.productName} has been added to your cart.`,
                       [
                         {
-                          text: 'View Order',
+                          text: 'View Cart',
                           onPress: () => {
                             if (navigationRef.current && isAuthenticated) {
                               navigationRef.current.navigate('App', {
                                 screen: 'Cart',
-                                params: { screen: 'OrderHistory' },
                               });
                             }
                           },
                         },
+                        { text: 'OK' },
                       ]
                     );
                   } else {
-                    // No pending payment - just navigate to checkout
                     Alert.alert(
                       'Mandate Approved',
-                      'You can now complete your purchase.',
-                      [
-                        {
-                          text: 'Continue to Checkout',
-                          onPress: () => {
-                            if (navigationRef.current && isAuthenticated) {
-                              navigationRef.current.navigate('App', {
-                                screen: 'Cart',
-                                params: { screen: 'Checkout' },
-                              });
-                            }
-                          },
-                        },
-                      ]
+                      'Authorization successful. You can now add items to your cart.',
+                      [{ text: 'OK' }]
                     );
                   }
-                } catch (paymentError: any) {
-                  console.error('Auto-payment failed:', paymentError);
+                } catch (cartError: any) {
+                  console.error('Failed to add item to cart after approval:', cartError);
                   Alert.alert(
-                    'Payment Processing',
-                    'Mandate approved but payment needs manual completion. Please return to checkout.',
-                    [
-                      {
-                        text: 'Go to Checkout',
-                        onPress: () => {
-                          if (navigationRef.current && isAuthenticated) {
-                            navigationRef.current.navigate('App', {
-                              screen: 'Cart',
-                              params: { screen: 'Checkout' },
-                            });
-                          }
-                        },
-                      },
-                    ]
+                    'Mandate Approved',
+                    'Authorization was approved but there was an issue adding the item to your cart. Please try again.',
+                    [{ text: 'OK' }]
                   );
                 }
               }
             } else if (status === 'rejected') {
+              if (isIntentCallback) {
+                // Clear pending intent data on rejection
+                await clearPendingIntentData();
+              }
               Alert.alert(
                 isIntentCallback ? 'Intent Rejected' : 'Mandate Rejected',
                 isIntentCallback

@@ -155,6 +155,13 @@ export const MandateDetailScreen: React.FC = () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
+        // Persist to AsyncStorage so approve/cancel can find it later
+        const existingMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
+        const existingMandates: AgentMandate[] = existingMandatesStr ? JSON.parse(existingMandatesStr) : [];
+        if (!existingMandates.find(m => m.id === mandateId)) {
+          existingMandates.push(demoMandate);
+          await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(existingMandates));
+        }
         setMandate(demoMandate);
         setLoading(false);
         return;
@@ -182,6 +189,13 @@ export const MandateDetailScreen: React.FC = () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
+        // Persist to AsyncStorage so approve/cancel can find it later
+        const fallbackMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
+        const fallbackMandates: AgentMandate[] = fallbackMandatesStr ? JSON.parse(fallbackMandatesStr) : [];
+        if (!fallbackMandates.find(m => m.id === mandateId)) {
+          fallbackMandates.push(demoMandate);
+          await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(fallbackMandates));
+        }
         setMandate(demoMandate);
         setLoading(false);
       } else {
@@ -221,9 +235,28 @@ export const MandateDetailScreen: React.FC = () => {
       }
 
       if (DEMO_MODE) {
-        // Demo mode - skip service calls, just send callback
+        // Demo mode - update mandate status to 'active' in AsyncStorage
         console.log('Demo mode: Mandate approved with biometric + signature');
         console.log('Custom limits applied:', customLimits);
+
+        // Persist the approved status to AsyncStorage
+        const localMandatesStr = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
+        const localMandates: AgentMandate[] = localMandatesStr ? JSON.parse(localMandatesStr) : [];
+        const idx = localMandates.findIndex(m => m.id === mandateId);
+        if (idx >= 0) {
+          localMandates[idx].status = 'active';
+          localMandates[idx].updatedAt = new Date().toISOString();
+          if (customLimits) {
+            localMandates[idx].constraints = {
+              ...localMandates[idx].constraints,
+              ...mandate.constraints,
+            };
+          }
+          await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(localMandates));
+        }
+        // Update local component state
+        setMandate({ ...mandate, status: 'active' });
+        await refreshMandates();
 
         // Generate an intent ID if this is an intent approval
         const intentId = isIntentFlow ? `intent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` : undefined;
