@@ -11,6 +11,11 @@ import mandateService, { CreateMandateParams } from '../services/mandate.service
 import { AppConfig } from '../config/app.config';
 import { AppState } from 'react-native';
 import { openMandateApp } from '../utils/deepLink';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Demo mode - uses local storage instead of backend API
+const DEMO_MODE = true;
+const LOCAL_MANDATES_KEY = 'demo_mandates';
 
 interface ActiveMandates {
   cart?: Mandate;
@@ -41,6 +46,25 @@ interface MandateProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Get local mandates from AsyncStorage (demo mode)
+ */
+async function getLocalMandates(): Promise<any[]> {
+  try {
+    const data = await AsyncStorage.getItem(LOCAL_MANDATES_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Save local mandates to AsyncStorage (demo mode)
+ */
+async function saveLocalMandates(mandates: any[]): Promise<void> {
+  await AsyncStorage.setItem(LOCAL_MANDATES_KEY, JSON.stringify(mandates));
+}
+
 export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) => {
   const [mandates, setMandates] = useState<Mandate[]>([]);
   const [activeMandates, setActiveMandates] = useState<ActiveMandates>({});
@@ -63,6 +87,35 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
   }, []);
 
   /**
+   * Build active mandates cache from a list of mandates
+   */
+  const buildActiveMandates = (allMandates: Mandate[]): ActiveMandates => {
+    const active: ActiveMandates = {};
+    allMandates.forEach(mandate => {
+      if (mandate.status === MandateStatus.ACTIVE || mandate.status === ('active' as any)) {
+        // Check if mandate is expired
+        if (mandate.validUntil) {
+          const now = new Date();
+          const validUntil = new Date(mandate.validUntil);
+          if (now > validUntil) {
+            return;
+          }
+        }
+
+        // Store the most recent active mandate for each type
+        if (
+          !active[mandate.type as keyof typeof active] ||
+          new Date(mandate.createdAt) >
+            new Date(active[mandate.type as keyof typeof active]!.createdAt)
+        ) {
+          active[mandate.type as keyof typeof active] = mandate as any;
+        }
+      }
+    });
+    return active;
+  };
+
+  /**
    * Load all mandates and update active mandates cache
    * Returns the active mandates directly for immediate use (avoids React state timing issues)
    */
@@ -71,34 +124,18 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
       setLoading(true);
       setError(null);
 
-      const allMandates = await mandateService.getMyMandates();
+      let allMandates: Mandate[];
+
+      if (DEMO_MODE) {
+        // Demo mode - load from local AsyncStorage
+        allMandates = await getLocalMandates() as Mandate[];
+      } else {
+        allMandates = await mandateService.getMyMandates();
+      }
+
       setMandates(allMandates);
 
-      // Cache active mandates by type for quick access
-      const active: ActiveMandates = {};
-      allMandates.forEach(mandate => {
-        if (mandate.status === MandateStatus.ACTIVE) {
-          // Check if mandate is expired
-          if (mandate.validUntil) {
-            const now = new Date();
-            const validUntil = new Date(mandate.validUntil);
-            if (now > validUntil) {
-              // Mandate is expired, skip it
-              return;
-            }
-          }
-
-          // Store the most recent active mandate for each type
-          if (
-            !active[mandate.type as keyof typeof active] ||
-            new Date(mandate.createdAt) >
-              new Date(active[mandate.type as keyof typeof active]!.createdAt)
-          ) {
-            active[mandate.type as keyof typeof active] = mandate as any;
-          }
-        }
-      });
-
+      const active = buildActiveMandates(allMandates);
       setActiveMandates(active);
       return active;
     } catch (err: any) {
@@ -135,6 +172,53 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
         ...params,
         constraints: params.constraints || AppConfig.getDefaultConstraints(params.type),
       };
+
+      if (DEMO_MODE) {
+        // Demo mode - create mandate locally in AsyncStorage
+        const mandateId = `mandate_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const mandate: any = {
+          id: mandateId,
+          userId: 'demo-user',
+          agentId: finalParams.agentId,
+          agentName: finalParams.agentName,
+          type: finalParams.type,
+          status: 'pending',
+          constraints: finalParams.constraints,
+          validFrom: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Save to local storage
+        const localMandates = await getLocalMandates();
+        localMandates.push(mandate);
+        await saveLocalMandates(localMandates);
+
+        // For CART and PAYMENT mandates, open Mandate app for user approval
+        if (params.type === MandateType.CART || params.type === MandateType.PAYMENT) {
+          console.log('[MandateContext] Demo: Opening Mandate app for approval:', mandateId);
+          const opened = await openMandateApp(mandateId);
+
+          if (!opened) {
+            throw new Error('Mandate app is required to approve this authorization. Please install the Mandate Manager app.');
+          }
+
+          return mandate as Mandate;
+        }
+
+        // For INTENT mandates, auto-approve
+        mandate.status = 'active';
+        mandate.updatedAt = new Date().toISOString();
+        const updatedMandates = await getLocalMandates();
+        const idx = updatedMandates.findIndex((m: any) => m.id === mandateId);
+        if (idx >= 0) {
+          updatedMandates[idx] = mandate;
+          await saveLocalMandates(updatedMandates);
+        }
+
+        await loadMandates();
+        return mandate as Mandate;
+      }
 
       const mandate = await mandateService.createMandate(finalParams);
 
@@ -186,8 +270,8 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
     }
 
     // If not in cache, reload and check again
-    await loadMandates();
-    return !!activeMandates[type as keyof typeof activeMandates];
+    const active = await loadMandates();
+    return !!active[type as keyof typeof active];
   };
 
   /**
@@ -197,6 +281,18 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
     try {
       setLoading(true);
       setError(null);
+
+      if (DEMO_MODE) {
+        const localMandates = await getLocalMandates();
+        const index = localMandates.findIndex((m: any) => m.id === mandateId);
+        if (index >= 0) {
+          localMandates[index].status = 'revoked';
+          localMandates[index].updatedAt = new Date().toISOString();
+          await saveLocalMandates(localMandates);
+        }
+        await loadMandates();
+        return;
+      }
 
       await mandateService.revokeMandate(mandateId, reason);
 
@@ -219,6 +315,18 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
     try {
       setLoading(true);
       setError(null);
+
+      if (DEMO_MODE) {
+        const localMandates = await getLocalMandates();
+        const index = localMandates.findIndex((m: any) => m.id === mandateId);
+        if (index >= 0) {
+          localMandates[index].status = 'active';
+          localMandates[index].updatedAt = new Date().toISOString();
+          await saveLocalMandates(localMandates);
+        }
+        await loadMandates();
+        return;
+      }
 
       await mandateService.approveMandate(mandateId);
 
