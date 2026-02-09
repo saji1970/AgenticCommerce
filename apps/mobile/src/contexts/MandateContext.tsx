@@ -12,7 +12,6 @@ import { mandateServiceClient } from '../services/mandate-service.client';
 import { storageService } from '../services/storage.service';
 import { AppConfig } from '../config/app.config';
 import { AppState } from 'react-native';
-import { openMandateApp } from '../utils/deepLink';
 
 interface ActiveMandates {
   cart?: Mandate;
@@ -144,8 +143,7 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
 
   /**
    * Create a new mandate with default constraints
-   * For CART and PAYMENT mandates, opens the Mandate app for user approval
-   * Returns the mandate (PENDING status) - caller must wait for approval callback
+   * Auto-approves after registration (user consents via MandateSigningModal)
    */
   const createMandate = async (params: CreateMandateParams): Promise<Mandate> => {
     try {
@@ -171,25 +169,7 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
 
       const mandate = apiMandate as any as Mandate;
 
-      // For CART and PAYMENT mandates, open Mandate app for user approval
-      if (params.type === MandateType.CART || params.type === MandateType.PAYMENT) {
-        console.log('[MandateContext] Opening Mandate app for user approval:', mandate.id);
-        const opened = await openMandateApp(mandate.id);
-
-        if (!opened) {
-          // Mandate app not installed or failed to open
-          try {
-            await mandateServiceClient.revokeMandate(mandate.id, userId, 'Mandate app not available');
-          } catch (cleanupErr) {
-            console.error('[MandateContext] Failed to cleanup mandate:', cleanupErr);
-          }
-          throw new Error('Mandate app is required to approve this authorization. Please install the Mandate Manager app.');
-        }
-
-        return mandate;
-      }
-
-      // For INTENT mandates, auto-approve
+      // Auto-approve all mandate types (user already consented via MandateSigningModal)
       const approvedMandate = await mandateServiceClient.approveMandate(mandate.id, userId);
       await loadMandates();
       return approvedMandate as any as Mandate;
