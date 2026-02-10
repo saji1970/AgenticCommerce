@@ -50,7 +50,6 @@ apps/mobile/ios/build/
 # Temporary files
 tmpclaude-*
 *.apk
-*.html
 nul
 
 # EAS build artifacts
