@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi, certificatesApi } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, LoadingPage, Alert } from '../components/common';
 import {
   Building2,
@@ -59,6 +60,8 @@ function StatCard({ title, value, icon, description, trend }: StatCardProps) {
 }
 
 export function DashboardPage() {
+  const { user } = useAuth();
+
   const { data: statsData, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['dashboard', 'stats'],
     queryFn: dashboardApi.getStats,
@@ -102,7 +105,11 @@ export function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">Overview of your AgenticCommerce platform</p>
+        <p className="text-gray-500">
+          {user?.merchantName
+            ? `Overview for ${user.merchantName}`
+            : 'Overview of your AgenticCommerce platform'}
+        </p>
       </div>
 
       {/* Error Banner */}

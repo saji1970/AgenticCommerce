@@ -1,5 +1,20 @@
 // Common types for the admin application
 
+export type AdminRole = 'super_admin' | 'merchant_admin' | 'merchant_operator';
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: AdminRole;
+  merchantId: string | null;
+  status: 'active' | 'suspended' | 'deactivated';
+  lastLoginAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -160,6 +175,25 @@ export interface AP2Transaction {
   metadata?: Record<string, unknown>;
   userEmail?: string;
   merchantName?: string;
+}
+
+export interface Transaction {
+  id: string;
+  mandateId: string | null;
+  userId: string;
+  agentId: string | null;
+  merchantId: string | null;
+  type: 'payment' | 'refund' | 'authorization';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded';
+  amount: number;
+  currency: string;
+  gatewayTransactionId: string | null;
+  gatewayResponse: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  errorMessage: string | null;
+  processedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AuditLog {

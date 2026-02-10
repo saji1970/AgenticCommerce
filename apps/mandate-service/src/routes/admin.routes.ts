@@ -1,0 +1,196 @@
+/**
+ * Admin API Routes
+ * All endpoints under /api/v1/admin
+ */
+
+import { Router } from 'express';
+import { authenticateAdmin, requireAdminRole } from '../middleware/admin-auth';
+import { validate } from '../middleware/validate';
+import { LoginSchema, CreateAdminUserSchema, UpdateAdminUserSchema } from '../schemas/admin-user.schema';
+import { adminAuthController } from '../controllers/admin-auth.controller';
+import { adminUserController } from '../controllers/admin-user.controller';
+import { adminDashboardController } from '../controllers/admin-dashboard.controller';
+import { adminMerchantController } from '../controllers/admin-merchant.controller';
+import { adminMandateController } from '../controllers/admin-mandate.controller';
+import { adminTransactionController } from '../controllers/admin-transaction.controller';
+
+const router = Router();
+
+// ============================================================================
+// Auth (no auth middleware needed for login)
+// ============================================================================
+router.post('/auth/login', validate(LoginSchema), adminAuthController.login);
+router.get('/auth/me', authenticateAdmin, adminAuthController.me);
+
+// ============================================================================
+// Admin Users
+// ============================================================================
+router.post('/users',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  validate(CreateAdminUserSchema),
+  adminUserController.create,
+);
+
+router.get('/users',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminUserController.list,
+);
+
+router.get('/users/:id',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminUserController.getById,
+);
+
+router.put('/users/:id',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  validate(UpdateAdminUserSchema),
+  adminUserController.update,
+);
+
+router.put('/users/:id/deactivate',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminUserController.deactivate,
+);
+
+// ============================================================================
+// Dashboard
+// ============================================================================
+router.get('/dashboard/stats',
+  authenticateAdmin,
+  adminDashboardController.getStats,
+);
+
+// ============================================================================
+// Merchants
+// ============================================================================
+router.get('/merchants',
+  authenticateAdmin,
+  adminMerchantController.list,
+);
+
+router.get('/merchants/:id',
+  authenticateAdmin,
+  adminMerchantController.getById,
+);
+
+router.post('/merchants',
+  authenticateAdmin,
+  requireAdminRole('super_admin'),
+  adminMerchantController.create,
+);
+
+router.put('/merchants/:id',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMerchantController.update,
+);
+
+router.put('/merchants/:id/status',
+  authenticateAdmin,
+  requireAdminRole('super_admin'),
+  adminMerchantController.updateStatus,
+);
+
+router.get('/merchants/:merchantId/agents',
+  authenticateAdmin,
+  adminMerchantController.listAgents,
+);
+
+router.post('/merchants/:merchantId/agents',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMerchantController.registerAgent,
+);
+
+router.get('/merchants/:merchantId/agents/:agentId',
+  authenticateAdmin,
+  adminMerchantController.getAgent,
+);
+
+router.put('/merchants/:merchantId/agents/:agentId',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMerchantController.updateAgent,
+);
+
+router.delete('/merchants/:merchantId/agents/:agentId',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMerchantController.deleteAgent,
+);
+
+router.post('/merchants/:merchantId/rotate-keys',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMerchantController.rotateKeys,
+);
+
+// ============================================================================
+// Mandates (admin view)
+// ============================================================================
+router.get('/mandates',
+  authenticateAdmin,
+  adminMandateController.list,
+);
+
+router.get('/mandates/:id',
+  authenticateAdmin,
+  adminMandateController.getById,
+);
+
+router.put('/mandates/:id/revoke',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMandateController.revoke,
+);
+
+router.put('/mandates/:id/suspend',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMandateController.suspend,
+);
+
+router.put('/mandates/:id/reactivate',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMandateController.reactivate,
+);
+
+// ============================================================================
+// Transactions (admin view)
+// ============================================================================
+router.get('/transactions',
+  authenticateAdmin,
+  adminTransactionController.list,
+);
+
+router.get('/transactions/:id',
+  authenticateAdmin,
+  adminTransactionController.getById,
+);
+
+// ============================================================================
+// Audit Logs (super_admin only)
+// ============================================================================
+router.get('/audit-logs',
+  authenticateAdmin,
+  requireAdminRole('super_admin'),
+  async (req, res) => {
+    try {
+      const { auditLogService } = await import('../services/audit-log.service');
+      const limit = parseInt(req.query.limit as string) || 100;
+      const entries = await auditLogService.getSecurityEvents(limit);
+      res.json({ success: true, data: entries });
+    } catch {
+      // Audit log table may not exist
+      res.json({ success: true, data: [] });
+    }
+  },
+);
+
+export default router;

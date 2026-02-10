@@ -56,7 +56,7 @@ export function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@example.com"
+              placeholder="admin@agenticcommerce.com"
             />
 
             <Input

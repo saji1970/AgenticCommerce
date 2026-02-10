@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
+import { useAuth, AdminRole } from './contexts/AuthContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -11,10 +11,13 @@ import { UsersListPage } from './pages/users/UsersListPage';
 import { UserDetailPage } from './pages/users/UserDetailPage';
 import { AuditLogsPage } from './pages/audit/AuditLogsPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
+import { AdminUsersPage } from './pages/admin-users/AdminUsersPage';
+import { MandatesListPage } from './pages/mandates/MandatesListPage';
+import { TransactionsListPage } from './pages/transactions/TransactionsListPage';
 import { LoadingPage } from './components/common';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+function ProtectedRoute({ children, requiredRoles }: { children: React.ReactNode; requiredRoles?: AdminRole[] }) {
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return <LoadingPage message="Checking authentication..." />;
@@ -22,6 +25,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRoles && user && !requiredRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
 
   return <AppLayout>{children}</AppLayout>;
@@ -57,10 +64,11 @@ function App() {
         }
       />
 
+      {/* Merchants - super_admin sees list, merchant_admin/operator sees own */}
       <Route
         path="/merchants"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['super_admin']}>
             <MerchantsListPage />
           </ProtectedRoute>
         }
@@ -68,7 +76,7 @@ function App() {
       <Route
         path="/merchants/:id"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['super_admin', 'merchant_admin']}>
             <MerchantDetailPage />
           </ProtectedRoute>
         }
@@ -76,7 +84,7 @@ function App() {
       <Route
         path="/merchants/:id/apps/:agentId"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['super_admin', 'merchant_admin']}>
             <MerchantAppProfilePage />
           </ProtectedRoute>
         }
@@ -95,19 +103,51 @@ function App() {
         element={<AgentTabRedirect tab="transactions" />}
       />
 
+      {/* Admin Users */}
+      <Route
+        path="/admin-users"
+        element={
+          <ProtectedRoute requiredRoles={['super_admin', 'merchant_admin']}>
+            <AdminUsersPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Mandates - all roles */}
+      <Route
+        path="/mandates"
+        element={
+          <ProtectedRoute>
+            <MandatesListPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Transactions - all roles */}
+      <Route
+        path="/transactions"
+        element={
+          <ProtectedRoute>
+            <TransactionsListPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Certificates - super_admin only */}
       <Route
         path="/certificates"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['super_admin']}>
             <CertificatesListPage />
           </ProtectedRoute>
         }
       />
 
+      {/* End Users - super_admin only */}
       <Route
         path="/users"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['super_admin']}>
             <UsersListPage />
           </ProtectedRoute>
         }
@@ -115,25 +155,27 @@ function App() {
       <Route
         path="/users/:id"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['super_admin']}>
             <UserDetailPage />
           </ProtectedRoute>
         }
       />
 
+      {/* Audit Logs - super_admin only */}
       <Route
         path="/audit-logs"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['super_admin']}>
             <AuditLogsPage />
           </ProtectedRoute>
         }
       />
 
+      {/* Settings - super_admin only */}
       <Route
         path="/settings"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['super_admin']}>
             <SettingsPage />
           </ProtectedRoute>
         }

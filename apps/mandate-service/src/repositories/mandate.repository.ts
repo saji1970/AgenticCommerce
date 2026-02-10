@@ -192,6 +192,54 @@ export class MandateRepository {
     return this.mapRowToMandate(result.rows[0]);
   }
 
+  async getAllWithMerchantScope(
+    merchantId: string,
+    status?: string,
+    type?: string,
+    limit: number = 100
+  ): Promise<AgentMandate[]> {
+    let queryText = `
+      SELECT am.* FROM agent_mandates am
+      INNER JOIN ai_agent_apps aaa ON am.agent_id = aaa.agent_id
+      WHERE aaa.merchant_id = $1`;
+    const params: any[] = [merchantId];
+
+    if (status) {
+      params.push(status);
+      queryText += ` AND am.status = $${params.length}`;
+    }
+    if (type) {
+      params.push(type);
+      queryText += ` AND am.type = $${params.length}`;
+    }
+
+    params.push(limit);
+    queryText += ` ORDER BY am.created_at DESC LIMIT $${params.length}`;
+
+    const result = await query(queryText, params);
+    return result.rows.map(row => this.mapRowToMandate(row));
+  }
+
+  async getByIdWithMerchantCheck(mandateId: string): Promise<(AgentMandate & { agentMerchantId?: string }) | null> {
+    const result = await query(
+      `SELECT am.*, aaa.merchant_id AS agent_merchant_id
+       FROM agent_mandates am
+       LEFT JOIN ai_agent_apps aaa ON am.agent_id = aaa.agent_id
+       WHERE am.id = $1`,
+      [mandateId]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+    return {
+      ...this.mapRowToMandate(row),
+      agentMerchantId: row.agent_merchant_id,
+    };
+  }
+
   private mapRowToMandate(row: any): AgentMandate {
     return {
       id: row.id,

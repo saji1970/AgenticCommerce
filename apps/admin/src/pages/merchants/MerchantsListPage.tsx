@@ -21,7 +21,6 @@ import {
   Alert,
 } from '../../components/common';
 import { Plus, Search, Building2 } from 'lucide-react';
-import type { Merchant } from '../../types';
 import { MerchantForm } from '../../components/merchants/MerchantForm';
 
 const statusOptions = [
@@ -71,16 +70,7 @@ export function MerchantsListPage() {
     return <Badge variant={variants[merchantStatus] || 'default'}>{merchantStatus}</Badge>;
   };
 
-  const getTierBadge = (tier: string) => {
-    const variants: Record<string, 'info' | 'warning' | 'success'> = {
-      starter: 'info',
-      business: 'warning',
-      enterprise: 'success',
-    };
-    return <Badge variant={variants[tier] || 'default'}>{tier}</Badge>;
-  };
-
-  const merchants: Merchant[] = data?.merchants || [];
+  const merchants: any[] = data?.merchants || [];
   const pagination = data?.pagination || { total: 0, limit: ITEMS_PER_PAGE, offset: 0 };
   const totalPages = Math.ceil(pagination.total / ITEMS_PER_PAGE);
 
@@ -155,14 +145,13 @@ export function MerchantsListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Merchant</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead>Slug</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Tier</TableHead>
                   <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {merchants.map((merchant) => (
+                {merchants.map((merchant: any) => (
                   <TableRow
                     key={merchant.id}
                     onClick={() => navigate(`/merchants/${merchant.id}`)}
@@ -170,14 +159,17 @@ export function MerchantsListPage() {
                     <TableCell>
                       <div>
                         <div className="font-medium">{merchant.name}</div>
-                        <div className="text-sm text-gray-500">{merchant.businessName}</div>
+                        {merchant.description && (
+                          <div className="text-sm text-gray-500">{merchant.description}</div>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell>{merchant.email}</TableCell>
-                    <TableCell>{getStatusBadge(merchant.status)}</TableCell>
-                    <TableCell>{getTierBadge(merchant.tier)}</TableCell>
                     <TableCell>
-                      {new Date(merchant.createdAt).toLocaleDateString()}
+                      <span className="font-mono text-sm text-gray-500">{merchant.slug}</span>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(merchant.status)}</TableCell>
+                    <TableCell>
+                      {new Date(merchant.created_at || merchant.createdAt).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
                 ))}

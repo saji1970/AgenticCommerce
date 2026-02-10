@@ -1,18 +1,25 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { authApi } from '../api/client';
+
+export type AdminRole = 'super_admin' | 'merchant_admin' | 'merchant_operator';
 
 interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  role: string;
+  role: AdminRole;
+  merchantId: string | null;
+  merchantName: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isSuperAdmin: boolean;
+  isMerchantAdmin: boolean;
+  isMerchantOperator: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -32,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await authApi.getCurrentUser();
-      if (response.user && response.user.role === 'admin') {
+      if (response.user) {
         setUser(response.user);
       } else {
         localStorage.removeItem('adminToken');
@@ -50,11 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const response = await authApi.login(email, password);
-
-    if (response.user?.role !== 'admin') {
-      throw new Error('Access denied. Admin privileges required.');
-    }
-
     localStorage.setItem('adminToken', response.token);
     setUser(response.user);
   };
@@ -68,6 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoading,
     isAuthenticated: !!user,
+    isSuperAdmin: user?.role === 'super_admin',
+    isMerchantAdmin: user?.role === 'merchant_admin',
+    isMerchantOperator: user?.role === 'merchant_operator',
     login,
     logout,
   };

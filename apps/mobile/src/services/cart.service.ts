@@ -12,7 +12,7 @@ import { AppConfig } from '../config/app.config';
 import { openMandateApp } from '../utils/deepLink';
 
 const API_URL = 'https://agenticcommerce-production.up.railway.app/api';
-const DEMO_MODE = true;
+const DEMO_MODE = false;
 const DEMO_CART_KEY = 'demo_cart_items';
 
 /**

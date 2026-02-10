@@ -1,23 +1,49 @@
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   LayoutDashboard,
   Building2,
   Shield,
   Users,
+  UserCog,
   FileText,
   Settings,
+  CreditCard,
 } from 'lucide-react';
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Merchants & Agents', href: '/merchants', icon: Building2 },
-  { name: 'Certificates', href: '/certificates', icon: Shield },
-  { name: 'Users', href: '/users', icon: Users },
-  { name: 'Audit Logs', href: '/audit-logs', icon: FileText },
-  { name: 'Settings', href: '/settings', icon: Settings },
-];
+interface NavItem {
+  name: string;
+  href: string;
+  icon: any;
+}
 
 export function Sidebar() {
+  const { isSuperAdmin, isMerchantAdmin, isMerchantOperator, user } = useAuth();
+
+  const navigation: NavItem[] = [];
+
+  // Dashboard - all roles
+  navigation.push({ name: 'Dashboard', href: '/', icon: LayoutDashboard });
+
+  if (isSuperAdmin) {
+    navigation.push({ name: 'Merchants & Agents', href: '/merchants', icon: Building2 });
+    navigation.push({ name: 'Admin Users', href: '/admin-users', icon: UserCog });
+    navigation.push({ name: 'End Users', href: '/users', icon: Users });
+    navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
+    navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
+    navigation.push({ name: 'Certificates', href: '/certificates', icon: Shield });
+    navigation.push({ name: 'Audit Logs', href: '/audit-logs', icon: FileText });
+    navigation.push({ name: 'Settings', href: '/settings', icon: Settings });
+  } else if (isMerchantAdmin) {
+    navigation.push({ name: 'My Merchant', href: user?.merchantId ? `/merchants/${user.merchantId}` : '/merchants', icon: Building2 });
+    navigation.push({ name: 'Team Members', href: '/admin-users', icon: UserCog });
+    navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
+    navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
+  } else if (isMerchantOperator) {
+    navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
+    navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
+  }
+
   return (
     <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white">
       <div className="flex h-16 items-center justify-center border-b border-gray-800">

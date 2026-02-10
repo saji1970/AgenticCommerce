@@ -11,6 +11,7 @@ export interface AIAgentApp {
   api_key?: string;
   capabilities: string[];
   status: 'active' | 'inactive' | 'suspended';
+  merchant_id?: string;
   metadata: Record<string, any>;
   created_at: Date;
   updated_at: Date;
@@ -25,6 +26,7 @@ export interface CreateAIAgentAppRequest {
   api_endpoint?: string;
   api_key?: string;
   capabilities?: string[];
+  merchant_id?: string;
   metadata?: Record<string, any>;
 }
 
@@ -37,14 +39,15 @@ export interface UpdateAIAgentAppRequest {
   api_key?: string;
   capabilities?: string[];
   status?: 'active' | 'inactive' | 'suspended';
+  merchant_id?: string;
   metadata?: Record<string, any>;
 }
 
 export class AIAgentAppRepository {
   async create(data: CreateAIAgentAppRequest): Promise<AIAgentApp> {
     const result = await query(
-      `INSERT INTO ai_agent_apps (name, slug, description, agent_id, agent_name, api_endpoint, api_key, capabilities, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO ai_agent_apps (name, slug, description, agent_id, agent_name, api_endpoint, api_key, capabilities, merchant_id, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         data.name,
@@ -55,6 +58,7 @@ export class AIAgentAppRepository {
         data.api_endpoint || null,
         data.api_key || null,
         JSON.stringify(data.capabilities || []),
+        data.merchant_id || null,
         JSON.stringify(data.metadata || {}),
       ]
     );
@@ -89,6 +93,14 @@ export class AIAgentAppRepository {
       return null;
     }
     return this.mapRowToAgentApp(result.rows[0]);
+  }
+
+  async getByMerchantId(merchantId: string): Promise<AIAgentApp[]> {
+    const result = await query(
+      'SELECT * FROM ai_agent_apps WHERE merchant_id = $1 ORDER BY created_at DESC',
+      [merchantId]
+    );
+    return result.rows.map(row => this.mapRowToAgentApp(row));
   }
 
   async getActive(): Promise<AIAgentApp[]> {
@@ -135,6 +147,10 @@ export class AIAgentAppRepository {
       updates.push(`status = $${paramIndex++}`);
       values.push(data.status);
     }
+    if (data.merchant_id !== undefined) {
+      updates.push(`merchant_id = $${paramIndex++}`);
+      values.push(data.merchant_id);
+    }
     if (data.metadata !== undefined) {
       updates.push(`metadata = $${paramIndex++}`);
       values.push(JSON.stringify(data.metadata));
@@ -166,10 +182,11 @@ export class AIAgentAppRepository {
       agent_name: row.agent_name,
       api_endpoint: row.api_endpoint,
       api_key: row.api_key,
-      capabilities: typeof row.capabilities === 'string' 
-        ? JSON.parse(row.capabilities) 
+      capabilities: typeof row.capabilities === 'string'
+        ? JSON.parse(row.capabilities)
         : row.capabilities || [],
       status: row.status,
+      merchant_id: row.merchant_id,
       metadata: typeof row.metadata === 'string' 
         ? JSON.parse(row.metadata) 
         : row.metadata || {},
