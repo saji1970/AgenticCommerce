@@ -11,6 +11,7 @@ cmds = [
 [phases.build]
 cmds = [
   "pnpm build:shared",
+  "cd apps/admin && pnpm run build",
   "cd apps/mandate-service && pnpm run build"
 ]
 
