@@ -26,30 +26,30 @@ export const createApp = (): Application => {
   // Secure payload middleware - decrypts and verifies encrypted payloads
   app.use(securePayloadMiddleware);
 
-  // Root endpoint for Railway health checks
-  app.get('/', (req, res) => {
-    res.json({ 
-      status: 'ok', 
-      service: 'AgenticCommerce Backend API',
-      version: '1.0.0',
-      timestamp: new Date().toISOString()
-    });
-  });
-
-  // Health check endpoint (before routes)
+  // Health check endpoint
   app.get('/health', (req, res) => {
-    res.json({ 
-      status: 'ok', 
+    res.json({
+      status: 'ok',
       service: 'AgenticCommerce Backend API',
       timestamp: new Date().toISOString()
     });
   });
-
-  // Serve admin portal static files
-  app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 
   // Routes
   app.use('/api', routes);
+
+  // Serve admin SPA static files (after API routes so /api takes priority)
+  const adminDistPath = path.resolve(__dirname, '../../admin/dist');
+  app.use(express.static(adminDistPath));
+
+  // SPA fallback - serve index.html for all non-API routes (client-side routing)
+  app.get('*', (req, res, next) => {
+    res.sendFile(path.join(adminDistPath, 'index.html'), (err) => {
+      if (err) {
+        next(err);
+      }
+    });
+  });
 
   // Error handling
   app.use(errorHandler);

@@ -5,7 +5,7 @@ nixPkgs = ["nodejs-18_x", "yarn"]
 cmds = ["yarn install"]
 
 [phases.build]
-cmds = ["yarn run build:shared", "cd apps/backend && yarn run build"]
+cmds = ["yarn run build:shared", "cd apps/admin && yarn run build", "cd apps/backend && yarn run build"]
 
 [start]
 cmd = "cd apps/backend && node dist/server.js"
