@@ -22,6 +22,7 @@ import { SignaturePad } from '../components/SignaturePad';
 import { MandateLimitsEditor, MandateLimits } from '../components/MandateLimitsEditor';
 import signatureService from '../services/signature.service';
 import secureElementService from '../services/secure-element.service';
+import { storageService } from '../services/storage.service';
 
 const AGENTIC_COMMERCE_SCHEME = 'agenticcommerce://';
 
@@ -171,18 +172,30 @@ export const MandateDetailScreen: React.FC = () => {
         console.warn('Signature creation failed (continuing with approval):', sigError);
       }
 
-      // Approve mandate
-      await mandateServiceClient.approveMandate(mandateId, mandate!.userId);
+      // Approve mandate - get userId from user session (mandate.userId may be undefined
+      // if the API response field mapping differs between apps)
+      const user = await storageService.getUser();
+      const approveUserId = mandate!.userId || user?.id;
+      console.log('[MandateDetail] Approving mandate:', mandateId, 'mandate.userId:', mandate!.userId, 'session userId:', user?.id, 'using:', approveUserId);
+      if (!approveUserId) {
+        throw new Error('User not logged in');
+      }
+      const approveResult = await mandateServiceClient.approveMandate(mandateId, approveUserId);
       setMandate({ ...mandate!, status: 'active' });
       await refreshMandates();
+
+      // Extract mandate token from approval response
+      const mandateToken = approveResult.mandateToken;
+      console.log('[MandateDetail] Mandate token received:', mandateToken ? 'yes' : 'no');
 
       // Generate an intent ID if this is an intent approval
       const intentId = isIntentFlow ? `intent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` : undefined;
 
-      // Send deep link back to AgenticCommerce app
+      // Send deep link back to AgenticCommerce app (include mandate token)
+      const tokenParam = mandateToken ? `&mandateToken=${encodeURIComponent(mandateToken)}` : '';
       const callbackUrl = isIntentFlow
-        ? `${AGENTIC_COMMERCE_SCHEME}intent-callback?mandateId=${mandateId}&status=approved${intentId ? `&intentId=${intentId}` : ''}`
-        : `${AGENTIC_COMMERCE_SCHEME}payment-callback?mandateId=${mandateId}&status=approved`;
+        ? `${AGENTIC_COMMERCE_SCHEME}intent-callback?mandateId=${mandateId}&status=approved${intentId ? `&intentId=${intentId}` : ''}${tokenParam}`
+        : `${AGENTIC_COMMERCE_SCHEME}payment-callback?mandateId=${mandateId}&status=approved${tokenParam}`;
 
       const alertTitle = isIntentFlow ? 'Intent Approved!' : 'Mandate Approved!';
       const alertMessage = isIntentFlow
@@ -206,8 +219,11 @@ export const MandateDetailScreen: React.FC = () => {
           },
         ]
       );
-    } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to approve mandate');
+    } catch (error: any) {
+      const serverError = error?.response?.data?.error || error?.response?.data?.message;
+      const errorMsg = serverError || (error instanceof Error ? error.message : 'Failed to approve mandate');
+      console.error('Approve error details:', JSON.stringify(error?.response?.data || error?.message));
+      Alert.alert('Error', errorMsg);
     } finally {
       setSigning(false);
     }

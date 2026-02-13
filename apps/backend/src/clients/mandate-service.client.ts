@@ -169,6 +169,33 @@ class MandateServiceClient {
       throw error;
     }
   }
+  /**
+   * Validate a mandate token against cart data (called during checkout)
+   */
+  async validateMandateToken(
+    token: string,
+    cartData?: { items: any[]; total: number }
+  ): Promise<{ valid: boolean; errors?: string[]; mandate?: any }> {
+    try {
+      const response = await this.client.post<{ success: boolean; valid: boolean; errors?: string[]; mandate?: any }>(
+        '/mandates/validate-token',
+        { token, cartData }
+      );
+      return {
+        valid: response.data.valid,
+        errors: response.data.errors,
+        mandate: response.data.mandate,
+      };
+    } catch (error: any) {
+      if (error.response?.data) {
+        return {
+          valid: false,
+          errors: error.response.data.errors || [error.response.data.error || 'Token validation failed'],
+        };
+      }
+      throw error;
+    }
+  }
 }
 
 export const mandateServiceClient = new MandateServiceClient();

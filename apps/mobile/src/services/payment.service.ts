@@ -16,7 +16,8 @@ export const paymentService = {
     request: PaymentRequest,
     agentId?: string,
     skipMandateCheck: boolean = false,
-    transactionAmount?: number
+    transactionAmount?: number,
+    mandateToken?: string
   ): Promise<PaymentResponse> {
     // Validate mandate if agent is involved
     if (!skipMandateCheck && agentId) {
@@ -32,8 +33,14 @@ export const paymentService = {
       }
     }
 
+    // Include mandate token in the payment request for backend validation
+    const paymentPayload = {
+      ...request,
+      ...(mandateToken && { mandateToken }),
+    };
+
     const token = await storageService.getToken();
-    const response = await axios.post(`${API_URL}/payments`, request, {
+    const response = await axios.post(`${API_URL}/payments`, paymentPayload, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data.data;

@@ -1,5 +1,7 @@
+import jwt from 'jsonwebtoken';
 import { MandateRepository, CreateMandateRequest, UpdateMandateRequest } from '../repositories/mandate.repository';
 import { AIAgentAppRepository } from '../repositories/ai-agent-app.repository';
+import { config } from '../config/env';
 
 export class MandateService {
   private mandateRepository: MandateRepository;
@@ -68,7 +70,102 @@ export class MandateService {
       throw new Error('Mandate is not pending approval');
     }
 
-    return await this.mandateRepository.updateStatus(mandateId, 'active');
+    const updatedMandate = await this.mandateRepository.updateStatus(mandateId, 'active');
+
+    // Generate a signed mandate token for the approved mandate
+    const mandateToken = this.generateMandateToken(updatedMandate);
+
+    return { mandate: updatedMandate, mandateToken };
+  }
+
+  /**
+   * Generate a signed JWT token containing mandate data.
+   * This token is returned to the client app on approval and must be
+   * sent back during checkout for validation.
+   */
+  private generateMandateToken(mandate: any): string {
+    const payload = {
+      mandateId: mandate.id,
+      userId: mandate.userId,
+      agentId: mandate.agentId,
+      type: mandate.type,
+      constraints: mandate.constraints,
+      approvedAt: new Date().toISOString(),
+    };
+
+    return jwt.sign(payload, config.jwt.secret as jwt.Secret, {
+      expiresIn: '24h', // Token valid for 24 hours from approval
+      issuer: 'mandate-service',
+      subject: mandate.id,
+    } as jwt.SignOptions);
+  }
+
+  /**
+   * Validate a mandate token against cart data.
+   * Verifies the JWT signature, checks the mandate is still active,
+   * and validates that the cart total respects mandate constraints.
+   */
+  async validateMandateToken(token: string, cartData?: { items: any[]; total: number }) {
+    // Verify JWT signature and expiration
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, config.jwt.secret as jwt.Secret, {
+        issuer: 'mandate-service',
+      });
+    } catch (err: any) {
+      if (err.name === 'TokenExpiredError') {
+        return { valid: false, errors: ['Mandate token has expired. Please re-approve the mandate.'] };
+      }
+      return { valid: false, errors: ['Invalid mandate token.'] };
+    }
+
+    // Check the mandate is still active in the database
+    const mandate = await this.mandateRepository.getById(decoded.mandateId);
+    if (!mandate) {
+      return { valid: false, errors: ['Mandate not found.'] };
+    }
+    if (mandate.status !== 'active') {
+      return { valid: false, errors: [`Mandate is ${mandate.status}. Only active mandates are valid.`] };
+    }
+
+    // Check mandate hasn't expired
+    if (mandate.validUntil && new Date() > new Date(mandate.validUntil)) {
+      await this.mandateRepository.updateStatus(mandate.id, 'expired');
+      return { valid: false, errors: ['Mandate has expired.'] };
+    }
+
+    // Validate cart data against mandate constraints if provided
+    const errors: string[] = [];
+    if (cartData) {
+      const constraints = mandate.constraints || {};
+
+      if (constraints.maxTransactionAmount && cartData.total > constraints.maxTransactionAmount) {
+        errors.push(`Cart total $${cartData.total.toFixed(2)} exceeds max transaction amount $${constraints.maxTransactionAmount}.`);
+      }
+
+      if (constraints.maxItemValue && cartData.items) {
+        for (const item of cartData.items) {
+          if (item.price > constraints.maxItemValue) {
+            errors.push(`Item "${item.name || item.productName}" price $${item.price} exceeds max item value $${constraints.maxItemValue}.`);
+          }
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      return { valid: false, errors };
+    }
+
+    return {
+      valid: true,
+      mandate: {
+        id: mandate.id,
+        userId: mandate.userId,
+        agentId: mandate.agentId,
+        type: mandate.type,
+        constraints: mandate.constraints,
+      },
+    };
   }
 
   async suspendMandate(mandateId: string, userId: string) {

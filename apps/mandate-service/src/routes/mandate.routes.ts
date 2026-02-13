@@ -11,6 +11,9 @@ router.post('/register', mandateController.registerMandate);
 // Validate mandate (called by agents before transactions)
 router.post('/validate', mandateController.validateMandate);
 
+// Validate mandate token (called by backend during checkout)
+router.post('/validate-token', mandateController.validateMandateToken);
+
 // Get user mandates
 router.get('/', mandateController.getUserMandates);
 

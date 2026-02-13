@@ -14,6 +14,7 @@ import { AppConfig } from '../config/app.config';
 
 const PENDING_CART_ITEM_KEY = 'pending_demo_cart_item';
 const LOCAL_INTENTS_KEY = 'demo_intents';
+const MANDATE_TOKEN_KEY = 'mandate_token';
 
 const Stack = createStackNavigator();
 
@@ -36,10 +37,17 @@ export const RootNavigator = () => {
           const urlObj = new URL(url);
           const mandateId = urlObj.searchParams.get('mandateId');
           const status = urlObj.searchParams.get('status');
+          const mandateToken = urlObj.searchParams.get('mandateToken');
 
           if (mandateId && status) {
             // Update local mandate status
             await handleMandateCallback(mandateId, status);
+
+            // Store mandate token if present
+            if (mandateToken) {
+              console.log('[RootNavigator] Storing mandate token for mandateId:', mandateId);
+              await AsyncStorage.setItem(MANDATE_TOKEN_KEY, mandateToken);
+            }
 
             if (status === 'approved') {
               if (isIntentCallback) {

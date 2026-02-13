@@ -88,14 +88,17 @@ class MandateServiceClient {
   }
 
   /**
-   * Approve mandate
+   * Approve mandate - returns mandate and optional mandate token for checkout validation
    */
-  async approveMandate(mandateId: string, userId: string): Promise<AgentMandate> {
-    const response = await this.client.post<{ success: boolean; data: AgentMandate }>(
+  async approveMandate(mandateId: string, userId: string): Promise<{ mandate: AgentMandate; mandateToken?: string }> {
+    const response = await this.client.post<{ success: boolean; data: AgentMandate; mandateToken?: string }>(
       `/mandates/${mandateId}/approve`,
       { userId }
     );
-    return response.data.data;
+    return {
+      mandate: response.data.data,
+      mandateToken: response.data.mandateToken,
+    };
   }
 
   /**

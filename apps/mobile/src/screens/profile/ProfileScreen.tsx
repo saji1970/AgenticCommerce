@@ -7,7 +7,9 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { UserProfile } from '@agentic-commerce/shared-types';
+import { ProfileStackParamList } from '../../types/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { userService } from '../../services/user.service';
 import { Button } from '../../components/common/Button';
@@ -15,7 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 
 export const ProfileScreen = () => {
   const { logout } = useAuth();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<StackNavigationProp<ProfileStackParamList, 'ProfileMain'>>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -74,7 +76,15 @@ export const ProfileScreen = () => {
 
       <TouchableOpacity
         style={styles.menuItem}
-        onPress={() => navigation.navigate('MandateManagement' as never)}
+        onPress={() => navigation.navigate('PaymentMethods')}
+      >
+        <Text style={styles.menuItemText}>Payment Methods</Text>
+        <Text style={styles.menuItemSubtext}>Manage saved cards and wallets</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.menuItem}
+        onPress={() => navigation.navigate('MandateManagement')}
       >
         <Text style={styles.menuItemText}>Manage Agent Mandates</Text>
         <Text style={styles.menuItemSubtext}>Configure AI agent payment permissions</Text>

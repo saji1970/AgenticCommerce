@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Product, MandateType, AgentCartRequest } from '@agentic-commerce/shared-types';
 import { useMandate } from '../../contexts/MandateContext';
 import { useCart } from '../../contexts/CartContext';
@@ -7,6 +8,8 @@ import { acpService } from '../../services/acp.service';
 import { MandateFlowManager } from '../mandate/MandateFlowManager';
 import { BuyConfirmationModal } from './BuyConfirmationModal';
 import { validateAgainstCartMandate } from '../../utils/mandateValidation';
+
+const PENDING_CART_ITEM_KEY = 'pending_demo_cart_item';
 
 interface BuyButtonProps {
   product: Product;
@@ -34,40 +37,30 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
   /**
    * Handle buy button press
    */
-  const handlePress = () => {
+  const handlePress = async () => {
     try {
       console.log('[BuyButton] Pressed for product:', product.id, product.name);
-      
+
       if (!product || !product.id) {
         console.error('[BuyButton] Invalid product:', product);
         Alert.alert('Error', 'Invalid product data');
         return;
       }
 
-      const mandate = getActiveMandateByType(MandateType.CART);
+      // Save product info for the deep link callback to add to cart after approval
+      const pendingItem = {
+        productId: product.id,
+        productName: product.name,
+        productImage: product.imageUrl || product.image || '',
+        quantity: 1,
+        price: product.price,
+      };
+      await AsyncStorage.setItem(PENDING_CART_ITEM_KEY, JSON.stringify(pendingItem));
+      console.log('[BuyButton] Saved pending cart item:', pendingItem.productName);
 
-      if (mandate) {
-        console.log('[BuyButton] Found mandate:', mandate.id);
-        // Validate product against mandate constraints
-        const validation = validateAgainstCartMandate(product, mandate);
-
-        if (!validation.valid) {
-          console.warn('[BuyButton] Validation failed:', validation.errors);
-          Alert.alert(
-            'Mandate Constraint Violation',
-            validation.errors.join('\n'),
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-
-        // Show confirmation modal
-        setShowConfirmation(true);
-      } else {
-        console.log('[BuyButton] No mandate found, starting flow');
-        // No mandate, start mandate flow
-        setShowMandateFlow(true);
-      }
+      // Always show mandate signing UI for user consent, even if mandate exists
+      console.log('[BuyButton] Starting mandate flow for user consent');
+      setShowMandateFlow(true);
     } catch (error: any) {
       console.error('[BuyButton] Error in handlePress:', error);
       Alert.alert('Error', `Failed to process buy action: ${error.message || 'Unknown error'}`);
@@ -84,6 +77,13 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
     const mandate = freshMandates.cart;
     console.log('[BuyButton] handleMandateReady - freshMandates:', freshMandates, 'cart mandate:', mandate);
     if (mandate) {
+      // Validate product against mandate constraints
+      const validation = validateAgainstCartMandate(product, mandate);
+      if (!validation.valid) {
+        console.warn('[BuyButton] Validation failed:', validation.errors);
+        Alert.alert('Mandate Constraint Violation', validation.errors.join('\n'), [{ text: 'OK' }]);
+        return;
+      }
       setShowConfirmation(true);
     } else {
       console.warn('[BuyButton] No cart mandate found after loading mandates');
@@ -93,8 +93,9 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
   /**
    * Handle mandate flow cancellation
    */
-  const handleMandateCancel = () => {
+  const handleMandateCancel = async () => {
     setShowMandateFlow(false);
+    await AsyncStorage.removeItem(PENDING_CART_ITEM_KEY);
   };
 
   /**

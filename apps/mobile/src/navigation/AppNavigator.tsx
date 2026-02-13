@@ -3,9 +3,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import { AppStackParamList } from '../types/navigation';
 import { HomeScreen } from '../screens/home';
-import { ProfileScreen } from '../screens/profile';
 import { ProductsNavigator } from './ProductsNavigator';
 import { CartNavigator } from './CartNavigator';
+import { ProfileNavigator } from './ProfileNavigator';
 import { IntentsScreen } from '../screens/intents';
 
 const Tab = createBottomTabNavigator<AppStackParamList>();
@@ -54,9 +54,9 @@ export const AppNavigator = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfileNavigator}
         options={{
-          headerShown: true,
+          headerShown: false,
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text>,
         }}
       />

@@ -15,6 +15,12 @@ export type CartStackParamList = {
   OrderHistory: undefined;
 };
 
+export type ProfileStackParamList = {
+  ProfileMain: undefined;
+  PaymentMethods: undefined;
+  MandateManagement: undefined;
+};
+
 export type AppStackParamList = {
   Home: undefined;
   Products: undefined;

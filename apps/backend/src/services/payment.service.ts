@@ -2,6 +2,7 @@ import { CartRepository } from '../repositories/cart.repository';
 import { OrderRepository } from '../repositories/order.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { PaymentGatewayService } from './payment-gateway.service';
+import { mandateServiceClient } from '../clients/mandate-service.client';
 import {
   PaymentRequest,
   PaymentResponse,
@@ -22,7 +23,7 @@ export class PaymentService {
     this.paymentGateway = new PaymentGatewayService();
   }
 
-  async processPayment(userId: string, paymentRequest: PaymentRequest): Promise<PaymentResponse> {
+  async processPayment(userId: string, paymentRequest: PaymentRequest & { mandateToken?: string }): Promise<PaymentResponse> {
     // Get cart items
     const cartItems = await this.cartRepository.getUserCart(userId);
 
@@ -38,6 +39,40 @@ export class PaymentService {
 
     const tax = subtotal * 0.08; // 8% tax
     const total = subtotal + tax;
+
+    // Validate mandate token if provided
+    if (paymentRequest.mandateToken) {
+      const cartData = {
+        items: cartItems.map(item => ({
+          productId: item.productId,
+          name: item.productName,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        total: parseFloat(total.toFixed(2)),
+      };
+
+      try {
+        const validation = await mandateServiceClient.validateMandateToken(
+          paymentRequest.mandateToken,
+          cartData
+        );
+
+        if (!validation.valid) {
+          const errorMsg = validation.errors?.join(', ') || 'Mandate token validation failed';
+          throw new Error(`Mandate validation failed: ${errorMsg}`);
+        }
+
+        console.log('[PaymentService] Mandate token validated successfully for mandate:', validation.mandate?.id);
+      } catch (error: any) {
+        // If it's our own thrown error, re-throw
+        if (error.message?.startsWith('Mandate validation failed')) {
+          throw error;
+        }
+        // For network/service errors, log warning but don't block payment
+        console.warn('[PaymentService] Mandate token validation error (proceeding):', error.message);
+      }
+    }
 
     // Create order
     const orderItems = cartItems.map(item => ({

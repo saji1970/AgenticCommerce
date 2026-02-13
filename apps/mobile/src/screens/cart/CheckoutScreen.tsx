@@ -21,6 +21,7 @@ import { storageService } from '../../services/storage.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PENDING_PAYMENT_KEY = 'pending_payment_request';
+const MANDATE_TOKEN_KEY = 'mandate_token';
 
 type CheckoutScreenNavigationProp = NativeStackNavigationProp<CartStackParamList, 'Checkout'>;
 
@@ -202,12 +203,20 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
 
       // Get default agent ID for mandate validation
       const defaultAgent = AppConfig.getDefaultAgent();
+
+      // Retrieve stored mandate token for checkout validation
+      const mandateToken = await AsyncStorage.getItem(MANDATE_TOKEN_KEY);
+
       const result = await paymentService.processPayment(
         paymentRequest,
         defaultAgent.id,
         false, // Don't skip mandate check
-        cart.total // Pass transaction amount for mandate validation
+        cart.total, // Pass transaction amount for mandate validation
+        mandateToken || undefined // Pass mandate token for backend validation
       );
+
+      // Clear mandate token after successful payment
+      await AsyncStorage.removeItem(MANDATE_TOKEN_KEY);
 
       Alert.alert(
         'Payment Successful!',

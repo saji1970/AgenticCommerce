@@ -108,17 +108,46 @@ export class MandateController {
         });
       }
 
-      const mandate = await this.mandateService.approveMandate(id, userId);
+      const { mandate, mandateToken } = await this.mandateService.approveMandate(id, userId);
 
       res.json({
         success: true,
         data: mandate,
+        mandateToken,
       });
     } catch (error) {
       console.error('Error approving mandate:', error);
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to approve mandate',
+      });
+    }
+  };
+
+  // Validate mandate token (called by backend during checkout)
+  validateMandateToken = async (req: Request, res: Response) => {
+    try {
+      const { token, cartData } = req.body;
+
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          error: 'token is required in request body',
+        });
+      }
+
+      const result = await this.mandateService.validateMandateToken(token, cartData);
+
+      res.json({
+        success: true,
+        ...result,
+      });
+    } catch (error) {
+      console.error('Error validating mandate token:', error);
+      res.status(400).json({
+        success: false,
+        valid: false,
+        error: error instanceof Error ? error.message : 'Token validation failed',
       });
     }
   };

@@ -9,7 +9,7 @@ const MANDATE_SERVICE_URL = __DEV__
   : 'https://pure-wonder-production.up.railway.app/api'; // Railway mandate-service
 
 // Flag to enable/disable secure payload encryption
-const ENABLE_SECURE_PAYLOAD = true;
+const ENABLE_SECURE_PAYLOAD = false;
 
 export interface AgentMandate {
   id: string;
@@ -242,12 +242,15 @@ class MandateServiceClient {
     return response.data.data;
   }
 
-  async approveMandate(mandateId: string, userId: string): Promise<AgentMandate> {
-    const response = await this.client.post<{ success: boolean; data: AgentMandate }>(
+  async approveMandate(mandateId: string, userId: string): Promise<{ mandate: AgentMandate; mandateToken?: string }> {
+    const response = await this.client.post<{ success: boolean; data: AgentMandate; mandateToken?: string }>(
       `/mandates/${mandateId}/approve`,
       { userId }
     );
-    return response.data.data;
+    return {
+      mandate: response.data.data,
+      mandateToken: response.data.mandateToken,
+    };
   }
 
   async suspendMandate(mandateId: string, userId: string): Promise<AgentMandate> {
