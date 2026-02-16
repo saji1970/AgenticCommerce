@@ -85,15 +85,19 @@ export const MandateDetailScreen: React.FC = () => {
   const isIntentFlow = !!intentData;
 
   useEffect(() => {
+    // Reset approval state when mandateId changes - each mandate requires fresh biometric + signature
+    setBiometricVerified(false);
+    setSignatureData(null);
+    setAgreed(false);
+    setShowSignaturePad(false);
+    setCustomLimits(null);
+
     loadMandate();
     checkBiometricType();
-    // If cart data was passed via route params, use it
-    if (routeCartData) {
-      setCartData(routeCartData);
-    }
-    // If intent data was passed via route params, use it
+    // Always sync cart/intent data from route params - clear when not passed to avoid showing wrong product
+    setCartData(routeCartData || null);
+    setIntentData(routeIntentData || null);
     if (routeIntentData) {
-      setIntentData(routeIntentData);
       console.log('Intent data received:', routeIntentData);
     }
   }, [mandateId, routeCartData, routeIntentData]);
@@ -191,11 +195,26 @@ export const MandateDetailScreen: React.FC = () => {
       // Generate an intent ID if this is an intent approval
       const intentId = isIntentFlow ? `intent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` : undefined;
 
-      // Send deep link back to AgenticCommerce app (include mandate token)
+      // Send deep link back to AgenticCommerce app (include mandate token and cart data for cart mandates)
       const tokenParam = mandateToken ? `&mandateToken=${encodeURIComponent(mandateToken)}` : '';
-      const callbackUrl = isIntentFlow
+      // Use cart-callback for cart mandates so shopping app adds product to cart
+      const callbackPath = mandate?.type === 'cart' ? 'cart-callback' : 'payment-callback';
+      let callbackUrl = isIntentFlow
         ? `${AGENTIC_COMMERCE_SCHEME}intent-callback?mandateId=${mandateId}&status=approved${intentId ? `&intentId=${intentId}` : ''}${tokenParam}`
-        : `${AGENTIC_COMMERCE_SCHEME}payment-callback?mandateId=${mandateId}&status=approved${tokenParam}`;
+        : `${AGENTIC_COMMERCE_SCHEME}${callbackPath}?mandateId=${mandateId}&status=approved${tokenParam}`;
+
+      // Include cartData in callback URL so shopping app can add product even if AsyncStorage was cleared
+      if (mandate?.type === 'cart' && cartData?.items?.length) {
+        const item = cartData.items[0];
+        const cartDataParam = encodeURIComponent(JSON.stringify({
+          productId: item.id,
+          productName: item.name,
+          productImage: item.imageUrl,
+          quantity: item.quantity || 1,
+          price: item.price,
+        }));
+        callbackUrl += `&cartData=${cartDataParam}`;
+      }
 
       const alertTitle = isIntentFlow ? 'Intent Approved!' : 'Mandate Approved!';
       const alertMessage = isIntentFlow
@@ -210,9 +229,10 @@ export const MandateDetailScreen: React.FC = () => {
             text: 'Return to Shopping',
             onPress: async () => {
               try {
+                console.log('[MandateDetail] Opening callback URL:', callbackUrl);
                 await Linking.openURL(callbackUrl);
               } catch (linkError) {
-                console.error('Error opening deep link:', linkError);
+                console.error('[MandateDetail] Error opening deep link:', linkError);
                 navigation.goBack();
               }
             },
@@ -240,19 +260,58 @@ export const MandateDetailScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await mandateServiceClient.revokeMandate(mandateId, mandate!.userId, 'Cancelled by user');
+              const user = await storageService.getUser();
+              const revokeUserId = mandate!.userId || user?.id;
+              if (!revokeUserId) {
+                Alert.alert('Error', 'User not logged in. Cannot cancel mandate.');
+                return;
+              }
+              await mandateServiceClient.revokeMandate(mandateId, revokeUserId, 'Cancelled by user');
               await refreshMandates();
               Alert.alert('Success', 'Mandate cancelled', [
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error cancelling mandate:', error);
-              Alert.alert('Error', 'Failed to cancel mandate');
+              const msg = error?.response?.data?.error || error?.message || 'Failed to cancel mandate';
+              Alert.alert('Error', msg);
             }
           },
         },
       ]
     );
+  };
+
+  /**
+   * When mandate is already active and we have cartData/intentData from Shopping app,
+   * user can confirm this purchase and return - opens callback so Shopping app adds to cart.
+   */
+  const handleConfirmAndReturn = async () => {
+    if (!mandate) return;
+    const tokenParam = ''; // Active mandate - no new token
+    const callbackPath = mandate.type === 'cart' ? 'cart-callback' : 'payment-callback';
+    let callbackUrl = mandate.type === 'intent' || isIntentFlow
+      ? `${AGENTIC_COMMERCE_SCHEME}intent-callback?mandateId=${mandateId}&status=approved`
+      : `${AGENTIC_COMMERCE_SCHEME}${callbackPath}?mandateId=${mandateId}&status=approved`;
+
+    if (mandate.type === 'cart' && cartData?.items?.length) {
+      const item = cartData.items[0];
+      const cartDataParam = encodeURIComponent(JSON.stringify({
+        productId: item.id,
+        productName: item.name,
+        productImage: item.imageUrl,
+        quantity: item.quantity || 1,
+        price: item.price,
+      }));
+      callbackUrl += `&cartData=${cartDataParam}`;
+    }
+
+    try {
+      await Linking.openURL(callbackUrl);
+    } catch (e) {
+      console.error('[MandateDetail] Error opening callback:', e);
+      navigation.goBack();
+    }
   };
 
   const handleRevoke = () => {
@@ -266,14 +325,21 @@ export const MandateDetailScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await mandateServiceClient.revokeMandate(mandateId, mandate!.userId, 'Revoked by user');
+              const user = await storageService.getUser();
+              const revokeUserId = mandate!.userId || user?.id;
+              if (!revokeUserId) {
+                Alert.alert('Error', 'User not logged in. Cannot revoke mandate.');
+                return;
+              }
+              await mandateServiceClient.revokeMandate(mandateId, revokeUserId, 'Revoked by user');
               await refreshMandates();
               Alert.alert('Success', 'Mandate revoked', [
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error revoking mandate:', error);
-              Alert.alert('Error', 'Failed to revoke mandate');
+              const msg = error?.response?.data?.error || error?.message || 'Failed to revoke mandate';
+              Alert.alert('Error', msg);
             }
           },
         },
@@ -307,6 +373,19 @@ export const MandateDetailScreen: React.FC = () => {
 
   return (
     <ScrollView style={styles.container}>
+      {/* Prominent product banner when adding new item to cart - always visible at top */}
+      {cartData && cartData.items && cartData.items.length > 0 && mandate?.type === 'cart' && (
+        <View style={styles.currentProductBanner}>
+          <Text style={styles.currentProductBannerLabel}>Adding to cart</Text>
+          <Text style={styles.currentProductBannerProduct} numberOfLines={2}>
+            {cartData.items.map(i => i.name).join(', ')}
+          </Text>
+          <Text style={styles.currentProductBannerPrice}>
+            ${cartData.total.toFixed(2)} total
+          </Text>
+        </View>
+      )}
+
       <View style={styles.header}>
         <Text style={styles.agentName}>
           {isIntentFlow ? intentData?.agentName || mandate.agentName : mandate.agentName}
@@ -550,6 +629,17 @@ export const MandateDetailScreen: React.FC = () => {
 
       {mandate.status === 'active' && (
         <View style={styles.actions}>
+          {/* When opened from Shopping app with cart/intent data, show Confirm button */}
+          {(cartData?.items?.length || intentData) && (
+            <TouchableOpacity
+              style={styles.approveButton}
+              onPress={handleConfirmAndReturn}
+            >
+              <Text style={styles.approveButtonText}>
+                {intentData ? 'Confirm Intent & Return' : 'Confirm & Return to Shopping'}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.revokeButton} onPress={handleRevoke}>
             <Text style={styles.revokeButtonText}>Revoke Mandate</Text>
           </TouchableOpacity>
@@ -609,6 +699,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  currentProductBanner: {
+    backgroundColor: '#EFF6FF',
+    borderBottomWidth: 2,
+    borderBottomColor: '#3B82F6',
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 12,
+  },
+  currentProductBannerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3B82F6',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  currentProductBannerProduct: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  currentProductBannerPrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
   },
   centerContainer: {
     flex: 1,

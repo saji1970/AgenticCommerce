@@ -103,8 +103,14 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
         agentName: defaultAgent.name,
       };
 
-      // Request approval from Mandate app
-      const mandateId = await requestIntentApproval(intentData);
+      // Use real mandate ID (from MandateFlowManager flow) - same as cart, no fake IDs
+      const mandate = getActiveMandateByType(MandateType.INTENT);
+      if (!mandate) {
+        Alert.alert('Error', 'Intent mandate not found. Please complete the mandate flow first.');
+        return;
+      }
+
+      const mandateId = await requestIntentApproval(intentData, mandate.id);
 
       if (mandateId) {
         setShowIntentModal(false);
@@ -206,6 +212,7 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
           onMandateReady={handleMandateReady}
           onCancel={handleMandateCancel}
           autoCheck={true}
+          product={product}
         />
       )}
 

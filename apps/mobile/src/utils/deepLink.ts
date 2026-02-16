@@ -1,5 +1,6 @@
 import { Linking, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageService } from '../services/storage.service';
 
 /**
  * Deep Link Utility
@@ -44,36 +45,40 @@ export async function getCartDataForMandate(): Promise<CartData | null> {
   }
 }
 
+export type { OpenMandateAppOptions } from './mandateUrlBuilder';
+export { buildMandateAppUrl } from './mandateUrlBuilder';
+import type { OpenMandateAppOptions } from './mandateUrlBuilder';
+import { buildMandateAppUrl } from './mandateUrlBuilder';
+
 /**
- * Open Mandate app with a specific mandate ID and cart data
+ * Open Mandate app with a specific mandate ID, cart data, and userId for auto-login
  */
-export async function openMandateApp(mandateId: string, cartData?: CartData): Promise<boolean> {
+export async function openMandateApp(
+  mandateId: string,
+  options?: OpenMandateAppOptions | CartData
+): Promise<boolean> {
   try {
-    // Encode cart data in URL for mandate app to display
-    let url = `${MANDATE_APP_SCHEME}/${mandateId}`;
+    const url = buildMandateAppUrl(mandateId, options);
+    console.log('[deepLink] Opening Mandate app with URL:', url);
 
-    if (cartData) {
-      // URL encode the cart data JSON
-      const encodedCartData = encodeURIComponent(JSON.stringify(cartData));
-      url = `${url}?cartData=${encodedCartData}`;
-    }
-
-    console.log('Opening Mandate app with URL:', url);
-    
-    const canOpen = await Linking.canOpenURL(url);
-    if (!canOpen) {
-      // Try to open Play Store if app not installed
+    // On Android 11+, canOpenURL can return false for custom schemes even when app is installed
+    // (package visibility). Try openURL first - it works if Mandate app is installed.
+    try {
+      await Linking.openURL(url);
+      console.log('[deepLink] Linking.openURL succeeded - Mandate app opened');
+      return true;
+    } catch (openError: any) {
+      console.warn('[deepLink] Linking.openURL failed:', openError?.message || openError);
+      // Mandate app not installed or couldn't open - show install prompt
       if (Platform.OS === 'android') {
-        const playStoreUrl = `market://details?id=${MANDATE_APP_PACKAGE}`;
-        const canOpenPlayStore = await Linking.canOpenURL(playStoreUrl);
-        if (canOpenPlayStore) {
-          await Linking.openURL(playStoreUrl);
+        try {
+          await Linking.openURL(`market://details?id=${MANDATE_APP_PACKAGE}`);
           Alert.alert(
             'Mandate App Required',
             'Please install the Mandate Manager app to approve mandates.',
             [{ text: 'OK' }]
           );
-        } else {
+        } catch {
           Alert.alert(
             'Mandate App Required',
             'Please install the Mandate Manager app from the Play Store to approve mandates.',
@@ -89,11 +94,8 @@ export async function openMandateApp(mandateId: string, cartData?: CartData): Pr
       }
       return false;
     }
-
-    await Linking.openURL(url);
-    return true;
   } catch (error) {
-    console.error('Error opening Mandate app:', error);
+    console.error('[deepLink] Error opening Mandate app:', error);
     Alert.alert('Error', 'Failed to open Mandate app');
     return false;
   }
@@ -166,45 +168,32 @@ export async function clearPendingIntentData(): Promise<void> {
 
 /**
  * Open Mandate app for intent approval
- * Creates a pending mandate and opens the Mandate app for user to approve with biometric and sign
+ * Uses same openMandateApp flow as cart - passes intentData, userId for consistency
  */
 export async function openMandateAppForIntent(intentData: IntentData, mandateId: string): Promise<boolean> {
   try {
     // Save intent data for when we return from Mandate app
     await savePendingIntentData(intentData);
 
-    // Encode intent data in URL for mandate app to display
-    const encodedIntentData = encodeURIComponent(JSON.stringify({
-      type: 'intent',
-      product: {
-        id: intentData.productId,
-        name: intentData.productName,
-        image: intentData.productImage,
-        price: intentData.price,
-        quantity: intentData.quantity,
+    // Use openMandateApp for consistency with cart flow (includes userId, etc.)
+    const opts: OpenMandateAppOptions = {
+      intentData: {
+        type: 'intent',
+        product: {
+          id: intentData.productId,
+          name: intentData.productName,
+          image: intentData.productImage,
+          price: intentData.price,
+          quantity: intentData.quantity,
+        },
+        maxPrice: intentData.maxPrice || intentData.price,
+        reasoning: intentData.reasoning,
+        agentName: intentData.agentName,
       },
-      maxPrice: intentData.maxPrice || intentData.price,
-      reasoning: intentData.reasoning,
-      agentName: intentData.agentName,
-    }));
-
-    const url = `${MANDATE_APP_SCHEME}/${mandateId}?intentData=${encodedIntentData}`;
-    console.log('Opening Mandate app for intent approval:', url);
-
-    const canOpen = await Linking.canOpenURL(url);
-    if (!canOpen) {
-      if (Platform.OS === 'android') {
-        Alert.alert(
-          'Mandate App Required',
-          'Please install the Mandate Manager app to approve intents.',
-          [{ text: 'OK' }]
-        );
-      }
-      return false;
-    }
-
-    await Linking.openURL(url);
-    return true;
+    };
+    const user = await storageService.getUser();
+    if (user?.id) opts.userId = user.id;
+    return await openMandateApp(mandateId, opts);
   } catch (error) {
     console.error('Error opening Mandate app for intent:', error);
     Alert.alert('Error', 'Failed to open Mandate app');

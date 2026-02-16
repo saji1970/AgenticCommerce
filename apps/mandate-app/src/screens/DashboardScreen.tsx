@@ -221,13 +221,16 @@ export const DashboardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Empty State */}
+      {/* Empty State - Helpful message for syncing with Shopping App */}
       {mandates.length === 0 && (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📱</Text>
-          <Text style={styles.emptyTitle}>No AI Apps Yet</Text>
+          <Text style={styles.emptyIcon}>🛒</Text>
+          <Text style={styles.emptyTitle}>No Mandates Yet</Text>
           <Text style={styles.emptyText}>
-            When AI apps request authorization to make purchases on your behalf, they will appear here.
+            To see your mandates here, open the Shopping App and tap "Buy Now" on any product. That will open this app with your account and show your authorizations.
+          </Text>
+          <Text style={styles.emptyHint}>
+            Make sure you're logged in with the same account in both apps.
           </Text>
         </View>
       )}
@@ -546,5 +549,12 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 12,
+  },
+  emptyHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

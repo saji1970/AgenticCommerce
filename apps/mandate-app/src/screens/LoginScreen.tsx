@@ -106,6 +106,9 @@ export const LoginScreen: React.FC = () => {
         <Text style={styles.demoHint}>
           See sample mandates with pre-filled data
         </Text>
+        <Text style={styles.syncHint}>
+          To see mandates from the Shopping App, tap Buy Now there first — it will open this app with your account.
+        </Text>
       </View>
     </View>
   );
@@ -196,5 +199,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 8,
+  },
+  syncHint: {
+    color: '#3B82F6',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 16,
+    paddingHorizontal: 16,
   },
 });

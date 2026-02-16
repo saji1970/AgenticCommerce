@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Mandate - The future of AI-powered payment authorization. Enable secure, compliant AI commerce with digital signatures and configurable controls.">
+    <title>Mandate | AI Payment Authorization Platform for Banks & Payment Gateways</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo">
+                <svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="40" height="40" rx="8" fill="url(#logo-gradient)"/>
+                    <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="logo-gradient" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#6366F1"/>
+                            <stop offset="1" stop-color="#8B5CF6"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <span>Mandate</span>
+            </a>
+            <div class="nav-links" id="nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#solutions">Solutions</a>
+                <a href="#security">Security</a>
+                <a href="#pricing">Pricing</a>
+            </div>
+            <div class="nav-actions">
+                <a href="#contact" class="btn btn-secondary">Contact Sales</a>
+                <a href="#demo" class="btn btn-primary">Request Demo</a>
+            </div>
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-bg">
+            <div class="hero-gradient"></div>
+            <div class="hero-grid"></div>
+        </div>
+        <div class="container hero-content">
+            <div class="hero-badge">
+                <span class="badge-icon">NEW</span>
+                <span>Now supporting PSD2 & Open Banking compliance</span>
+            </div>
+            <h1 class="hero-title">
+                The Future of <span class="gradient-text">AI-Powered</span><br>
+                Payment Authorization
+            </h1>
+            <p class="hero-subtitle">
+                Enable your customers to authorize AI agents for secure, compliant e-commerce transactions.
+                Built for banks, payment gateways, and acquirers who want to lead the AI commerce revolution.
+            </p>
+            <div class="hero-cta">
+                <a href="#demo" class="btn btn-primary btn-lg">
+                    <span>Schedule a Demo</span>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </a>
+                <a href="#how-it-works" class="btn btn-outline btn-lg">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2"/>
+                        <path d="M8 7L13 10L8 13V7Z" fill="currentColor"/>
+                    </svg>
+                    <span>See How It Works</span>
+                </a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-value">99.99%</span>
+                    <span class="stat-label">Uptime SLA</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-value">&lt;50ms</span>
+                    <span class="stat-label">Authorization Time</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-value">PCI DSS</span>
+                    <span class="stat-label">Level 1 Certified</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="dashboard-preview">
+                <div class="preview-header">
+                    <div class="preview-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span class="preview-title">Mandate Dashboard</span>
+                </div>
+                <div class="preview-content">
+                    <div class="mandate-card active">
+                        <div class="mandate-icon cart">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                                <path d="M1 1H5L7.68 14.39C7.77 14.87 8.2 15.2 8.69 15.2H19.5C19.99 15.2 20.42 14.87 20.51 14.39L22 7H6"/>
+                            </svg>
+                        </div>
+                        <div class="mandate-info">
+                            <span class="mandate-type">Cart Mandate</span>
+                            <span class="mandate-status active">Active</span>
+                        </div>
+                        <div class="mandate-details">
+                            <span>Max: $500/item</span>
+                            <span>10 items/day</span>
+                        </div>
+                    </div>
+                    <div class="mandate-card">
+                        <div class="mandate-icon intent">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7L12 12L22 7L12 2Z"/>
+                                <path d="M2 17L12 22L22 17"/>
+                                <path d="M2 12L12 17L22 12"/>
+                            </svg>
+                        </div>
+                        <div class="mandate-info">
+                            <span class="mandate-type">Intent Mandate</span>
+                            <span class="mandate-status pending">Pending</span>
+                        </div>
+                        <div class="mandate-details">
+                            <span>Auto-approve &lt;$100</span>
+                            <span>5 intents/day</span>
+                        </div>
+                    </div>
+                    <div class="mandate-card">
+                        <div class="mandate-icon payment">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="1" y="4" width="22" height="16" rx="2"/>
+                                <line x1="1" y1="10" x2="23" y2="10"/>
+                            </svg>
+                        </div>
+                        <div class="mandate-info">
+                            <span class="mandate-type">Payment Mandate</span>
+                            <span class="mandate-status active">Active</span>
+                        </div>
+                        <div class="mandate-details">
+                            <span>$1,000/txn limit</span>
+                            <span>$5,000/month</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trusted By Section -->
+    <section class="trusted-by">
+        <div class="container">
+            <p class="trusted-label">Trusted by leading financial institutions</p>
+            <div class="trust-logos">
+                <div class="trust-logo">
+                    <svg viewBox="0 0 120 40" fill="currentColor">
+                        <text x="10" y="28" font-size="18" font-weight="600">GlobalBank</text>
+                    </svg>
+                </div>
+                <div class="trust-logo">
+                    <svg viewBox="0 0 120 40" fill="currentColor">
+                        <text x="10" y="28" font-size="18" font-weight="600">PaySecure</text>
+                    </svg>
+                </div>
+                <div class="trust-logo">
+                    <svg viewBox="0 0 120 40" fill="currentColor">
+                        <text x="10" y="28" font-size="18" font-weight="600">AcquireNet</text>
+                    </svg>
+                </div>
+                <div class="trust-logo">
+                    <svg viewBox="0 0 140 40" fill="currentColor">
+                        <text x="10" y="28" font-size="18" font-weight="600">FinanceFirst</text>
+                    </svg>
+                </div>
+                <div class="trust-logo">
+                    <svg viewBox="0 0 120 40" fill="currentColor">
+                        <text x="10" y="28" font-size="18" font-weight="600">TrustPay</text>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section class="problem-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">The Challenge</span>
+                <h2 class="section-title">AI Commerce is Here.<br>Is Your Platform Ready?</h2>
+                <p class="section-subtitle">
+                    As AI agents become the new shoppers, payment platforms face unprecedented challenges
+                    in authorization, compliance, and fraud prevention.
+                </p>
+            </div>
+            <div class="problems-grid">
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 9V11M12 15H12.01M5.07 19H18.93C20.59 19 21.58 17.18 20.75 15.75L13.82 3.75C12.99 2.32 11.01 2.32 10.18 3.75L3.25 15.75C2.42 17.18 3.41 19 5.07 19Z"/>
+                        </svg>
+                    </div>
+                    <h3>Authorization Ambiguity</h3>
+                    <p>How do you prove an AI agent has legitimate user consent to make purchases? Traditional auth flows weren't designed for autonomous agents.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/>
+                            <path d="M12 6V12L16 14"/>
+                        </svg>
+                    </div>
+                    <h3>Regulatory Uncertainty</h3>
+                    <p>PSD2, PCI DSS, and emerging AI regulations demand audit trails and consent proof that current systems can't provide.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22S20 18 20 12V5L12 2L4 5V12C4 18 12 22 12 22Z"/>
+                            <path d="M12 8V12M12 16H12.01"/>
+                        </svg>
+                    </div>
+                    <h3>Fraud Vulnerability</h3>
+                    <p>Compromised AI agents could drain accounts without spending limits. You need granular controls that adapt to AI commerce patterns.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M3 9H21M9 21V9"/>
+                        </svg>
+                    </div>
+                    <h3>Integration Complexity</h3>
+                    <p>Building AI authorization from scratch takes 12-18 months. Your competitors are already moving while you're still planning.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solution Section -->
+    <section class="solution-section" id="features">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">The Solution</span>
+                <h2 class="section-title">Mandate: Purpose-Built for<br><span class="gradient-text">AI Commerce Authorization</span></h2>
+                <p class="section-subtitle">
+                    A comprehensive authorization framework that enables AI agents to transact with
+                    cryptographic consent, configurable limits, and complete audit trails.
+                </p>
+            </div>
+            <div class="features-showcase">
+                <div class="feature-tabs">
+                    <button class="feature-tab active" data-feature="cart">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                            <path d="M1 1H5L7.68 14.39C7.77 14.87 8.2 15.2 8.69 15.2H19.5C19.99 15.2 20.42 14.87 20.51 14.39L22 7H6"/>
+                        </svg>
+                        <span>Cart Mandate</span>
+                    </button>
+                    <button class="feature-tab" data-feature="intent">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z"/>
+                            <path d="M2 17L12 22L22 17"/>
+                            <path d="M2 12L12 17L22 12"/>
+                        </svg>
+                        <span>Intent Mandate</span>
+                    </button>
+                    <button class="feature-tab" data-feature="payment">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="1" y="4" width="22" height="16" rx="2"/>
+                            <line x1="1" y1="10" x2="23" y2="10"/>
+                        </svg>
+                        <span>Payment Mandate</span>
+                    </button>
+                </div>
+                <div class="feature-content">
+                    <div class="feature-panel active" id="cart-panel">
+                        <div class="feature-info">
+                            <h3>Cart Mandate</h3>
+                            <p class="feature-description">
+                                Authorize AI agents to manage shopping cart operations with precise controls.
+                                Set limits on item values, daily quantities, and allowed categories.
+                            </p>
+                            <ul class="feature-list">
+                                <li>
+                                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                    <span>Per-item value limits prevent expensive unauthorized additions</span>
+                                </li>
+                                <li>
+                                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                    <span>Category restrictions ensure agents only shop approved product types</span>
+                                </li>
+                                <li>
+                                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                    <span>Daily item limits prevent cart stuffing attacks</span>
+                                </li>
+                            </ul>
+                            <div class="feature-code">
+                                <pre><code>{
+  "type": "cart",
+  "constraints": {
+    "maxItemValue": 500,
+    "maxItemsPerDay": 10,
+    "allowedCategories": ["Electronics", "Books"]
+  }
+}</code></pre>
+                            </div>
+                        </div>
+                        <div class="feature-visual">
+                            <div class="visual-card cart-visual">
+                                <div class="visual-header">
+                                    <span class="visual-badge">AI Agent Action</span>
+                                </div>
+                                <div class="visual-flow">
+                                    <div class="flow-step">
+                                        <div class="step-icon user">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                                <circle cx="12" cy="7" r="4"/>
+                                            </svg>
+                                        </div>
+                                        <span>"Add laptop to cart"</span>
+                                    </div>
+                                    <div class="flow-arrow">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 5v14M19 12l-7 7-7-7"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flow-step">
+                                        <div class="step-icon check">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M9 12l2 2 4-4"/>
+                                                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                                            </svg>
+                                        </div>
+                                        <span>Mandate Verified</span>
+                                    </div>
+                                    <div class="flow-arrow">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 5v14M19 12l-7 7-7-7"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flow-step">
+                                        <div class="step-icon success">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                                                <path d="M1 1h4l2.68 13.39c.09.48.52.81 1.01.81h10.81c.49 0 .92-.33 1.01-.81L22 7H6"/>
+                                            </svg>
+                                        </div>
+                                        <span>Item Added</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="feature-panel" id="intent-panel">
+                        <div class="feature-info">
+                            <h3>Intent Mandate</h3>
+                            <p class="feature-description">
+                                Enable AI agents to create conditional purchase intents. Perfect for price monitoring,
+                                deal hunting, and automated buying when specific conditions are met.
+                            </p>
+                            <ul class="feature-list">
+                                <li>
+                                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                    <span>Auto-approval thresholds for low-risk transactions</span>
+                                </li>
+                                <li>
+                                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                    <span>Configurable intent expiration prevents stale orders</span>
+                                </li>
+                                <li>
+                                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                    <span>Daily intent limits cap automated purchase attempts</span>
+                                </li>
+                            </ul>
+                            <div class="feature-code">
+                                <pre><code>{
+  "type": "intent",
+  "constraints": {
+    "maxIntentValue": 2000,
+    "maxIntentsPerDay": 5,
+    "autoApproveUnder": 100,
+    "expiryHours": 48
+  }
+}</code></pre>
+                            </div>
+                        </div>
+                        <div class="feature-visual">
+                            <div class="visual-card intent-visual">
+                                <div class="visual-header">
+                                    <span class="visual-badge">Smart Purchase</span>
+                                </div>
+                                <div class="intent-example">
+                                    <div class="intent-trigger">
+                                        <span class="trigger-label">Condition</span>
+                                        <span class="trigger-text">"Buy MacBook when price &lt; $2000"</span>
+                                    </div>
+                                    <div class="intent-monitor">
+                                        <div class="monitor-status">
+                                            <span class="pulse"></span>
+                                            <span>AI Monitoring Price</span>
+                                        </div>
+                                        <div class="price-track">
+                                            <span class="current-price">$2,499</span>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M7 17l5-5 5 5M7 7l5 5 5-5"/>
+                                            </svg>
+                                            <span class="target-price">$1,999</span>
+                                        </div>
+                                    </div>
+                                    <div class="intent-action">
+                                        <span class="action-icon">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                                <path d="M22 4L12 14.01l-3-3"/>
+                                            </svg>
+                                        </span>
+                                        <span>Auto-creates intent when triggered</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="feature-panel" id="payment-panel">
+                        <div class="feature-info">
+                            <h3>Payment Mandate</h3>
+                            <p class="feature-description">
+                                Authorize AI agents to execute actual payments with multi-layered spending controls.
+                                Transaction, daily, and monthly limits ensure financial safety.
+                            </p>
+                            <ul class="feature-list">
+                                <li>
+                                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                    <span>Per-transaction limits cap individual purchases</span>
+                                </li>
+                                <li>
+                                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                    <span>Rolling daily limits prevent burst fraud</span>
+                                </li>
+                                <li>
+                                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                    <span>Monthly caps provide overall budget control</span>
+                                </li>
+                            </ul>
+                            <div class="feature-code">
+                                <pre><code>{
+  "type": "payment",
+  "constraints": {
+    "maxTransactionAmount": 1000,
+    "dailySpendingLimit": 2000,
+    "monthlySpendingLimit": 10000
+  }
+}</code></pre>
+                            </div>
+                        </div>
+                        <div class="feature-visual">
+                            <div class="visual-card payment-visual">
+                                <div class="visual-header">
+                                    <span class="visual-badge">Payment Execution</span>
+                                </div>
+                                <div class="payment-flow">
+                                    <div class="payment-check">
+                                        <span class="check-label">Transaction Check</span>
+                                        <div class="check-item passed">
+                                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                            <span>$299 &lt; $1,000 limit</span>
+                                        </div>
+                                        <div class="check-item passed">
+                                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                            <span>Daily: $799/$2,000</span>
+                                        </div>
+                                        <div class="check-item passed">
+                                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                                            <span>Monthly: $3,299/$10,000</span>
+                                        </div>
+                                    </div>
+                                    <div class="payment-result">
+                                        <div class="result-icon">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                                <path d="M22 4L12 14.01l-3-3"/>
+                                            </svg>
+                                        </div>
+                                        <span>Payment Authorized</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">How It Works</span>
+                <h2 class="section-title">Secure Authorization in 4 Steps</h2>
+                <p class="section-subtitle">
+                    From user consent to AI transaction - every step is cryptographically secured
+                    and fully auditable.
+                </p>
+            </div>
+            <div class="steps-container">
+                <div class="step-line"></div>
+                <div class="steps-grid">
+                    <div class="step-card">
+                        <div class="step-number">01</div>
+                        <div class="step-icon">
+                            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="8" y="4" width="32" height="40" rx="4"/>
+                                <path d="M16 20h16M16 28h10"/>
+                                <circle cx="24" cy="38" r="2"/>
+                            </svg>
+                        </div>
+                        <h3>User Creates Mandate</h3>
+                        <p>User opens the Mandate app and defines what the AI agent can do - cart management, purchase intents, or payments - with specific constraints.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">02</div>
+                        <div class="step-icon">
+                            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M24 4c-11.046 0-20 8.954-20 20s8.954 20 20 20 20-8.954 20-20S35.046 4 24 4z"/>
+                                <path d="M24 14v10l6 6"/>
+                                <circle cx="24" cy="24" r="8" fill="currentColor" opacity="0.2"/>
+                            </svg>
+                        </div>
+                        <h3>Biometric Signature</h3>
+                        <p>User signs the mandate with drawn signature + Face ID/fingerprint. Hardware Secure Element creates cryptographic proof of consent.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">03</div>
+                        <div class="step-icon">
+                            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M8 24h32"/>
+                                <circle cx="14" cy="24" r="6"/>
+                                <circle cx="34" cy="24" r="6"/>
+                                <path d="M20 24h8" stroke-dasharray="2 2"/>
+                            </svg>
+                        </div>
+                        <h3>AI Agent Acts</h3>
+                        <p>When the AI needs to transact, it presents the mandate. Your gateway verifies the cryptographic signature and checks constraints in real-time.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">04</div>
+                        <div class="step-icon">
+                            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M24 4L4 14v16c0 10 20 14 20 14s20-4 20-14V14L24 4z"/>
+                                <path d="M16 24l6 6 10-10"/>
+                            </svg>
+                        </div>
+                        <h3>Verified & Logged</h3>
+                        <p>Every action is verified against mandate rules, logged with full audit trail, and stored for compliance reporting. User gets real-time notifications.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Security Section -->
+    <section class="security-section" id="security">
+        <div class="container">
+            <div class="security-grid">
+                <div class="security-content">
+                    <span class="section-label">Enterprise Security</span>
+                    <h2 class="section-title">Bank-Grade Security.<br>Zero Compromises.</h2>
+                    <p class="section-description">
+                        Built from the ground up with security as the foundation. Every mandate
+                        is cryptographically signed, every action is audited, every limit is enforced.
+                    </p>
+                    <div class="security-features">
+                        <div class="security-feature">
+                            <div class="sf-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                </svg>
+                            </div>
+                            <div class="sf-content">
+                                <h4>Hardware Secure Element</h4>
+                                <p>Keys generated and stored in iOS Secure Enclave / Android StrongBox. Never exposed to software.</p>
+                            </div>
+                        </div>
+                        <div class="security-feature">
+                            <div class="sf-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="11" width="18" height="11" rx="2"/>
+                                    <path d="M7 11V7a5 5 0 0110 0v4"/>
+                                </svg>
+                            </div>
+                            <div class="sf-content">
+                                <h4>Digital Signatures</h4>
+                                <p>ECDSA signatures with SHA-256 hashing. Cryptographic proof of user consent that stands up in court.</p>
+                            </div>
+                        </div>
+                        <div class="security-feature">
+                            <div class="sf-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                                </svg>
+                            </div>
+                            <div class="sf-content">
+                                <h4>Complete Audit Trail</h4>
+                                <p>Every action logged with timestamp, agent ID, mandate reference, and outcome. Export-ready for regulators.</p>
+                            </div>
+                        </div>
+                        <div class="security-feature">
+                            <div class="sf-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="3"/>
+                                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                                </svg>
+                            </div>
+                            <div class="sf-content">
+                                <h4>Real-Time Monitoring</h4>
+                                <p>Instant anomaly detection, velocity checks, and automated mandate suspension on suspicious activity.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="security-visual">
+                    <div class="compliance-badges">
+                        <div class="compliance-badge">
+                            <div class="badge-icon">
+                                <svg viewBox="0 0 48 48" fill="currentColor">
+                                    <circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M24 8L14 18v12c0 8 10 10 10 10s10-2 10-10V18L24 8z" fill="currentColor" opacity="0.2"/>
+                                    <path d="M20 24l3 3 6-6" fill="none" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <span>PCI DSS Level 1</span>
+                        </div>
+                        <div class="compliance-badge">
+                            <div class="badge-icon">
+                                <svg viewBox="0 0 48 48" fill="currentColor">
+                                    <rect x="4" y="4" width="40" height="40" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    <text x="24" y="30" text-anchor="middle" font-size="14" font-weight="bold">PSD2</text>
+                                </svg>
+                            </div>
+                            <span>PSD2 Compliant</span>
+                        </div>
+                        <div class="compliance-badge">
+                            <div class="badge-icon">
+                                <svg viewBox="0 0 48 48" fill="currentColor">
+                                    <circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    <text x="24" y="28" text-anchor="middle" font-size="10" font-weight="bold">SOC 2</text>
+                                </svg>
+                            </div>
+                            <span>SOC 2 Type II</span>
+                        </div>
+                        <div class="compliance-badge">
+                            <div class="badge-icon">
+                                <svg viewBox="0 0 48 48" fill="currentColor">
+                                    <rect x="4" y="4" width="40" height="40" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    <text x="24" y="30" text-anchor="middle" font-size="12" font-weight="bold">GDPR</text>
+                                </svg>
+                            </div>
+                            <span>GDPR Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solutions Section -->
+    <section class="solutions-section" id="solutions">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">Industry Solutions</span>
+                <h2 class="section-title">Built for Your Industry</h2>
+                <p class="section-subtitle">
+                    Purpose-built solutions for banks, payment gateways, and acquirers ready to
+                    capture the AI commerce opportunity.
+                </p>
+            </div>
+            <div class="solutions-tabs">
+                <button class="solution-tab active" data-solution="banks">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
+                    </svg>
+                    <span>Banks</span>
+                </button>
+                <button class="solution-tab" data-solution="gateways">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                        <path d="M2 10h20M6 16h4"/>
+                    </svg>
+                    <span>Payment Gateways</span>
+                </button>
+                <button class="solution-tab" data-solution="acquirers">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    <span>Acquirers</span>
+                </button>
+            </div>
+            <div class="solutions-content">
+                <div class="solution-panel active" id="banks-panel">
+                    <div class="solution-info">
+                        <h3>For Banks with E-Commerce Payment Gateway</h3>
+                        <p class="solution-description">
+                            Differentiate your payment gateway with AI-ready authorization.
+                            Offer your merchant customers the ability to accept AI-driven purchases
+                            while maintaining the compliance standards your regulators expect.
+                        </p>
+                        <div class="solution-benefits">
+                            <div class="benefit">
+                                <div class="benefit-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                    </svg>
+                                </div>
+                                <div class="benefit-content">
+                                    <h4>New Revenue Stream</h4>
+                                    <p>Premium pricing for AI commerce features. Early mover advantage in a $47B market.</p>
+                                </div>
+                            </div>
+                            <div class="benefit">
+                                <div class="benefit-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                        <path d="M22 4L12 14.01l-3-3"/>
+                                    </svg>
+                                </div>
+                                <div class="benefit-content">
+                                    <h4>Regulatory Ready</h4>
+                                    <p>Built-in compliance for PSD2, Open Banking, and emerging AI transaction regulations.</p>
+                                </div>
+                            </div>
+                            <div class="benefit">
+                                <div class="benefit-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                </div>
+                                <div class="benefit-content">
+                                    <h4>Reduced Fraud Liability</h4>
+                                    <p>Cryptographic consent proof shifts liability. Clear audit trails protect against disputes.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="#demo" class="btn btn-primary">
+                            <span>Talk to Our Banking Team</span>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </a>
+                    </div>
+                    <div class="solution-visual">
+                        <div class="use-case-card">
+                            <span class="use-case-label">Use Case</span>
+                            <h4>AI Shopping Assistant Integration</h4>
+                            <p>A major retail bank integrated Mandate into their mobile app. Customers can now authorize AI assistants to manage subscriptions, find deals, and make purchases - all with bank-grade security.</p>
+                            <div class="use-case-stats">
+                                <div class="uc-stat">
+                                    <span class="uc-value">32%</span>
+                                    <span class="uc-label">Increase in Digital Transactions</span>
+                                </div>
+                                <div class="uc-stat">
+                                    <span class="uc-value">0</span>
+                                    <span class="uc-label">AI-Related Fraud Cases</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="solution-panel" id="gateways-panel">
+                    <div class="solution-info">
+                        <h3>For Payment Gateway Companies</h3>
+                        <p class="solution-description">
+                            Add AI commerce capabilities to your gateway without rebuilding your platform.
+                            Our API-first architecture integrates with your existing flows and gives your
+                            merchants a competitive edge.
+                        </p>
+                        <div class="solution-benefits">
+                            <div class="benefit">
+                                <div class="benefit-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                                    </svg>
+                                </div>
+                                <div class="benefit-content">
+                                    <h4>Rapid Integration</h4>
+                                    <p>RESTful APIs with SDKs for all major platforms. Go live in weeks, not months.</p>
+                                </div>
+                            </div>
+                            <div class="benefit">
+                                <div class="benefit-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                                        <path d="M8 21h8M12 17v4"/>
+                                    </svg>
+                                </div>
+                                <div class="benefit-content">
+                                    <h4>White-Label Ready</h4>
+                                    <p>Fully customizable UI components. Your brand, our technology.</p>
+                                </div>
+                            </div>
+                            <div class="benefit">
+                                <div class="benefit-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                    </svg>
+                                </div>
+                                <div class="benefit-content">
+                                    <h4>Global Scale</h4>
+                                    <p>Multi-region deployment, multi-currency support, 99.99% uptime SLA.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="#demo" class="btn btn-primary">
+                            <span>Request API Documentation</span>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </a>
+                    </div>
+                    <div class="solution-visual">
+                        <div class="integration-preview">
+                            <span class="integration-label">Simple Integration</span>
+                            <div class="code-preview">
+                                <pre><code><span class="code-comment">// Verify mandate before processing payment</span>
+<span class="code-keyword">const</span> result = <span class="code-keyword">await</span> mandate.verify({
+  mandateId: <span class="code-string">"mdt_abc123"</span>,
+  agentId: <span class="code-string">"agent_xyz"</span>,
+  action: <span class="code-string">"payment"</span>,
+  amount: <span class="code-number">299.99</span>,
+  currency: <span class="code-string">"USD"</span>
+});
+
+<span class="code-keyword">if</span> (result.authorized) {
+  <span class="code-comment">// Process payment with your gateway</span>
+  processPayment(result.token);
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="solution-panel" id="acquirers-panel">
+                    <div class="solution-info">
+                        <h3>For Acquirers with E-Commerce Gateway</h3>
+                        <p class="solution-description">
+                            Protect your merchant portfolio from AI-related fraud while enabling them
+                            to capture the growing AI commerce market. Mandate gives you the controls
+                            acquirers need with the features merchants want.
+                        </p>
+                        <div class="solution-benefits">
+                            <div class="benefit">
+                                <div class="benefit-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="8.5" cy="7" r="4"/>
+                                        <path d="M20 8v6M23 11h-6"/>
+                                    </svg>
+                                </div>
+                                <div class="benefit-content">
+                                    <h4>Merchant Enablement</h4>
+                                    <p>Give your merchants AI commerce capabilities. Increase stickiness and reduce churn.</p>
+                                </div>
+                            </div>
+                            <div class="benefit">
+                                <div class="benefit-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                        <path d="M12 9v4M12 17h.01"/>
+                                    </svg>
+                                </div>
+                                <div class="benefit-content">
+                                    <h4>Risk Mitigation</h4>
+                                    <p>Configurable limits at acquirer level. Override merchant settings when needed.</p>
+                                </div>
+                            </div>
+                            <div class="benefit">
+                                <div class="benefit-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <path d="M17 8l-5-5-5 5M12 3v12"/>
+                                    </svg>
+                                </div>
+                                <div class="benefit-content">
+                                    <h4>Volume Growth</h4>
+                                    <p>AI agents shop 24/7. Capture transactions that would otherwise go to competitors.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="#demo" class="btn btn-primary">
+                            <span>Discuss Partnership</span>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </a>
+                    </div>
+                    <div class="solution-visual">
+                        <div class="acquirer-dashboard">
+                            <span class="dashboard-label">Acquirer Controls</span>
+                            <div class="control-grid">
+                                <div class="control-item">
+                                    <span class="control-name">Global Transaction Limit</span>
+                                    <span class="control-value">$5,000</span>
+                                </div>
+                                <div class="control-item">
+                                    <span class="control-name">Daily Volume Cap</span>
+                                    <span class="control-value">$50,000</span>
+                                </div>
+                                <div class="control-item">
+                                    <span class="control-name">High-Risk Override</span>
+                                    <span class="control-toggle active">ON</span>
+                                </div>
+                                <div class="control-item">
+                                    <span class="control-name">Velocity Monitoring</span>
+                                    <span class="control-toggle active">ON</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing-section" id="pricing">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">Pricing</span>
+                <h2 class="section-title">Enterprise-Ready Pricing</h2>
+                <p class="section-subtitle">
+                    Flexible pricing models designed for financial institutions.
+                    Volume discounts available.
+                </p>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Starter</h3>
+                        <p>For testing and small-scale deployment</p>
+                    </div>
+                    <div class="pricing-price">
+                        <span class="price-amount">$0.10</span>
+                        <span class="price-unit">per mandate verification</span>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Up to 10,000 verifications/month</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>All three mandate types</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Standard API access</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Email support</span>
+                        </li>
+                    </ul>
+                    <a href="#contact" class="btn btn-outline btn-block">Get Started</a>
+                </div>
+                <div class="pricing-card featured">
+                    <div class="pricing-badge">Most Popular</div>
+                    <div class="pricing-header">
+                        <h3>Growth</h3>
+                        <p>For production deployment at scale</p>
+                    </div>
+                    <div class="pricing-price">
+                        <span class="price-amount">$0.05</span>
+                        <span class="price-unit">per mandate verification</span>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Up to 500,000 verifications/month</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>White-label mobile SDK</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Priority API with &lt;50ms response</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Dedicated account manager</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Custom constraint templates</span>
+                        </li>
+                    </ul>
+                    <a href="#contact" class="btn btn-primary btn-block">Contact Sales</a>
+                </div>
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Enterprise</h3>
+                        <p>For large-scale financial institutions</p>
+                    </div>
+                    <div class="pricing-price">
+                        <span class="price-amount">Custom</span>
+                        <span class="price-unit">volume-based pricing</span>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Unlimited verifications</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>On-premise deployment option</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Custom SLA up to 99.999%</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>24/7 dedicated support</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            <span>Compliance assistance</span>
+                        </li>
+                    </ul>
+                    <a href="#contact" class="btn btn-outline btn-block">Talk to Sales</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section" id="demo">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Ready to Lead the AI Commerce Revolution?</h2>
+                <p>
+                    Join the financial institutions already using Mandate to enable secure,
+                    compliant AI transactions. Schedule a demo to see how it works with your platform.
+                </p>
+                <form class="demo-form" id="demo-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Full Name</label>
+                            <input type="text" id="name" name="name" required placeholder="John Smith">
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Work Email</label>
+                            <input type="email" id="email" name="email" required placeholder="john@company.com">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="company">Company</label>
+                            <input type="text" id="company" name="company" required placeholder="Acme Bank">
+                        </div>
+                        <div class="form-group">
+                            <label for="role">Your Role</label>
+                            <select id="role" name="role" required>
+                                <option value="">Select your role</option>
+                                <option value="cto">CTO / CIO</option>
+                                <option value="vp-engineering">VP Engineering</option>
+                                <option value="product">Product Manager</option>
+                                <option value="developer">Developer / Architect</option>
+                                <option value="business">Business Development</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="industry">Industry</label>
+                        <select id="industry" name="industry" required>
+                            <option value="">Select your industry</option>
+                            <option value="bank">Bank / Financial Institution</option>
+                            <option value="gateway">Payment Gateway Provider</option>
+                            <option value="acquirer">Acquirer / Processor</option>
+                            <option value="fintech">Fintech / Neobank</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">Tell us about your use case (optional)</label>
+                        <textarea id="message" name="message" rows="3" placeholder="We're looking to enable AI shopping agents for our retail banking customers..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg btn-block">
+                        <span>Request Demo</span>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer" id="contact">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="#" class="logo">
+                        <svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="url(#logo-gradient-footer)"/>
+                            <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            <defs>
+                                <linearGradient id="logo-gradient-footer" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#6366F1"/>
+                                    <stop offset="1" stop-color="#8B5CF6"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <span>Mandate</span>
+                    </a>
+                    <p>The future of AI-powered payment authorization. Secure, compliant, enterprise-ready.</p>
+                    <div class="social-links">
+                        <a href="#" aria-label="Twitter">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        </a>
+                        <a href="#" aria-label="LinkedIn">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                        </a>
+                        <a href="#" aria-label="GitHub">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Product</h4>
+                        <ul>
+                            <li><a href="#features">Features</a></li>
+                            <li><a href="#security">Security</a></li>
+                            <li><a href="#pricing">Pricing</a></li>
+                            <li><a href="#">API Documentation</a></li>
+                            <li><a href="#">Changelog</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Solutions</h4>
+                        <ul>
+                            <li><a href="#solutions">For Banks</a></li>
+                            <li><a href="#solutions">For Payment Gateways</a></li>
+                            <li><a href="#solutions">For Acquirers</a></li>
+                            <li><a href="#">Case Studies</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Company</h4>
+                        <ul>
+                            <li><a href="#">About Us</a></li>
+                            <li><a href="#">Careers</a></li>
+                            <li><a href="#">Blog</a></li>
+                            <li><a href="#">Press</a></li>
+                            <li><a href="#">Contact</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Legal</h4>
+                        <ul>
+                            <li><a href="#">Privacy Policy</a></li>
+                            <li><a href="#">Terms of Service</a></li>
+                            <li><a href="#">Security</a></li>
+                            <li><a href="#">Compliance</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Mandate. All rights reserved.</p>
+                <p>Built for the future of AI commerce.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@ import { Product, MandateType, AgentCartRequest } from '@agentic-commerce/shared
 import { useMandate } from '../../contexts/MandateContext';
 import { useCart } from '../../contexts/CartContext';
 import { acpService } from '../../services/acp.service';
+import { cartService, isCartDemoMode } from '../../services/cart.service';
 import { MandateFlowManager } from '../mandate/MandateFlowManager';
 import { BuyConfirmationModal } from './BuyConfirmationModal';
 import { validateAgainstCartMandate } from '../../utils/mandateValidation';
@@ -100,6 +101,8 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
 
   /**
    * Handle confirmation and add to cart via agent
+   * When in demo mode, cart is stored locally - use cartService directly.
+   * Otherwise use ACP (backend) which validates mandate and adds to backend cart.
    */
   const handleConfirm = async (reasoning: string) => {
     setLoading(true);
@@ -116,25 +119,33 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
         throw new Error('Product price is required and must be greater than 0');
       }
 
-      // Only include productImage if it's a valid URL (avoid empty strings)
-      // Use the mandate's agentId to ensure authorization matches
-      const request: AgentCartRequest = {
-        mandateId: mandate.id,
-        agentId: mandate.agentId, // Use mandate's agent ID, not default
-        productId: product.id,
-        productName: product.name,
-        // Only include productImage if it's a valid, non-empty URL
-        ...(product.imageUrl &&
-            product.imageUrl.trim() !== '' &&
-            (product.imageUrl.startsWith('http://') || product.imageUrl.startsWith('https://')) && {
-          productImage: product.imageUrl,
-        }),
-        quantity: 1,
-        price: productPrice,
-        reasoning: reasoning || `User requested via Buy button for ${product.name}`,
-      };
-
-      await acpService.agentAddToCart(request);
+      if (isCartDemoMode()) {
+        // Demo mode: cart is stored locally - add via cartService so it matches getCart
+        await cartService.addToCart({
+          productId: product.id,
+          productName: product.name,
+          productImage: product.imageUrl || product.image || '',
+          quantity: 1,
+          price: productPrice,
+        });
+      } else {
+        // Production: use ACP to add via backend (validates mandate and adds to backend cart)
+        const request: AgentCartRequest = {
+          mandateId: mandate.id,
+          agentId: mandate.agentId,
+          productId: product.id,
+          productName: product.name,
+          ...(product.imageUrl &&
+              product.imageUrl.trim() !== '' &&
+              (product.imageUrl.startsWith('http://') || product.imageUrl.startsWith('https://')) && {
+            productImage: product.imageUrl,
+          }),
+          quantity: 1,
+          price: productPrice,
+          reasoning: reasoning || `User requested via Buy button for ${product.name}`,
+        };
+        await acpService.agentAddToCart(request);
+      }
 
       // Refresh cart to show new item
       await refreshCart();
@@ -234,6 +245,7 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
           onMandateReady={handleMandateReady}
           onCancel={handleMandateCancel}
           autoCheck={true}
+          product={product}
         />
       )}
 

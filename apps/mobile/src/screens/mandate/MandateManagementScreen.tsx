@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mandate, MandateStatus, MandateType, PurchaseIntent } from '@agentic-commerce/shared-types';
 import mandateService from '../../services/mandate.service';
+import { mandateServiceClient } from '../../services/mandate-service.client';
+import { storageService } from '../../services/storage.service';
 
 export const MandateManagementScreen: React.FC = () => {
   const [mandates, setMandates] = useState<Mandate[]>([]);
@@ -27,12 +29,24 @@ export const MandateManagementScreen: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [mandatesData, intentsData] = await Promise.all([
-        mandateService.getMyMandates(),
-        mandateService.getPurchaseIntents('pending'),
-      ]);
-      setMandates(mandatesData);
-      setPendingIntents(intentsData);
+      const user = await storageService.getUser();
+      if (!user || !user.id) {
+        Alert.alert('Error', 'User not logged in');
+        return;
+      }
+
+      // Fetch mandates directly from mandate-service (same as MandateContext)
+      const apiMandates = await mandateServiceClient.getUserMandates(user.id);
+      setMandates(apiMandates as any as Mandate[]);
+
+      // Try to load intents from backend (non-critical)
+      try {
+        const intentsData = await mandateService.getPurchaseIntents('pending');
+        setPendingIntents(intentsData);
+      } catch {
+        console.log('No pending intents available');
+        setPendingIntents([]);
+      }
     } catch (error) {
       console.error('Error loading mandate data:', error);
       Alert.alert('Error', 'Failed to load mandate data');
@@ -58,11 +72,14 @@ export const MandateManagementScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await mandateService.suspendMandate(mandateId);
+              const user = await storageService.getUser();
+              if (!user?.id) throw new Error('User not logged in');
+              await mandateServiceClient.suspendMandate(mandateId, user.id);
               await loadData();
               Alert.alert('Success', 'Mandate suspended successfully');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to suspend mandate');
+            } catch (error: any) {
+              console.error('Failed to suspend mandate:', error);
+              Alert.alert('Error', error.message || 'Failed to suspend mandate');
             }
           },
         },
@@ -81,11 +98,14 @@ export const MandateManagementScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await mandateService.revokeMandate(mandateId, 'User revoked mandate');
+              const user = await storageService.getUser();
+              if (!user?.id) throw new Error('User not logged in');
+              await mandateServiceClient.revokeMandate(mandateId, user.id, 'User revoked mandate');
               await loadData();
               Alert.alert('Success', 'Mandate revoked successfully');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to revoke mandate');
+            } catch (error: any) {
+              console.error('Failed to revoke mandate:', error);
+              Alert.alert('Error', error.message || 'Failed to revoke mandate');
             }
           },
         },

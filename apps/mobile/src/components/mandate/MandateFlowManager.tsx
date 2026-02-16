@@ -5,17 +5,21 @@ import { MandateType } from '@agentic-commerce/shared-types';
 import { useMandate } from '../../contexts/MandateContext';
 import { MandateSigningModal } from './MandateSigningModal';
 import { AppConfig } from '../../config/app.config';
-import { openMandateApp } from '../../utils/deepLink';
+import { openMandateApp, CartData } from '../../utils/deepLink';
 import { mandateServiceClient } from '../../services/mandate-service.client';
 import { storageService } from '../../services/storage.service';
+import { Product } from '@agentic-commerce/shared-types';
 
 const MANDATE_TOKEN_KEY = 'mandate_token';
+const PENDING_CART_ITEM_KEY = 'pending_demo_cart_item';
 
 interface MandateFlowManagerProps {
   mandateType: MandateType;
   onMandateReady: () => void;
   onCancel: () => void;
   autoCheck?: boolean; // Automatically check for mandate on mount
+  /** Current product - ensures correct product is shown in mandate app (not a previous one) */
+  product?: Product;
 }
 
 /**
@@ -28,6 +32,7 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
   onMandateReady,
   onCancel,
   autoCheck = true,
+  product,
 }) => {
   const { loadMandates, loading } = useMandate();
   const [showSigningModal, setShowSigningModal] = useState(false);
@@ -63,6 +68,7 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
     // Also listen for deep link callbacks
     const linkSubscription = Linking.addEventListener('url', ({ url }) => {
       if (url.startsWith('agenticcommerce://payment-callback') ||
+          url.startsWith('agenticcommerce://cart-callback') ||
           url.startsWith('agenticcommerce://intent-callback')) {
         console.log('[MandateFlowManager] Deep link callback received:', url);
         setWaitingForMandateApp(false);
@@ -79,14 +85,85 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
   }, [waitingForMandateApp, mandateType]);
 
   /**
-   * Always show signing modal for user consent
+   * Build cartData/intentData and userId for deep link (so mandate app shows CURRENT product, not a previous one)
+   */
+  const buildOpenMandateOptions = async (): Promise<{
+    cartData?: CartData;
+    intentData?: { type: string; product: any; maxPrice: number; reasoning?: string; agentName: string };
+    userId?: string;
+    userName?: string;
+  }> => {
+    const opts: any = {};
+    try {
+      const user = await storageService.getUser();
+      if (user?.id) opts.userId = user.id;
+      if (user?.name) opts.userName = user.name;
+      const agent = AppConfig.getDefaultAgent();
+
+      if (mandateType === MandateType.CART) {
+        // Prefer product prop (current product) over AsyncStorage to avoid showing wrong product
+        let pending: { productId: string; productName: string; productImage?: string; price: number; quantity: number } | null = null;
+        if (product) {
+          pending = {
+            productId: product.id,
+            productName: product.name,
+            productImage: product.imageUrl || product.image || '',
+            price: product.price ?? 0,
+            quantity: 1,
+          };
+        } else {
+          try {
+            const pendingStr = await AsyncStorage.getItem(PENDING_CART_ITEM_KEY);
+            pending = pendingStr ? JSON.parse(pendingStr) : null;
+          } catch {
+            pending = null;
+          }
+        }
+        if (pending) {
+          opts.cartData = {
+            items: [{
+              id: pending.productId,
+              name: pending.productName,
+              price: pending.price ?? 0,
+              quantity: pending.quantity ?? 1,
+              imageUrl: pending.productImage,
+            }],
+            total: (pending.price ?? 0) * (pending.quantity ?? 1),
+            agentName: agent.name,
+          };
+        }
+      } else if (mandateType === MandateType.INTENT && product) {
+        // Pass current product for intent flow so mandate app shows correct product
+        opts.intentData = {
+          type: 'intent',
+          product: {
+            id: product.id,
+            name: product.name,
+            image: product.imageUrl || product.image,
+            price: product.price ?? 0,
+            quantity: 1,
+          },
+          maxPrice: product.price ?? 0,
+          agentName: agent.name,
+        };
+      }
+    } catch (e) {
+      console.warn('[MandateFlowManager] Error building open options:', e);
+    }
+    return opts;
+  };
+
+  /**
+   * Each product purchase is a separate call - always create a new mandate.
+   * Do not reuse existing mandate; each Buy Now / Create Intent gets its own mandate.
    */
   const checkMandate = async () => {
     if (checking || loading) return;
 
     setChecking(true);
     try {
-      // Always show signing modal so user explicitly consents each time
+      // Always show signing modal and create new mandate for this product
+      console.log('[MandateFlowManager] Creating new mandate for this product (no reuse)');
       setShowSigningModal(true);
     } catch (error) {
       console.error('Error checking mandate:', error);
@@ -114,6 +191,7 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
 
       // Always register a NEW mandate without approving it.
       // This keeps it in "pending" status so the mandate app shows the signing UI.
+      console.log('[MandateFlowManager] Registering mandate with service...');
       const pendingMandate = await mandateServiceClient.registerMandate({
         userId: user.id,
         agentId: defaultAgent.id,
@@ -126,9 +204,11 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
 
       setShowSigningModal(false);
 
-      // Open mandate app for biometric signing
+      // Open mandate app for biometric signing with current product context
       console.log('[MandateFlowManager] Opening mandate app for signing, mandateId:', pendingMandate.id);
-      const opened = await openMandateApp(pendingMandate.id);
+      const options = await buildOpenMandateOptions();
+      const opened = await openMandateApp(pendingMandate.id, options);
+      console.log('[MandateFlowManager] openMandateApp result:', opened);
 
       if (opened) {
         // Wait for user to return from mandate app
@@ -145,7 +225,11 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
         await loadMandates();
         onMandateReady();
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[MandateFlowManager] Error in handleSignMandate:', error?.message || error);
+      if (error?.response?.status) {
+        console.error('[MandateFlowManager] API response:', error.response?.status, error.response?.data);
+      }
       throw error; // Let modal handle the error
     }
   };

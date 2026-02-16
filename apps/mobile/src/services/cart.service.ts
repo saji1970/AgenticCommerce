@@ -12,8 +12,11 @@ import { AppConfig } from '../config/app.config';
 import { openMandateApp } from '../utils/deepLink';
 
 const API_URL = 'https://agenticcommerce-production.up.railway.app/api';
-const DEMO_MODE = false;
+const DEMO_MODE = true;
 const DEMO_CART_KEY = 'demo_cart_items';
+
+/** Export for components that need to choose between local cart vs backend ACP */
+export const isCartDemoMode = (): boolean => DEMO_MODE;
 
 /**
  * Demo cart helpers - store cart items locally in AsyncStorage

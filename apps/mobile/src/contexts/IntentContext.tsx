@@ -19,7 +19,7 @@ interface IntentContextType {
 
   // Methods
   createIntent: (request: CreateIntentRequest) => Promise<PurchaseIntent>;
-  requestIntentApproval: (intentData: IntentData) => Promise<string | null>; // Returns mandateId or null if failed
+  requestIntentApproval: (intentData: IntentData, mandateId: string) => Promise<string | null>; // Returns mandateId or null if failed
   loadIntents: () => Promise<void>;
   approveIntent: (intentId: string) => Promise<void>;
   rejectIntent: (intentId: string, reason: string) => Promise<void>;
@@ -79,18 +79,17 @@ export const IntentProvider: React.FC<IntentProviderProps> = ({ children }) => {
   /**
    * Request intent approval from Mandate app
    * Opens the Mandate app for user to approve with biometric and sign
+   * @param intentData - Product and conditions for the intent
+   * @param mandateId - Real mandate ID from mandate service (required - no fake IDs)
    */
-  const requestIntentApproval = async (intentData: IntentData): Promise<string | null> => {
+  const requestIntentApproval = async (intentData: IntentData, mandateId: string): Promise<string | null> => {
     try {
       setError(null);
 
       // Clear any existing pending intent data to prevent showing old intent
       await clearPendingIntentData();
 
-      // Generate a mandate ID for this intent request
-      const mandateId = `intent_mandate_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      // Open Mandate app for approval
+      // Open Mandate app with real mandate ID (same as cart flow)
       const opened = await openMandateAppForIntent(intentData, mandateId);
       if (!opened) {
         setError('Failed to open Mandate app');

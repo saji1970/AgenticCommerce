@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -92,6 +92,12 @@ const MainTabs = () => (
         tabBarLabel: 'Mandates',
         tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📋</Text>,
       }}
+      listeners={({ navigation }) => ({
+        tabPress: () => {
+          // Always show mandates list when tab is pressed (not last mandate detail)
+          navigation.navigate('Mandates', { screen: 'MandatesList' });
+        },
+      })}
     />
     <Tab.Screen
       name="Settings"
@@ -104,63 +110,96 @@ const MainTabs = () => (
   </Tab.Navigator>
 );
 
+interface PendingDeepLink {
+  mandateId: string;
+  cartData: any;
+  intentData: any;
+}
+
 export const RootNavigator: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigationRef = useRef<any>(null);
+  const [pendingDeepLink, setPendingDeepLink] = useState<PendingDeepLink | null>(null);
+
+  const parseAndHandleDeepLink = async (url: string) => {
+    console.log('Deep link received:', url);
+    const match = url.match(/mandate:\/\/mandate\/([^/?]+)/);
+    if (!match) return;
+
+    const mandateId = match[1].split('?')[0];
+    let cartData = null;
+    let intentData = null;
+    let userIdFromUrl: string | null = null;
+    let userNameFromUrl: string | null = null;
+
+    try {
+      const urlObj = new URL(url.replace('mandate://', 'https://'));
+      const cartDataParam = urlObj.searchParams.get('cartData');
+      const intentDataParam = urlObj.searchParams.get('intentData');
+      userIdFromUrl = urlObj.searchParams.get('userId');
+      const userNameParam = urlObj.searchParams.get('userName');
+      if (userNameParam) userNameFromUrl = decodeURIComponent(userNameParam);
+
+      if (cartDataParam) {
+        try {
+          cartData = JSON.parse(decodeURIComponent(cartDataParam));
+        } catch {
+          cartData = JSON.parse(cartDataParam);
+        }
+        console.log('Cart data from deep link:', cartData);
+      }
+      if (intentDataParam) {
+        try {
+          intentData = JSON.parse(decodeURIComponent(intentDataParam));
+        } catch {
+          intentData = JSON.parse(intentDataParam);
+        }
+        console.log('Intent data from deep link:', intentData);
+      }
+    } catch (e) {
+      console.error('Error parsing data from URL:', e);
+    }
+
+    const navParams = { mandateId, cartData, intentData };
+
+    // Auto-login with userId from URL when coming from shopping app (ensures mandate app shows same user's mandates)
+    if (userIdFromUrl) {
+      console.log('[RootNavigator] Auto-login with userId from deep link:', userIdFromUrl, 'name:', userNameFromUrl);
+      await login(userIdFromUrl, undefined, userNameFromUrl || undefined);
+      setPendingDeepLink(navParams);
+      return;
+    }
+
+    // Navigate immediately if user is logged in
+    if (navigationRef.current) {
+      navigationRef.current.navigate('Mandates', {
+        screen: 'MandateDetail',
+        params: navParams,
+      });
+    }
+  };
+
+  // Navigate when user becomes available and we have a pending deep link
+  useEffect(() => {
+    if (user && pendingDeepLink && navigationRef.current) {
+      navigationRef.current.navigate('Mandates', {
+        screen: 'MandateDetail',
+        params: pendingDeepLink,
+      });
+      setPendingDeepLink(null);
+    }
+  }, [user, pendingDeepLink]);
 
   useEffect(() => {
-    // Handle deep linking
-    const handleDeepLink = (url: string) => {
-      console.log('Deep link received:', url);
-      // Parse URL: mandate://mandate/{mandateId}?cartData={encodedData}&intentData={encodedData}
-      const match = url.match(/mandate:\/\/mandate\/([^/?]+)/);
-      if (match && navigationRef.current) {
-        const mandateId = match[1].split('?')[0]; // Remove query string from mandateId
-
-        // Extract cart data and intent data from query string
-        let cartData = null;
-        let intentData = null;
-        try {
-          const urlObj = new URL(url.replace('mandate://', 'https://'));
-          const cartDataParam = urlObj.searchParams.get('cartData');
-          const intentDataParam = urlObj.searchParams.get('intentData');
-
-          if (cartDataParam) {
-            cartData = JSON.parse(decodeURIComponent(cartDataParam));
-            console.log('Cart data from deep link:', cartData);
-          }
-
-          if (intentDataParam) {
-            intentData = JSON.parse(decodeURIComponent(intentDataParam));
-            console.log('Intent data from deep link:', intentData);
-          }
-        } catch (e) {
-          console.error('Error parsing data from URL:', e);
-        }
-
-        // Navigate to mandate detail with cart/intent data
-        navigationRef.current.navigate('Mandates', {
-          screen: 'MandateDetail',
-          params: { mandateId, cartData, intentData },
-        });
-      }
-    };
-
-    // Get initial URL if app was opened via deep link
     Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink(url);
-      }
+      if (url) parseAndHandleDeepLink(url);
     });
 
-    // Listen for deep links while app is running
     const subscription = Linking.addEventListener('url', (event) => {
-      handleDeepLink(event.url);
+      parseAndHandleDeepLink(event.url);
     });
 
-    return () => {
-      subscription.remove();
-    };
+    return () => subscription.remove();
   }, []);
 
   if (loading) {
