@@ -10,13 +10,15 @@ export class CartRepository {
     productImage: string | undefined,
     quantity: number,
     price: number,
-    variants?: ProductVariant[]
+    variants?: ProductVariant[],
+    mandateId?: string,
+    mandateToken?: string
   ): Promise<CartItem> {
     const result = await query(
-      `INSERT INTO cart_items (user_id, product_id, product_name, product_image, quantity, price, variants)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO cart_items (user_id, product_id, product_name, product_image, quantity, price, variants, mandate_id, mandate_token)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [userId, productId, productName, productImage, quantity, price, JSON.stringify(variants || [])]
+      [userId, productId, productName, productImage, quantity, price, JSON.stringify(variants || []), mandateId || null, mandateToken || null]
     );
 
     return this.mapRowToCartItem(result.rows[0]);
@@ -103,6 +105,8 @@ export class CartRepository {
       quantity: row.quantity,
       price: parseFloat(row.price),
       variants: row.variants || [],
+      mandateId: row.mandate_id || undefined,
+      mandateToken: row.mandate_token || undefined,
       userId: row.user_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

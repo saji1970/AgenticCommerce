@@ -207,16 +207,35 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
       // Retrieve stored mandate token for checkout validation
       const mandateToken = await AsyncStorage.getItem(MANDATE_TOKEN_KEY);
 
+      // Collect all mandate tokens from cart items for full audit trail
+      const mandateTokens: Array<{ mandateId: string; mandateToken: string; productId?: string }> = [];
+      if (cart.items) {
+        for (const item of cart.items) {
+          if (item.mandateId && item.mandateToken) {
+            mandateTokens.push({
+              mandateId: item.mandateId,
+              mandateToken: item.mandateToken,
+              productId: item.productId,
+            });
+          }
+        }
+      }
+
       const result = await paymentService.processPayment(
         paymentRequest,
         defaultAgent.id,
         false, // Don't skip mandate check
         cart.total, // Pass transaction amount for mandate validation
-        mandateToken || undefined // Pass mandate token for backend validation
+        mandateToken || undefined, // Pass mandate token for backend validation
+        mandateTokens.length > 0 ? mandateTokens : undefined // Pass all cart item mandate tokens
       );
 
-      // Clear mandate token after successful payment
+      // Clear mandate tokens after successful payment
       await AsyncStorage.removeItem(MANDATE_TOKEN_KEY);
+      // Clear per-mandate tokens
+      for (const entry of mandateTokens) {
+        await AsyncStorage.removeItem(`mandate_token_${entry.mandateId}`);
+      }
 
       Alert.alert(
         'Payment Successful!',

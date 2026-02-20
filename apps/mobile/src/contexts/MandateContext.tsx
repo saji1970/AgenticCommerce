@@ -14,6 +14,7 @@ import { AppConfig } from '../config/app.config';
 import { AppState } from 'react-native';
 
 interface ActiveMandates {
+  app?: Mandate;
   cart?: Mandate;
   intent?: Mandate;
   payment?: Mandate;
@@ -29,6 +30,8 @@ interface MandateContextType {
   // Methods
   loadMandates: () => Promise<ActiveMandates>;
   getActiveMandateByType: (type: MandateType) => Mandate | null;
+  getActiveAppMandate: () => Mandate | null;
+  checkAppMandateExists: () => Promise<boolean>;
   createMandate: (params: CreateMandateParams) => Promise<Mandate>;
   checkMandateExists: (type: MandateType) => Promise<boolean>;
   revokeMandate: (mandateId: string, reason: string) => Promise<void>;
@@ -163,7 +166,7 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
         userId,
         agentId: finalParams.agentId,
         agentName: finalParams.agentName,
-        type: finalParams.type as 'cart' | 'intent' | 'payment',
+        type: finalParams.type as 'cart' | 'intent' | 'payment' | 'app',
         constraints: finalParams.constraints,
       });
 
@@ -244,6 +247,24 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
   };
 
   /**
+   * Get active app mandate
+   */
+  const getActiveAppMandate = (): Mandate | null => {
+    return activeMandates.app || null;
+  };
+
+  /**
+   * Check if an active app mandate exists
+   */
+  const checkAppMandateExists = async (): Promise<boolean> => {
+    if (activeMandates.app) {
+      return true;
+    }
+    const active = await loadMandates();
+    return !!active.app;
+  };
+
+  /**
    * Clear error state
    */
   const clearError = () => {
@@ -259,6 +280,8 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
         error,
         loadMandates,
         getActiveMandateByType,
+        getActiveAppMandate,
+        checkAppMandateExists,
         createMandate,
         checkMandateExists,
         revokeMandate,

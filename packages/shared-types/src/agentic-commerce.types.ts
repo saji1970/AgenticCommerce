@@ -1,6 +1,7 @@
 // Agentic Commerce Protocol (ACP) Types
 
 export enum MandateType {
+  APP = 'app',             // Master mandate per AI agent — defines purchase limits and payment methods
   CART = 'cart',           // Agent can manage shopping cart
   INTENT = 'intent',       // Agent can express purchase intent (requires approval)
   PAYMENT = 'payment',     // Agent can execute payments
@@ -52,6 +53,27 @@ export interface PaymentMandateConstraints {
   allowedMerchants?: string[];
 }
 
+// App Mandate - Master mandate per AI agent
+export interface AppMandateConstraints {
+  maxTransactionAmount?: number;
+  dailySpendingLimit?: number;
+  monthlySpendingLimit?: number;
+  allowedCategories?: string[];
+  blockedCategories?: string[];
+  allowedPaymentMethods?: string[];
+  requiresTwoFactor?: boolean;
+}
+
+// Payment method info attached to App Mandates
+export interface PaymentMethodInfo {
+  id: string;
+  type: 'card' | 'paypal' | 'apple_pay';
+  label: string;
+  last4?: string;
+  email?: string;
+  isDefault: boolean;
+}
+
 export interface Mandate {
   id: string;
   userId: string;
@@ -59,7 +81,9 @@ export interface Mandate {
   agentName: string;
   type: MandateType;
   status: MandateStatus;
-  constraints: CartMandateConstraints | IntentMandateConstraints | PaymentMandateConstraints;
+  constraints: CartMandateConstraints | IntentMandateConstraints | PaymentMandateConstraints | AppMandateConstraints;
+  parentMandateId?: string;
+  paymentMethods?: PaymentMethodInfo[];
   validFrom: Date;
   validUntil?: Date;
   createdAt: Date;
@@ -102,7 +126,7 @@ export interface AgentActionLog {
   agentId: string;
   mandateId: string;
   action: AgentActionType;
-  resourceType: 'cart' | 'intent' | 'payment';
+  resourceType: 'cart' | 'intent' | 'payment' | 'app';
   resourceId?: string;
   metadata: any;
   success: boolean;
@@ -114,13 +138,16 @@ export interface CreateMandateRequest {
   agentId: string;
   agentName: string;
   type: MandateType;
-  constraints: CartMandateConstraints | IntentMandateConstraints | PaymentMandateConstraints;
+  constraints: CartMandateConstraints | IntentMandateConstraints | PaymentMandateConstraints | AppMandateConstraints;
+  parentMandateId?: string;
+  paymentMethods?: PaymentMethodInfo[];
   validUntil?: Date;
 }
 
 export interface UpdateMandateRequest {
   status?: MandateStatus;
-  constraints?: CartMandateConstraints | IntentMandateConstraints | PaymentMandateConstraints;
+  constraints?: CartMandateConstraints | IntentMandateConstraints | PaymentMandateConstraints | AppMandateConstraints;
+  paymentMethods?: PaymentMethodInfo[];
   validUntil?: Date;
 }
 

@@ -13,6 +13,8 @@ export interface CartItem {
   quantity: number;
   price: number;
   variants?: ProductVariant[];
+  mandateId?: string;
+  mandateToken?: string;
   userId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +38,8 @@ export interface AddToCartRequest {
   quantity: number;
   price: number;
   variants?: ProductVariant[];
+  mandateId?: string;
+  mandateToken?: string;
 }
 
 export interface UpdateCartItemRequest {

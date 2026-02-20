@@ -151,7 +151,7 @@ export const MandateDetailScreen: React.FC = () => {
     setSigning(true);
     try {
       // Update mandate constraints with custom limits before approving
-      if (customLimits) {
+      if (customLimits && mandate) {
         mandate.constraints = {
           ...mandate.constraints,
           maxTransactionAmount: customLimits.maxTransactionAmount,
@@ -197,8 +197,9 @@ export const MandateDetailScreen: React.FC = () => {
 
       // Send deep link back to AgenticCommerce app (include mandate token and cart data for cart mandates)
       const tokenParam = mandateToken ? `&mandateToken=${encodeURIComponent(mandateToken)}` : '';
-      // Use cart-callback for cart mandates so shopping app adds product to cart
-      const callbackPath = mandate?.type === 'cart' ? 'cart-callback' : 'payment-callback';
+      // Use type-specific callback path
+      const callbackPath = mandate?.type === 'app' ? 'app-callback'
+        : mandate?.type === 'cart' ? 'cart-callback' : 'payment-callback';
       let callbackUrl = isIntentFlow
         ? `${AGENTIC_COMMERCE_SCHEME}intent-callback?mandateId=${mandateId}&status=approved${intentId ? `&intentId=${intentId}` : ''}${tokenParam}`
         : `${AGENTIC_COMMERCE_SCHEME}${callbackPath}?mandateId=${mandateId}&status=approved${tokenParam}`;
@@ -216,9 +217,12 @@ export const MandateDetailScreen: React.FC = () => {
         callbackUrl += `&cartData=${cartDataParam}`;
       }
 
-      const alertTitle = isIntentFlow ? 'Intent Approved!' : 'Mandate Approved!';
+      const isAppMandate = mandate?.type === 'app';
+      const alertTitle = isIntentFlow ? 'Intent Approved!' : isAppMandate ? 'AI Agent Registered!' : 'Mandate Approved!';
       const alertMessage = isIntentFlow
         ? `Your purchase intent has been approved!\n\nThe AI Agent will now be able to purchase "${intentData?.product.name}" for you when conditions are met.`
+        : isAppMandate
+        ? 'Your AI agent has been registered with your purchase limits and payment methods.\n\nYou can now make purchases through this agent.'
         : 'Your authorization has been recorded with biometric verification and signature.\n\nThe AI Agent is now authorized to complete your purchase.';
 
       Alert.alert(
@@ -288,8 +292,8 @@ export const MandateDetailScreen: React.FC = () => {
    */
   const handleConfirmAndReturn = async () => {
     if (!mandate) return;
-    const tokenParam = ''; // Active mandate - no new token
-    const callbackPath = mandate.type === 'cart' ? 'cart-callback' : 'payment-callback';
+    const callbackPath = mandate.type === 'app' ? 'app-callback'
+      : mandate.type === 'cart' ? 'cart-callback' : 'payment-callback';
     let callbackUrl = mandate.type === 'intent' || isIntentFlow
       ? `${AGENTIC_COMMERCE_SCHEME}intent-callback?mandateId=${mandateId}&status=approved`
       : `${AGENTIC_COMMERCE_SCHEME}${callbackPath}?mandateId=${mandateId}&status=approved`;
@@ -485,8 +489,37 @@ export const MandateDetailScreen: React.FC = () => {
 
       <View style={styles.section}>
         <Text style={styles.label}>Authorization Type</Text>
-        <Text style={styles.value}>{mandate.type === 'payment' ? 'Payment Authorization' : mandate.type}</Text>
+        <Text style={styles.value}>
+          {mandate.type === 'app' ? 'AI Agent Registration (Master)'
+            : mandate.type === 'payment' ? 'Payment Authorization'
+            : mandate.type.charAt(0).toUpperCase() + mandate.type.slice(1)}
+        </Text>
       </View>
+
+      {/* App Mandate: Payment Methods */}
+      {mandate.type === 'app' && mandate.paymentMethods && mandate.paymentMethods.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.label}>Payment Methods</Text>
+          {mandate.paymentMethods.map((pm: any, idx: number) => (
+            <View key={pm.id || idx} style={styles.constraintRow}>
+              <Text style={styles.constraintLabel}>
+                {pm.type === 'card' ? 'Card' : pm.type === 'paypal' ? 'PayPal' : pm.type}
+                {pm.last4 ? ` ****${pm.last4}` : ''}
+                {pm.email ? ` (${pm.email})` : ''}
+              </Text>
+              <Text style={styles.constraintValue}>{pm.isDefault ? 'Default' : ''}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* App Mandate: Show parent info on child mandates */}
+      {mandate.parentMandateId && mandate.type !== 'app' && (
+        <View style={styles.section}>
+          <Text style={styles.label}>Parent App Mandate</Text>
+          <Text style={styles.value}>{mandate.parentMandateId}</Text>
+        </View>
+      )}
 
       {/* Editable Spending Limits */}
       <View style={styles.limitsSection}>

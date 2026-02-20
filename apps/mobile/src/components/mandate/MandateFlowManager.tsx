@@ -13,6 +13,13 @@ import { Product } from '@agentic-commerce/shared-types';
 const MANDATE_TOKEN_KEY = 'mandate_token';
 const PENDING_CART_ITEM_KEY = 'pending_demo_cart_item';
 
+/** Store per-mandate token in AsyncStorage */
+const storeMandateToken = async (mandateId: string, token: string) => {
+  await AsyncStorage.setItem(`mandate_token_${mandateId}`, token);
+  // Also store as global latest token for backward compatibility
+  await AsyncStorage.setItem(MANDATE_TOKEN_KEY, token);
+};
+
 interface MandateFlowManagerProps {
   mandateType: MandateType;
   onMandateReady: () => void;
@@ -69,7 +76,8 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
     const linkSubscription = Linking.addEventListener('url', ({ url }) => {
       if (url.startsWith('agenticcommerce://payment-callback') ||
           url.startsWith('agenticcommerce://cart-callback') ||
-          url.startsWith('agenticcommerce://intent-callback')) {
+          url.startsWith('agenticcommerce://intent-callback') ||
+          url.startsWith('agenticcommerce://app-callback')) {
         console.log('[MandateFlowManager] Deep link callback received:', url);
         setWaitingForMandateApp(false);
         // The RootNavigator will handle the callback details
@@ -189,6 +197,21 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
         throw new Error('User not logged in');
       }
 
+      // Look up active app mandate to use as parent (if exists)
+      let parentMandateId: string | undefined;
+      if (mandateType !== MandateType.APP) {
+        try {
+          const appMandates = await mandateServiceClient.getUserAppMandates(user.id);
+          const activeApp = appMandates.find(m => m.status === 'active');
+          if (activeApp) {
+            parentMandateId = activeApp.id;
+            console.log('[MandateFlowManager] Found active app mandate:', parentMandateId);
+          }
+        } catch (e) {
+          console.warn('[MandateFlowManager] Could not check app mandates:', e);
+        }
+      }
+
       // Always register a NEW mandate without approving it.
       // This keeps it in "pending" status so the mandate app shows the signing UI.
       console.log('[MandateFlowManager] Registering mandate with service...');
@@ -196,8 +219,9 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
         userId: user.id,
         agentId: defaultAgent.id,
         agentName: defaultAgent.name,
-        type: mandateType as 'cart' | 'intent' | 'payment',
+        type: mandateType as 'cart' | 'intent' | 'payment' | 'app',
         constraints: defaultConstraints,
+        parentMandateId,
       });
 
       console.log('[MandateFlowManager] Registered pending mandate:', pendingMandate.id, 'status:', pendingMandate.status);
@@ -217,10 +241,10 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
         // Mandate app not available - auto-approve as fallback
         console.log('[MandateFlowManager] Mandate app not available, auto-approving');
         const approveResult = await mandateServiceClient.approveMandate(pendingMandate.id, user.id);
-        // Store mandate token from auto-approve response
+        // Store mandate token from auto-approve response (per-mandate + global)
         if (approveResult.mandateToken) {
           console.log('[MandateFlowManager] Storing mandate token from auto-approve');
-          await AsyncStorage.setItem(MANDATE_TOKEN_KEY, approveResult.mandateToken);
+          await storeMandateToken(pendingMandate.id, approveResult.mandateToken);
         }
         await loadMandates();
         onMandateReady();

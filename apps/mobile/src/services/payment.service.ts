@@ -17,7 +17,8 @@ export const paymentService = {
     agentId?: string,
     skipMandateCheck: boolean = false,
     transactionAmount?: number,
-    mandateToken?: string
+    mandateToken?: string,
+    mandateTokens?: Array<{ mandateId: string; mandateToken: string; productId?: string }>
   ): Promise<PaymentResponse> {
     // Validate mandate if agent is involved
     if (!skipMandateCheck && agentId) {
@@ -33,10 +34,11 @@ export const paymentService = {
       }
     }
 
-    // Include mandate token in the payment request for backend validation
+    // Include mandate token(s) in the payment request for backend validation
     const paymentPayload = {
       ...request,
       ...(mandateToken && { mandateToken }),
+      ...(mandateTokens && mandateTokens.length > 0 && { mandateTokens }),
     };
 
     const token = await storageService.getToken();

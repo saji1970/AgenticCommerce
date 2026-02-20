@@ -15,7 +15,9 @@ export class CartService {
     productImage: string | undefined,
     quantity: number,
     price: number,
-    variants?: ProductVariant[]
+    variants?: ProductVariant[],
+    mandateId?: string,
+    mandateToken?: string
   ): Promise<CartItem> {
     // Check if item already exists in cart
     const existingItem = await this.cartRepository.getItemByProductId(userId, productId);
@@ -34,7 +36,9 @@ export class CartService {
       productImage,
       quantity,
       price,
-      variants
+      variants,
+      mandateId,
+      mandateToken
     );
   }
 

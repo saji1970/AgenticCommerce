@@ -10,9 +10,11 @@ export interface AgentMandate {
   userId: string;
   agentId: string;
   agentName: string;
-  type: 'cart' | 'intent' | 'payment';
+  type: 'cart' | 'intent' | 'payment' | 'app';
   status: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
   constraints: Record<string, any>;
+  parentMandateId?: string;
+  paymentMethods?: any[];
   validFrom: string;
   validUntil?: string;
   createdAt: string;
@@ -23,15 +25,17 @@ export interface RegisterMandateRequest {
   userId: string;
   agentId: string;
   agentName: string;
-  type: 'cart' | 'intent' | 'payment';
+  type: 'cart' | 'intent' | 'payment' | 'app';
   constraints?: Record<string, any>;
+  parentMandateId?: string;
+  paymentMethods?: any[];
   validUntil?: string;
 }
 
 export interface ValidateMandateRequest {
   userId: string;
   agentId: string;
-  mandateType: 'cart' | 'intent' | 'payment';
+  mandateType: 'cart' | 'intent' | 'payment' | 'app';
   transactionAmount?: number;
 }
 
@@ -121,6 +125,24 @@ class MandateServiceClient {
       { userId, reason }
     );
     return response.data.data;
+  }
+
+  /**
+   * Get user's app mandates
+   */
+  async getUserAppMandates(userId: string): Promise<AgentMandate[]> {
+    const response = await this.client.get<{ success: boolean; data: AgentMandate[] }>(
+      '/mandates/app',
+      { params: { userId } }
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Register an app mandate
+   */
+  async registerAppMandate(data: Omit<RegisterMandateRequest, 'type'>): Promise<AgentMandate> {
+    return this.registerMandate({ ...data, type: 'app' });
   }
 
   /**

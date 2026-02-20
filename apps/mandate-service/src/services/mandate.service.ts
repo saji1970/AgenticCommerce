@@ -23,10 +23,34 @@ export class MandateService {
     }
 
     // Validate agent has capability for this mandate type
-    const capability = data.type === 'cart' ? 'cart' :
+    // App mandates require at least 'cart' capability
+    const capability = data.type === 'app' ? 'cart' :
+                      data.type === 'cart' ? 'cart' :
                       data.type === 'intent' ? 'intent' : 'payment';
     if (!agent.capabilities.includes(capability)) {
       throw new Error(`Agent ${data.agentId} does not have '${capability}' capability. Available capabilities: ${agent.capabilities.join(', ')}`);
+    }
+
+    // App mandate: check no existing active app mandate for this user/agent
+    if (data.type === 'app') {
+      const existing = await this.mandateRepository.getActiveAppMandate(data.userId, data.agentId);
+      if (existing) {
+        throw new Error(`An active app mandate already exists for this user/agent pair (mandate ID: ${existing.id}). Revoke the existing one first.`);
+      }
+    }
+
+    // For child mandates (cart/intent/payment): validate parentMandateId if provided
+    if (data.parentMandateId && data.type !== 'app') {
+      const parent = await this.mandateRepository.getById(data.parentMandateId);
+      if (!parent) {
+        throw new Error(`Parent mandate ${data.parentMandateId} not found.`);
+      }
+      if (parent.type !== 'app') {
+        throw new Error(`Parent mandate must be of type 'app', got '${parent.type}'.`);
+      }
+      if (parent.status !== 'active') {
+        throw new Error(`Parent app mandate is ${parent.status}. Only active app mandates can have children.`);
+      }
     }
 
     // Use agent name from database if not provided
@@ -84,7 +108,7 @@ export class MandateService {
    * sent back during checkout for validation.
    */
   private generateMandateToken(mandate: any): string {
-    const payload = {
+    const payload: any = {
       mandateId: mandate.id,
       userId: mandate.userId,
       agentId: mandate.agentId,
@@ -92,6 +116,10 @@ export class MandateService {
       constraints: mandate.constraints,
       approvedAt: new Date().toISOString(),
     };
+
+    if (mandate.parentMandateId) {
+      payload.parentMandateId = mandate.parentMandateId;
+    }
 
     return jwt.sign(payload, config.jwt.secret as jwt.Secret, {
       expiresIn: '24h', // Token valid for 24 hours from approval
@@ -132,6 +160,18 @@ export class MandateService {
     if (mandate.validUntil && new Date() > new Date(mandate.validUntil)) {
       await this.mandateRepository.updateStatus(mandate.id, 'expired');
       return { valid: false, errors: ['Mandate has expired.'] };
+    }
+
+    // If mandate has a parent app mandate, verify it's still active
+    if (decoded.parentMandateId || mandate.parentMandateId) {
+      const parentId = decoded.parentMandateId || mandate.parentMandateId;
+      const parentMandate = await this.mandateRepository.getById(parentId);
+      if (!parentMandate) {
+        return { valid: false, errors: ['Parent app mandate not found.'] };
+      }
+      if (parentMandate.status !== 'active') {
+        return { valid: false, errors: [`Parent app mandate is ${parentMandate.status}. Only active app mandates are valid.`] };
+      }
     }
 
     // Validate cart data against mandate constraints if provided
@@ -221,6 +261,36 @@ export class MandateService {
       }
     }
 
+    // Check parent app mandate constraints too (more restrictive limit wins)
+    if (mandate.parentMandateId && transactionAmount !== undefined) {
+      const parentMandate = await this.mandateRepository.getById(mandate.parentMandateId);
+      if (parentMandate) {
+        if (parentMandate.status !== 'active') {
+          throw new Error(`Parent app mandate is ${parentMandate.status}. Child mandates are invalid when parent is not active.`);
+        }
+        const parentConstraints = parentMandate.constraints;
+        if (parentConstraints.maxTransactionAmount && transactionAmount > parentConstraints.maxTransactionAmount) {
+          throw new Error(`Transaction amount $${transactionAmount} exceeds parent app mandate limit $${parentConstraints.maxTransactionAmount}`);
+        }
+      }
+    }
+
     return mandate;
+  }
+
+  async getUserAppMandates(userId: string) {
+    return await this.mandateRepository.getUserMandates(userId, undefined, 'app');
+  }
+
+  async getAppMandateWithChildren(mandateId: string) {
+    const mandate = await this.mandateRepository.getById(mandateId);
+    if (!mandate) {
+      throw new Error('App mandate not found');
+    }
+    if (mandate.type !== 'app') {
+      throw new Error('Mandate is not of type app');
+    }
+    const children = await this.mandateRepository.getChildMandates(mandateId);
+    return { mandate, children };
   }
 }

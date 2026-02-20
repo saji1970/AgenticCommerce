@@ -119,6 +119,18 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
         throw new Error('Product price is required and must be greater than 0');
       }
 
+      // Retrieve per-mandate token if available
+      let mandateToken: string | undefined;
+      try {
+        const token = await AsyncStorage.getItem(`mandate_token_${mandate.id}`);
+        if (!token) {
+          const globalToken = await AsyncStorage.getItem('mandate_token');
+          mandateToken = globalToken || undefined;
+        } else {
+          mandateToken = token;
+        }
+      } catch {}
+
       if (isCartDemoMode()) {
         // Demo mode: cart is stored locally - add via cartService so it matches getCart
         await cartService.addToCart({
@@ -127,6 +139,8 @@ export const BuyButton: React.FC<BuyButtonProps> = ({
           productImage: product.imageUrl || product.image || '',
           quantity: 1,
           price: productPrice,
+          mandateId: mandate.id,
+          mandateToken,
         });
       } else {
         // Production: use ACP to add via backend (validates mandate and adds to backend cart)

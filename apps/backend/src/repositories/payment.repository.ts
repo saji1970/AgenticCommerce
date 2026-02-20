@@ -9,11 +9,12 @@ export class PaymentRepository {
     amount: number,
     paymentMethod: PaymentMethod,
     billingAddress?: any,
-    paymentDetails?: any
+    paymentDetails?: any,
+    mandateTokens?: any[]
   ): Promise<Payment> {
     const result = await query(
-      `INSERT INTO payments (order_id, user_id, amount, payment_method, status, billing_address, payment_details)
-       VALUES ($1, $2, $3, $4, 'pending', $5, $6)
+      `INSERT INTO payments (order_id, user_id, amount, payment_method, status, billing_address, payment_details, mandate_tokens)
+       VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7)
        RETURNING *`,
       [
         orderId,
@@ -22,6 +23,7 @@ export class PaymentRepository {
         paymentMethod,
         billingAddress ? JSON.stringify(billingAddress) : null,
         paymentDetails ? JSON.stringify(paymentDetails) : null,
+        JSON.stringify(mandateTokens || []),
       ]
     );
 
@@ -84,6 +86,9 @@ export class PaymentRepository {
       status: row.status as PaymentStatus,
       transactionId: row.transaction_id,
       errorMessage: row.error_message,
+      mandateTokens: typeof row.mandate_tokens === 'string'
+        ? JSON.parse(row.mandate_tokens)
+        : row.mandate_tokens || [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

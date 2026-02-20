@@ -39,6 +39,7 @@ export const DashboardScreen: React.FC = () => {
   const pendingMandates = mandates.filter(m => m.status === 'pending');
   const activeMandates = mandates.filter(m => m.status === 'active');
   const revokedMandates = mandates.filter(m => m.status === 'revoked');
+  const activeAppMandates = activeMandates.filter(m => m.type === 'app');
 
   // Get unique AI apps with active mandates
   const activeAIApps = useMemo(() => {
@@ -103,6 +104,35 @@ export const DashboardScreen: React.FC = () => {
           <Text style={styles.statLabel}>Pending</Text>
         </View>
       </View>
+
+      {/* Active App Mandates - shown prominently */}
+      {activeAppMandates.length > 0 && (
+        <View style={styles.limitsCard}>
+          <Text style={styles.limitsTitle}>App Mandates (Master Authorizations)</Text>
+          {activeAppMandates.map((appMandate) => (
+            <TouchableOpacity
+              key={appMandate.id}
+              style={styles.appCard}
+              onPress={() => (navigation as any).navigate('Mandates', { screen: 'MandateDetail', params: { mandateId: appMandate.id } })}
+            >
+              <View style={styles.appIcon}>
+                <Text style={styles.appIconText}>{appMandate.agentName.charAt(0).toUpperCase()}</Text>
+              </View>
+              <View style={styles.appInfo}>
+                <Text style={styles.appName}>{appMandate.agentName}</Text>
+                <Text style={styles.appMandates}>
+                  ${(appMandate.constraints?.dailySpendingLimit || 0).toLocaleString()}/day
+                  {appMandate.paymentMethods?.length ? ` | ${appMandate.paymentMethods.length} payment method(s)` : ''}
+                </Text>
+              </View>
+              <View style={styles.appStatus}>
+                <View style={styles.activeIndicator} />
+                <Text style={styles.activeText}>Active</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Total Spending Limits Summary */}
       {activeMandates.length > 0 && (

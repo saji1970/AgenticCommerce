@@ -74,6 +74,35 @@ export class PaymentService {
       }
     }
 
+    // Collect mandate tokens from each cart item for audit trail
+    const mandateTokens: Array<{ mandateId: string; mandateToken: string; productId?: string }> = [];
+    for (const item of cartItems) {
+      if (item.mandateId && item.mandateToken) {
+        mandateTokens.push({
+          mandateId: item.mandateId,
+          mandateToken: item.mandateToken,
+          productId: item.productId,
+        });
+      }
+    }
+
+    // Include payment mandate token from request if provided
+    if (paymentRequest.mandateToken) {
+      mandateTokens.push({
+        mandateId: 'payment-mandate',
+        mandateToken: paymentRequest.mandateToken,
+      });
+    }
+
+    // Include explicit mandateTokens from request if provided
+    if (paymentRequest.mandateTokens) {
+      for (const entry of paymentRequest.mandateTokens) {
+        if (!mandateTokens.find(t => t.mandateId === entry.mandateId)) {
+          mandateTokens.push(entry);
+        }
+      }
+    }
+
     // Create order
     const orderItems = cartItems.map(item => ({
       productId: item.productId,
@@ -92,7 +121,8 @@ export class PaymentService {
       orderItems,
       parseFloat(subtotal.toFixed(2)),
       parseFloat(tax.toFixed(2)),
-      parseFloat(total.toFixed(2))
+      parseFloat(total.toFixed(2)),
+      mandateTokens.length > 0 ? mandateTokens : undefined
     );
 
     // Create payment record
@@ -105,7 +135,8 @@ export class PaymentService {
       {
         cardLast4: paymentRequest.cardDetails?.cardNumber.slice(-4),
         paypalEmail: paymentRequest.paypalDetails?.email,
-      }
+      },
+      mandateTokens.length > 0 ? mandateTokens : undefined
     );
 
     try {

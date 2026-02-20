@@ -6,9 +6,11 @@ export interface AgentMandate {
   userId: string;
   agentId: string;
   agentName: string;
-  type: 'cart' | 'intent' | 'payment';
+  type: 'cart' | 'intent' | 'payment' | 'app';
   status: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
   constraints: Record<string, any>;
+  parentMandateId?: string;
+  paymentMethods?: any[];
   validFrom: string;
   validUntil?: string;
   revokedAt?: string;
@@ -21,15 +23,17 @@ export interface RegisterMandateRequest {
   userId: string;
   agentId: string;
   agentName: string;
-  type: 'cart' | 'intent' | 'payment';
+  type: 'cart' | 'intent' | 'payment' | 'app';
   constraints?: Record<string, any>;
+  parentMandateId?: string;
+  paymentMethods?: any[];
   validUntil?: string;
 }
 
 export interface ValidateMandateRequest {
   userId: string;
   agentId: string;
-  mandateType: 'cart' | 'intent' | 'payment';
+  mandateType: 'cart' | 'intent' | 'payment' | 'app';
   transactionAmount?: number;
 }
 
@@ -169,6 +173,20 @@ class MandateServiceClient {
       throw error;
     }
   }
+  /**
+   * Get user's app mandates
+   */
+  async getUserAppMandates(userId: string): Promise<AgentMandate[]> {
+    const response = await this.client.get<{ success: boolean; data: AgentMandate[] }>(
+      '/mandates/app',
+      { params: { userId } }
+    );
+    if (!response.data.success) {
+      throw new Error('Failed to get user app mandates');
+    }
+    return response.data.data;
+  }
+
   /**
    * Validate a mandate token against cart data (called during checkout)
    */

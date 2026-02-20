@@ -8,13 +8,15 @@ export class OrderRepository {
     items: any[],
     subtotal: number,
     tax: number,
-    total: number
+    total: number,
+    mandateTokens?: any[],
+    appMandateId?: string
   ): Promise<Order> {
     const result = await query(
-      `INSERT INTO orders (user_id, items, subtotal, tax, total, status)
-       VALUES ($1, $2, $3, $4, $5, 'pending')
+      `INSERT INTO orders (user_id, items, subtotal, tax, total, status, mandate_tokens, app_mandate_id)
+       VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)
        RETURNING *`,
-      [userId, JSON.stringify(items), subtotal, tax, total]
+      [userId, JSON.stringify(items), subtotal, tax, total, JSON.stringify(mandateTokens || []), appMandateId || null]
     );
 
     return this.mapRowToOrder(result.rows[0]);
@@ -82,6 +84,10 @@ export class OrderRepository {
       tax: parseFloat(row.tax),
       total: parseFloat(row.total),
       paymentId: row.payment_id,
+      mandateTokens: typeof row.mandate_tokens === 'string'
+        ? JSON.parse(row.mandate_tokens)
+        : row.mandate_tokens || [],
+      appMandateId: row.app_mandate_id || undefined,
       status: row.status,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

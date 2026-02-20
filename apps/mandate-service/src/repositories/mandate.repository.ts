@@ -5,9 +5,11 @@ export interface AgentMandate {
   userId: string;
   agentId: string;
   agentName: string;
-  type: 'cart' | 'intent' | 'payment';
+  type: 'cart' | 'intent' | 'payment' | 'app';
   status: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
   constraints: Record<string, any>;
+  parentMandateId?: string;
+  paymentMethods?: any[];
   validFrom: Date;
   validUntil?: Date;
   revokedAt?: Date;
@@ -20,8 +22,10 @@ export interface CreateMandateRequest {
   userId: string;
   agentId: string;
   agentName: string;
-  type: 'cart' | 'intent' | 'payment';
+  type: 'cart' | 'intent' | 'payment' | 'app';
   constraints?: Record<string, any>;
+  parentMandateId?: string;
+  paymentMethods?: any[];
   validUntil?: Date;
 }
 
@@ -35,8 +39,8 @@ export interface UpdateMandateRequest {
 export class MandateRepository {
   async create(data: CreateMandateRequest): Promise<AgentMandate> {
     const result = await query(
-      `INSERT INTO agent_mandates (user_id, agent_id, agent_name, type, status, constraints, valid_until)
-       VALUES ($1, $2, $3, $4, 'pending', $5, $6)
+      `INSERT INTO agent_mandates (user_id, agent_id, agent_name, type, status, constraints, parent_mandate_id, payment_methods, valid_until)
+       VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8)
        RETURNING *`,
       [
         data.userId,
@@ -44,6 +48,8 @@ export class MandateRepository {
         data.agentName,
         data.type,
         JSON.stringify(data.constraints || {}),
+        data.parentMandateId || null,
+        JSON.stringify(data.paymentMethods || []),
         data.validUntil || null,
       ]
     );
@@ -240,6 +246,32 @@ export class MandateRepository {
     };
   }
 
+  async getActiveAppMandate(userId: string, agentId: string): Promise<AgentMandate | null> {
+    const result = await query(
+      `SELECT * FROM agent_mandates
+       WHERE user_id = $1 AND agent_id = $2 AND type = 'app' AND status = 'active'
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId, agentId]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return this.mapRowToMandate(result.rows[0]);
+  }
+
+  async getChildMandates(parentMandateId: string): Promise<AgentMandate[]> {
+    const result = await query(
+      `SELECT * FROM agent_mandates
+       WHERE parent_mandate_id = $1
+       ORDER BY created_at DESC`,
+      [parentMandateId]
+    );
+
+    return result.rows.map(row => this.mapRowToMandate(row));
+  }
+
   private mapRowToMandate(row: any): AgentMandate {
     return {
       id: row.id,
@@ -248,9 +280,13 @@ export class MandateRepository {
       agentName: row.agent_name,
       type: row.type,
       status: row.status,
-      constraints: typeof row.constraints === 'string' 
-        ? JSON.parse(row.constraints) 
+      constraints: typeof row.constraints === 'string'
+        ? JSON.parse(row.constraints)
         : row.constraints || {},
+      parentMandateId: row.parent_mandate_id || undefined,
+      paymentMethods: typeof row.payment_methods === 'string'
+        ? JSON.parse(row.payment_methods)
+        : row.payment_methods || [],
       validFrom: row.valid_from,
       validUntil: row.valid_until,
       revokedAt: row.revoked_at,

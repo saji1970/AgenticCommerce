@@ -23,6 +23,12 @@ export interface PayPalDetails {
   email: string;
 }
 
+export interface MandateTokenEntry {
+  mandateId: string;
+  mandateToken: string;
+  productId?: string;
+}
+
 export interface PaymentRequest {
   cartId: string;
   paymentMethod: PaymentMethod;
@@ -35,6 +41,8 @@ export interface PaymentRequest {
     zipCode: string;
     country: string;
   };
+  mandateToken?: string;
+  mandateTokens?: MandateTokenEntry[];
 }
 
 export interface Payment {
@@ -46,6 +54,7 @@ export interface Payment {
   status: PaymentStatus;
   transactionId?: string;
   errorMessage?: string;
+  mandateTokens?: any;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -68,6 +77,8 @@ export interface Order {
   tax: number;
   total: number;
   paymentId?: string;
+  mandateTokens?: MandateTokenEntry[];
+  appMandateId?: string;
   status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   createdAt: Date;
   updatedAt: Date;

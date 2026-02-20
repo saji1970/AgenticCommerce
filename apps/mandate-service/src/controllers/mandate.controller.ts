@@ -11,7 +11,7 @@ export class MandateController {
   // Register a new mandate (called by agents)
   registerMandate = async (req: Request, res: Response) => {
     try {
-      const { userId, agentId, agentName, type, constraints, validUntil } = req.body;
+      const { userId, agentId, agentName, type, constraints, parentMandateId, paymentMethods, validUntil } = req.body;
 
       if (!userId || !agentId || !type) {
         return res.status(400).json({
@@ -26,6 +26,8 @@ export class MandateController {
         agentName,
         type,
         constraints,
+        parentMandateId,
+        paymentMethods,
         validUntil: validUntil ? new Date(validUntil) : undefined,
       });
 
@@ -204,6 +206,52 @@ export class MandateController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to revoke mandate',
+      });
+    }
+  };
+
+  // Get user's app mandates
+  getUserAppMandates = async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.query;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          error: 'userId query parameter is required',
+        });
+      }
+
+      const mandates = await this.mandateService.getUserAppMandates(userId as string);
+
+      res.json({
+        success: true,
+        data: mandates,
+      });
+    } catch (error) {
+      console.error('Error getting app mandates:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get app mandates',
+      });
+    }
+  };
+
+  // Get app mandate with its child mandates
+  getAppMandateChildren = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const result = await this.mandateService.getAppMandateWithChildren(id);
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error('Error getting app mandate children:', error);
+      res.status(404).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'App mandate not found',
       });
     }
   };

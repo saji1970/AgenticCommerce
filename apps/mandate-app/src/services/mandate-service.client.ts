@@ -16,9 +16,11 @@ export interface AgentMandate {
   userId: string;
   agentId: string;
   agentName: string;
-  type: 'cart' | 'intent' | 'payment';
+  type: 'cart' | 'intent' | 'payment' | 'app';
   status: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
   constraints: Record<string, any>;
+  parentMandateId?: string;
+  paymentMethods?: any[];
   validFrom: string;
   validUntil?: string;
   createdAt: string;
@@ -79,8 +81,10 @@ export interface RegisterMandateRequest {
   userId: string;
   agentId: string;
   agentName: string;
-  type: 'cart' | 'intent' | 'payment';
+  type: 'cart' | 'intent' | 'payment' | 'app';
   constraints?: Record<string, any>;
+  parentMandateId?: string;
+  paymentMethods?: any[];
   validUntil?: string;
 }
 

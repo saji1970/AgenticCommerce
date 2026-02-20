@@ -70,6 +70,8 @@ export const cartService = {
         productImage: request.productImage,
         quantity: request.quantity,
         price: request.price,
+        mandateId: request.mandateId,
+        mandateToken: request.mandateToken,
         userId: 'demo_user',
         createdAt: new Date(),
         updatedAt: new Date(),

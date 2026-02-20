@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../contexts/CartContext';
 import { AuthNavigator } from './AuthNavigator';
 import { AppNavigator } from './AppNavigator';
+import { AppMandateSetupScreen } from '../screens/mandate/AppMandateSetupScreen';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { handleMandateCallback } from '../utils/mandateCheck';
@@ -58,8 +59,9 @@ export const RootNavigator = () => {
       const isPaymentCallback = url.startsWith('agenticcommerce://payment-callback');
       const isCartCallback = url.startsWith('agenticcommerce://cart-callback');
       const isIntentCallback = url.startsWith('agenticcommerce://intent-callback');
+      const isAppCallback = url.startsWith('agenticcommerce://app-callback');
 
-      if (isPaymentCallback || isCartCallback || isIntentCallback) {
+      if (isPaymentCallback || isCartCallback || isIntentCallback || isAppCallback) {
         try {
           // Use manual parsing - new URL() can fail with custom schemes on React Native
           const params = parseDeepLinkParams(url);
@@ -71,13 +73,24 @@ export const RootNavigator = () => {
             // Update local mandate status
             await handleMandateCallback(mandateId, status);
 
-            // Store mandate token if present
+            // Store mandate token if present (per-mandate + global)
             if (mandateToken) {
               console.log('[RootNavigator] Storing mandate token for mandateId:', mandateId);
               await AsyncStorage.setItem(MANDATE_TOKEN_KEY, mandateToken);
+              await AsyncStorage.setItem(`mandate_token_${mandateId}`, mandateToken);
             }
 
             if (status === 'approved') {
+              // App mandate callback: agent registered successfully
+              if (isAppCallback) {
+                Alert.alert(
+                  'AI Agent Registered!',
+                  'Your AI shopping agent is now active with your purchase limits.',
+                  [{ text: 'OK' }]
+                );
+                return;
+              }
+
               // Cart callback: add product to cart (use cartData from URL as fallback if pending item not in storage)
               if (isCartCallback) {
                 let pendingItem: { productId: string; productName: string; productImage?: string; quantity: number; price: number } | null = null;
@@ -328,7 +341,14 @@ export const RootNavigator = () => {
     <NavigationContainer ref={navigationRef} onReady={() => console.log('[RootNavigator] Navigation ready')}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          <Stack.Screen name="App" component={AppNavigator} />
+          <>
+            <Stack.Screen name="App" component={AppNavigator} />
+            <Stack.Screen
+              name="AppMandateSetup"
+              component={AppMandateSetupScreen}
+              options={{ headerShown: true, title: 'Register AI Agent' }}
+            />
+          </>
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}
