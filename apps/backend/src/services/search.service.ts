@@ -23,7 +23,7 @@ export class SearchService {
       console.log('✅ SerpAPI configured as primary search provider');
     }
     if (this.rapidApiKey) {
-      console.log('✅ RapidAPI configured as flight search fallback');
+      console.log(`✅ RapidAPI configured as flight search fallback (host: ${config.rapidApi.host})`);
     }
     if (!this.serpApiKey && this.googleApiKey && this.searchEngineId) {
       console.log('✅ Google Custom Search configured as search provider');
@@ -394,15 +394,17 @@ export class SearchService {
     const today = new Date().toISOString().split('T')[0];
     const date = (params.departureDate && params.departureDate >= today) ? params.departureDate : today;
 
+    const rapidHost = config.rapidApi.host;
+
     try {
       const headers = {
         'X-RapidAPI-Key': this.rapidApiKey,
-        'X-RapidAPI-Host': 'sky-scrapper.p.rapidapi.com',
+        'X-RapidAPI-Host': rapidHost,
       };
 
-      // Resolve origin
+      // Resolve origin - /api/v1/flights/searchAirport
       const originRes = await axios.get(
-        `https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchAirport`,
+        `https://${rapidHost}/api/v1/flights/searchAirport`,
         { headers, params: { query: params.origin, locale: 'en-US' }, timeout: 10000 }
       );
       const originPlaces = originRes.data?.data;
@@ -414,7 +416,7 @@ export class SearchService {
 
       // Resolve destination
       const destRes = await axios.get(
-        `https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchAirport`,
+        `https://${rapidHost}/api/v1/flights/searchAirport`,
         { headers, params: { query: params.destination, locale: 'en-US' }, timeout: 10000 }
       );
       const destPlaces = destRes.data?.data;
@@ -442,7 +444,7 @@ export class SearchService {
       }
 
       const { data } = await axios.get(
-        `https://sky-scrapper.p.rapidapi.com/api/v2/flights/searchFlightsWebComplete`,
+        `https://${rapidHost}/api/v2/flights/searchFlightsWebComplete`,
         { headers, params: flightParams, timeout: 30000 }
       );
 
