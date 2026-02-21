@@ -72,6 +72,10 @@ export const config = {
     searchEngineId: process.env.GOOGLE_SEARCH_ENGINE_ID || '',
   },
 
+  serpApi: {
+    apiKey: process.env.SERPAPI_KEY || '',
+  },
+
   googlePlaces: {
     apiKey: process.env.GOOGLE_PLACES_API_KEY || '',
   },

@@ -5,57 +5,169 @@ import { AppError } from '../middleware/errorHandler';
 import { extractPriceFromGoogleShoppingResult } from '../utils/price-extractor';
 
 export class SearchService {
-  private apiKey: string;
+  private googleApiKey: string;
   private searchEngineId: string;
+  private serpApiKey: string;
   private requestCount: number = 0;
   private lastResetTime: number = Date.now();
   private readonly MAX_REQUESTS_PER_MINUTE = 100;
 
   constructor() {
-    this.apiKey = config.googleSearch.apiKey;
+    this.googleApiKey = config.googleSearch.apiKey;
     this.searchEngineId = config.googleSearch.searchEngineId;
+    this.serpApiKey = config.serpApi.apiKey;
 
-    if (!this.apiKey || !this.searchEngineId) {
-      console.warn('⚠️  Google Search API credentials not configured');
+    if (this.serpApiKey) {
+      console.log('✅ SerpAPI configured as primary search provider');
+    } else if (this.googleApiKey && this.searchEngineId) {
+      console.log('✅ Google Custom Search configured as search provider');
+    } else {
+      console.warn('⚠️  No search API credentials configured (set SERPAPI_KEY or GOOGLE_API_KEY + GOOGLE_SEARCH_ENGINE_ID)');
     }
   }
 
   async search(query: string, options?: SearchOptions & { useShopping?: boolean }): Promise<SearchResult[]> {
     this.checkRateLimit();
 
-    if (!this.apiKey || !this.searchEngineId) {
-      throw new AppError(
-        503,
-        'Google Search API not configured. Please set GOOGLE_API_KEY and GOOGLE_SEARCH_ENGINE_ID',
-        'SEARCH_NOT_CONFIGURED'
-      );
+    // Try SerpAPI first, then fall back to Google Custom Search
+    if (this.serpApiKey) {
+      return this.searchWithSerpApi(query, options);
     }
 
+    if (this.googleApiKey && this.searchEngineId) {
+      return this.searchWithGoogle(query, options);
+    }
+
+    throw new AppError(
+      503,
+      'No search API configured. Please set SERPAPI_KEY or GOOGLE_API_KEY + GOOGLE_SEARCH_ENGINE_ID',
+      'SEARCH_NOT_CONFIGURED'
+    );
+  }
+
+  private async searchWithSerpApi(query: string, options?: SearchOptions & { useShopping?: boolean }): Promise<SearchResult[]> {
     const maxResults = options?.maxResults || 10;
-    const language = options?.language || 'en';
     const country = options?.country || 'us';
-    const useShopping = options?.useShopping ?? false; // Use Google Shopping for products
+    const useShopping = options?.useShopping ?? false;
 
     try {
       const params: any = {
-        key: this.apiKey,
+        api_key: this.serpApiKey,
+        q: query,
+        num: Math.min(maxResults, 10),
+        gl: country,
+        hl: options?.language || 'en',
+      };
+
+      if (useShopping) {
+        params.engine = 'google_shopping';
+      } else {
+        params.engine = 'google';
+      }
+
+      console.log(`🔍 SerpAPI ${useShopping ? 'Shopping' : 'Search'} for: "${query}"`);
+
+      const response = await axios.get('https://serpapi.com/search.json', {
+        params,
+        timeout: 30000,
+      });
+
+      this.requestCount++;
+
+      if (useShopping) {
+        return this.mapSerpApiShoppingResults(response.data);
+      } else {
+        return this.mapSerpApiSearchResults(response.data);
+      }
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 429) {
+          throw new AppError(429, 'SerpAPI rate limit exceeded', 'RATE_LIMIT_ERROR');
+        }
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          throw new AppError(503, 'SerpAPI authentication failed. Check your SERPAPI_KEY.', 'SEARCH_AUTH_ERROR');
+        }
+        console.error('SerpAPI error:', {
+          query,
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+        throw new AppError(503, `SerpAPI error: ${error.response?.data?.error || error.message}`, 'SEARCH_SERVICE_ERROR');
+      }
+      console.error('Unexpected SerpAPI error:', error);
+      throw error;
+    }
+  }
+
+  private mapSerpApiShoppingResults(data: any): SearchResult[] {
+    const results = data.shopping_results || [];
+    if (results.length === 0) {
+      console.log('⚠️  SerpAPI returned 0 shopping results');
+      return [];
+    }
+
+    console.log(`✅ SerpAPI returned ${results.length} shopping results`);
+
+    return results.map((item: any) => ({
+      title: item.title || '',
+      url: item.link || item.product_link || '',
+      snippet: item.snippet || item.source || '',
+      displayUrl: item.source || '',
+      price: item.extracted_price ?? item.price ?? null,
+      currency: item.currency || 'USD',
+      availability: item.delivery ? 'In Stock' : undefined,
+      image: item.thumbnail || null,
+      rawData: item,
+    }));
+  }
+
+  private mapSerpApiSearchResults(data: any): SearchResult[] {
+    const results = data.organic_results || [];
+    if (results.length === 0) {
+      console.log('⚠️  SerpAPI returned 0 organic results');
+      return [];
+    }
+
+    console.log(`✅ SerpAPI returned ${results.length} organic results`);
+
+    return results.map((item: any) => ({
+      title: item.title || '',
+      url: item.link || '',
+      snippet: item.snippet || '',
+      displayUrl: item.displayed_link || item.source || '',
+      price: null,
+      currency: 'USD',
+      image: item.thumbnail || null,
+      rawData: item,
+    }));
+  }
+
+  private async searchWithGoogle(query: string, options?: SearchOptions & { useShopping?: boolean }): Promise<SearchResult[]> {
+    const maxResults = options?.maxResults || 10;
+    const language = options?.language || 'en';
+    const country = options?.country || 'us';
+    const useShopping = options?.useShopping ?? false;
+
+    try {
+      const params: any = {
+        key: this.googleApiKey,
         cx: this.searchEngineId,
         q: query,
-        num: Math.min(maxResults, 10), // Google API max is 10 per request
+        num: Math.min(maxResults, 10),
         lr: `lang_${language}`,
         gl: country,
         safe: options?.safeSearch ? 'active' : 'off',
       };
 
-      // Add Google Shopping parameter for product searches
       if (useShopping) {
-        params.tbm = 'shop'; // Google Shopping search
+        params.tbm = 'shop';
       }
 
       const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
         params,
-        timeout: 30000, // Increased timeout to 30s to prevent premature failures
-        validateStatus: (status) => status < 500, // Don't throw on 4xx, only 5xx
+        timeout: 30000,
+        validateStatus: (status) => status < 500,
       });
 
       this.requestCount++;
@@ -65,7 +177,6 @@ export class SearchService {
       }
 
       return response.data.items.map((item: any) => {
-        // Use robust price extraction utility
         const result = {
           title: item.title,
           url: item.link,
@@ -73,26 +184,23 @@ export class SearchService {
           displayUrl: item.displayLink || new URL(item.link).hostname,
           rawData: item.pagemap,
           price: item.pagemap?.offer?.[0]?.price,
-          currency: item.pagemap?.offer?.[0]?.pricecurrency || 
+          currency: item.pagemap?.offer?.[0]?.pricecurrency ||
                    item.pagemap?.product?.[0]?.offers?.pricecurrency ||
                    'USD',
         };
 
         const extractedPrice = extractPriceFromGoogleShoppingResult(result);
-        
+
         return {
           title: item.title,
           url: item.link,
           snippet: item.snippet || '',
           displayUrl: item.displayLink || new URL(item.link).hostname,
-          // Google Shopping specific fields
           price: extractedPrice?.value != null ? extractedPrice.original : null,
           currency: extractedPrice?.currency || result.currency,
           availability: item.pagemap?.offer?.[0]?.availability,
           image: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.imageobject?.[0]?.url,
-          // Store full pagemap for debugging
           rawData: item.pagemap,
-          // Store extracted price metadata for better processing downstream
           _priceMetadata: extractedPrice ? {
             value: extractedPrice.value,
             confidence: extractedPrice.confidence,
@@ -101,72 +209,29 @@ export class SearchService {
       });
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
-        // Handle specific HTTP status codes
         if (error.response?.status === 429) {
           throw new AppError(429, 'Google Search API rate limit exceeded', 'RATE_LIMIT_ERROR');
         }
         if (error.response?.status === 403) {
-          throw new AppError(
-            503,
-            'Google Search API authentication failed. Check your API key.',
-            'SEARCH_AUTH_ERROR'
-          );
+          throw new AppError(503, 'Google Search API authentication failed. Check your API key.', 'SEARCH_AUTH_ERROR');
         }
-        // Handle 502 Bad Gateway specifically
         if (error.response?.status === 502) {
-          console.error('Google Search API returned 502 Bad Gateway:', {
-            query,
-            url: error.config?.url,
-            status: error.response.status,
-            statusText: error.response.statusText,
-          });
-          throw new AppError(
-            502,
-            'Google Search API is temporarily unavailable (Bad Gateway). Please try again later.',
-            'SEARCH_SERVICE_UNAVAILABLE'
-          );
+          throw new AppError(502, 'Google Search API is temporarily unavailable (Bad Gateway).', 'SEARCH_SERVICE_UNAVAILABLE');
         }
-        // Handle network errors (timeouts, connection issues)
         if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-          console.error('Google Search API request timeout:', {
-            query,
-            timeout: error.config?.timeout,
-            code: error.code,
-          });
-          throw new AppError(
-            503,
-            'Google Search API request timed out. Please try again.',
-            'SEARCH_TIMEOUT'
-          );
+          throw new AppError(503, 'Google Search API request timed out.', 'SEARCH_TIMEOUT');
         }
         if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-          console.error('Google Search API connection error:', {
-            query,
-            code: error.code,
-            message: error.message,
-          });
-          throw new AppError(
-            503,
-            'Cannot connect to Google Search API. Please check your internet connection.',
-            'SEARCH_CONNECTION_ERROR'
-          );
+          throw new AppError(503, 'Cannot connect to Google Search API.', 'SEARCH_CONNECTION_ERROR');
         }
-        // Log full error details for debugging
         console.error('Google Search API error:', {
           query,
           status: error.response?.status,
-          statusText: error.response?.statusText,
           data: error.response?.data,
           message: error.message,
-          code: error.code,
         });
-        throw new AppError(
-          503,
-          `Google Search API error: ${error.response?.statusText || error.message}`,
-          'SEARCH_SERVICE_ERROR'
-        );
+        throw new AppError(503, `Google Search API error: ${error.response?.statusText || error.message}`, 'SEARCH_SERVICE_ERROR');
       }
-      // Non-Axios errors
       console.error('Unexpected error in SearchService:', error);
       throw error;
     }
@@ -193,7 +258,6 @@ export class SearchService {
     const now = Date.now();
     const timeSinceReset = now - this.lastResetTime;
 
-    // Reset counter every minute
     if (timeSinceReset > 60000) {
       this.requestCount = 0;
       this.lastResetTime = now;

@@ -42,11 +42,16 @@ export class ProductService {
     const startTime = Date.now();
     let aiTokensUsed = 0;
 
-    // Check if user is a demo user - use sample data instead of real API calls
+    // Check if user is a demo user - try sample data first, fall back to real API
     const isDemoUser = await isDemoUserById(userId);
     if (isDemoUser) {
-      console.log(`🎭 Demo user detected - using sample data for: "${request.query}"`);
-      return await this.getDemoProducts(userId, request.query, request.filters);
+      console.log(`🎭 Demo user detected - trying sample data for: "${request.query}"`);
+      const demoResult = await this.getDemoProducts(userId, request.query, request.filters);
+      if (demoResult.products.length > 0) {
+        return demoResult;
+      }
+      console.log(`🔄 No demo products matched, falling back to Google search for: "${request.query}"`);
+      // Fall through to Google search below
     }
 
     // Create search query record
@@ -475,8 +480,8 @@ export class ProductService {
 
           // Create mandate with constraints based on parsed query
           const mandateRequest = {
-            agentId: 'nlp-search-agent',
-            agentName: 'NLP Search Agent',
+            agentId: 'default-shopping-agent',
+            agentName: 'Shopping Assistant',
             type: MandateType.INTENT,
             constraints: {
               maxIntentsPerDay: 5,

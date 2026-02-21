@@ -49,3 +49,15 @@ VALUES (
   '["cart", "intent", "payment", "search", "recommend"]',
   'active'
 ) ON CONFLICT (agent_id) DO NOTHING;
+
+-- Insert NLP search agent used by AI chat/NLP search feature
+INSERT INTO ai_agents (name, slug, agent_id, agent_name, description, capabilities, status)
+VALUES (
+  'NLP Search Agent',
+  'nlp-search-agent',
+  'nlp-search-agent',
+  'NLP Search Agent',
+  'AI agent that handles natural language product searches and creates purchase intents automatically.',
+  '["intent", "search"]',
+  'active'
+) ON CONFLICT (agent_id) DO NOTHING;
