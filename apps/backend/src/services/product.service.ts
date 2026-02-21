@@ -13,7 +13,7 @@ import { SearchQueryRepository } from '../repositories/search-query.repository';
 import { ProductFilterRepository } from '../repositories/product-filter.repository';
 import { SearchService } from './search.service';
 import { AIService } from './ai.service';
-import { MCPService } from './mcp.service';
+import { MCPService, TravelSearchParams } from './mcp.service';
 import { NLPService, ParsedSearchQuery } from './nlp.service';
 import { AppError } from '../middleware/errorHandler';
 import { isDemoUserById } from '../utils/demo-users';
@@ -75,62 +75,140 @@ export class ProductService {
 
       let searchResults: any[] = [];
 
-      // For travel with origin/destination, use SerpAPI flights directly
+      // Build travel params for MCP servers
+      const travelParams: TravelSearchParams | undefined = isTravel
+        ? {
+            isTravel: true,
+            origin,
+            destination,
+            date: startDate,
+            returnDate: endDate,
+            productType: origin && destination ? 'flight' : undefined,
+          }
+        : undefined;
+
+      // For travel with origin/destination, run SerpAPI flights + MCP travel in parallel
       if (isTravel && origin && destination) {
-        console.log(`✈️  Searching flights: ${origin} → ${destination}`);
-        searchResults = await this.searchService.searchFlights({
+        console.log(`✈️  Searching flights: ${origin} → ${destination} (SerpAPI + MCP in parallel)`);
+
+        // Launch SerpAPI flights
+        const serpApiPromise = this.searchService.searchFlights({
           origin,
           destination,
           departureDate: startDate,
           returnDate: endDate,
           query: request.query,
+        }).catch(err => {
+          console.error('SerpAPI flight search error:', err);
+          return [] as any[];
         });
 
-        // If flights found, convert directly to products (skip scraping)
-        if (searchResults.length > 0) {
-          const flightProducts: CreateProductDTO[] = searchResults.map(result => ({
-            userId,
-            name: result.title,
-            description: result.snippet,
-            price: typeof result.price === 'number' ? result.price : undefined,
-            currency: result.currency || 'USD',
-            imageUrl: result.image || undefined,
-            productUrl: result.url,
-            source: `serpapi_flights:${result.displayUrl}`,
-            rawData: result.rawData,
-            aiExtracted: false,
-            searchQueryId: searchQuery.id,
-          } as CreateProductDTO)).filter(p => p.name && p.name.trim());
-
-          // Save to database
-          const savedProducts = [];
-          for (const dto of flightProducts) {
-            try {
-              const saved = await this.productRepository.create(dto);
-              savedProducts.push(saved);
-            } catch (error) {
-              console.error(`Failed to save flight product:`, error);
+        // Launch MCP travel search in parallel
+        const mcpTravelPromise = (async () => {
+          try {
+            const activeServers = await this.mcpService.listAvailableServers();
+            if (activeServers.length === 0) {
+              console.log(`⚠️  No active MCP servers for travel search`);
+              return [] as CreateProductDTO[];
             }
+            console.log(`🔌 Querying ${activeServers.length} MCP server(s) for travel: ${activeServers.map(s => s.name).join(', ')}`);
+            return await this.mcpService.searchProducts(request.query, undefined, travelParams);
+          } catch (error) {
+            console.error('MCP travel search error:', error);
+            return [] as CreateProductDTO[];
           }
+        })();
 
-          await this.searchQueryRepository.complete(searchQuery.id, savedProducts.length);
-          console.log(`✅ Flight search complete! Found ${savedProducts.length} flights in ${Date.now() - startTime}ms`);
+        const [serpApiResults, mcpTravelProducts] = await Promise.all([serpApiPromise, mcpTravelPromise]);
 
-          return {
-            searchQueryId: searchQuery.id,
-            products: savedProducts,
-            filters: [],
-            metadata: {
-              totalResults: savedProducts.length,
-              processingTimeMs: Date.now() - startTime,
-              aiTokensUsed: 0,
-              sourcesUsed: ['serpapi_flights'],
-            },
-          };
+        // Convert SerpAPI flight results to CreateProductDTO
+        const serpApiFlightProducts: CreateProductDTO[] = serpApiResults.map((result: any) => ({
+          userId,
+          name: result.title,
+          description: result.snippet,
+          price: typeof result.price === 'number' ? result.price : undefined,
+          currency: result.currency || 'USD',
+          imageUrl: result.image || undefined,
+          productUrl: result.url,
+          source: `serpapi_flights:${result.displayUrl || 'google_flights'}`,
+          rawData: result.rawData,
+          aiExtracted: false,
+          searchQueryId: searchQuery.id,
+        } as CreateProductDTO)).filter((p: CreateProductDTO) => p.name && p.name.trim());
+
+        // Set userId/searchQueryId on MCP results
+        const mcpWithIds = mcpTravelProducts.map(p => ({
+          ...p,
+          userId,
+          searchQueryId: searchQuery.id,
+        }));
+
+        console.log(`✈️  SerpAPI flights: ${serpApiFlightProducts.length}, MCP travel: ${mcpWithIds.length}`);
+
+        // Combine and deduplicate (handle empty productUrls from MCP travel results)
+        const allTravelProducts = [...serpApiFlightProducts, ...mcpWithIds];
+        const seen = new Set<string>();
+        const uniqueTravelProducts = allTravelProducts.filter(p => {
+          // For products with a real URL, deduplicate by URL
+          if (p.productUrl && p.productUrl.trim()) {
+            if (seen.has(p.productUrl)) return false;
+            seen.add(p.productUrl);
+            return true;
+          }
+          // For products without URL (MCP travel), deduplicate by name
+          const key = `name:${p.name}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        // Apply price filters
+        let filteredTravelProducts = uniqueTravelProducts;
+        if (request.filters?.priceRange) {
+          if (request.filters.priceRange.min != null) {
+            filteredTravelProducts = filteredTravelProducts.filter(p =>
+              p.price != null && p.price >= request.filters!.priceRange!.min!
+            );
+          }
+          if (request.filters.priceRange.max != null) {
+            filteredTravelProducts = filteredTravelProducts.filter(p => {
+              if (p.price == null) return true;
+              return p.price <= request.filters!.priceRange!.max!;
+            });
+          }
         }
 
-        // Fall through to regular search if no flight results
-        console.log('⚠️  No flight results from SerpAPI, falling back to regular search');
+        // Sort by price
+        filteredTravelProducts.sort((a, b) => {
+          const priceA = a.price ?? Infinity;
+          const priceB = b.price ?? Infinity;
+          return priceA - priceB;
+        });
+
+        // Save to database
+        const savedProducts = await this.productRepository.bulkCreate(filteredTravelProducts);
+
+        await this.searchQueryRepository.complete(searchQuery.id, savedProducts.length);
+        const processingTimeMs = Date.now() - startTime;
+        console.log(`✅ Combined travel search complete! Found ${savedProducts.length} results in ${processingTimeMs}ms`);
+
+        const sourcesUsed = ['serpapi_flights'];
+        if (mcpTravelProducts.length > 0) {
+          const mcpSources = mcpTravelProducts.map(p => p.source).filter((s, i, arr) => arr.indexOf(s) === i);
+          sourcesUsed.push(...mcpSources);
+        }
+
+        return {
+          searchQueryId: searchQuery.id,
+          products: savedProducts,
+          filters: [],
+          metadata: {
+            totalResults: savedProducts.length,
+            processingTimeMs,
+            aiTokensUsed: 0,
+            sourcesUsed,
+          },
+        };
       }
 
       const useShopping = isProduct && !isTravel;
@@ -186,7 +264,7 @@ export class ProductService {
           console.log(`⚠️  No active MCP servers configured. To enable MCP servers, run: pnpm seed:mcp-servers`);
         } else {
           console.log(`🔌 Querying ${activeServers.length} active MCP server(s): ${activeServers.map(s => s.name).join(', ')}`);
-          mcpProducts = await this.mcpService.searchProducts(request.query);
+          mcpProducts = await this.mcpService.searchProducts(request.query, undefined, travelParams);
           console.log(`✅ Found ${mcpProducts.length} products from MCP servers`);
         }
       } catch (error) {
@@ -333,13 +411,16 @@ export class ProductService {
         ...mcpProducts.map(p => ({ ...p, userId, searchQueryId: searchQuery.id }))
       ];
 
-      // Remove duplicates based on productUrl
-      const uniqueProducts = allProductDTOs.reduce((acc, product) => {
-        if (!acc.find(p => p.productUrl === product.productUrl)) {
-          acc.push(product);
-        }
-        return acc;
-      }, [] as CreateProductDTO[]);
+      // Remove duplicates based on productUrl (or name for products without URLs)
+      const seenKeys = new Set<string>();
+      const uniqueProducts = allProductDTOs.filter(product => {
+        const key = product.productUrl && product.productUrl.trim()
+          ? product.productUrl
+          : `name:${product.name}`;
+        if (seenKeys.has(key)) return false;
+        seenKeys.add(key);
+        return true;
+      });
 
       // Step 6: Apply filters and sorting
       let filteredProducts = uniqueProducts;

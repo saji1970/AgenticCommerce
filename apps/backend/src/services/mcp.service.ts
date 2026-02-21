@@ -4,6 +4,17 @@ import { CreateProductDTO, MCPServerConfig } from '@agentic-commerce/shared-type
 import { MCPServerConfigRepository } from '../repositories/mcp-config.repository';
 import { AppError } from '../middleware/errorHandler';
 
+export interface TravelSearchParams {
+  origin?: string;
+  destination?: string;
+  date?: string;        // departure date
+  returnDate?: string;
+  checkin?: string;     // hotel checkin
+  checkout?: string;    // hotel checkout
+  productType?: string; // 'flight' | 'hotel' | 'travel'
+  isTravel: boolean;
+}
+
 interface MCPClientInstance {
   client: Client;
   transport: StdioClientTransport;
@@ -60,7 +71,7 @@ export class MCPService {
     }
   }
 
-  async searchProducts(query: string, serverName?: string): Promise<CreateProductDTO[]> {
+  async searchProducts(query: string, serverName?: string, travelParams?: TravelSearchParams): Promise<CreateProductDTO[]> {
     const servers = serverName
       ? [serverName]
       : Array.from(this.clients.keys());
@@ -77,8 +88,11 @@ export class MCPService {
       }
     }
 
+    // Re-read servers after potential connections
+    const activeServers = servers.length > 0 ? servers : Array.from(this.clients.keys());
+
     const results = await Promise.allSettled(
-      servers.map(name => this.searchOnServer(name, query))
+      activeServers.map(name => this.searchOnServer(name, query, travelParams))
     );
 
     const products: CreateProductDTO[] = [];
@@ -86,20 +100,25 @@ export class MCPService {
       if (result.status === 'fulfilled') {
         products.push(...result.value);
       } else {
-        console.error(`MCP search failed on ${servers[index]}:`, result.reason);
+        console.error(`MCP search failed on ${activeServers[index]}:`, result.reason);
       }
     });
 
     return products;
   }
 
-  private async searchOnServer(serverName: string, query: string): Promise<CreateProductDTO[]> {
+  private async searchOnServer(serverName: string, query: string, travelParams?: TravelSearchParams): Promise<CreateProductDTO[]> {
     try {
       await this.connectToServer(serverName);
 
       const instance = this.clients.get(serverName);
       if (!instance) {
         return [];
+      }
+
+      // For rapidapi-travel with travel params, use specialized travel search
+      if (serverName === 'rapidapi-travel' && travelParams?.isTravel) {
+        return this.searchTravelServer(instance, query, travelParams);
       }
 
       const { client, config } = instance;
@@ -117,9 +136,9 @@ export class MCPService {
       if (!searchTool) {
         // Server-specific tool name patterns
         const toolPatterns = this.getServerSpecificToolPatterns(serverName);
-        
+
         for (const pattern of toolPatterns) {
-          searchTool = tools.tools.find(t => 
+          searchTool = tools.tools.find(t =>
             t.name.toLowerCase().includes(pattern.toLowerCase())
           );
           if (searchTool) break;
@@ -137,7 +156,7 @@ export class MCPService {
       }
 
       if (!searchTool) {
-        console.warn(`No search tool found on server '${serverName}'. Available tools:`, 
+        console.warn(`No search tool found on server '${serverName}'. Available tools:`,
           tools.tools.map(t => t.name).join(', '));
         return [];
       }
@@ -157,6 +176,92 @@ export class MCPService {
       console.error(`Search error on MCP server '${serverName}':`, error);
       return []; // Don't block other servers
     }
+  }
+
+  /**
+   * Specialized travel search on rapidapi-travel MCP server.
+   * Calls search_flights and/or search_hotels with structured params in parallel.
+   */
+  private async searchTravelServer(
+    instance: MCPClientInstance,
+    query: string,
+    travelParams: TravelSearchParams
+  ): Promise<CreateProductDTO[]> {
+    const { client } = instance;
+    const tools = await client.listTools();
+    const toolNames = tools.tools.map(t => t.name);
+    console.log(`✈️  MCP rapidapi-travel: available tools: ${toolNames.join(', ')}`);
+
+    const calls: Promise<CreateProductDTO[]>[] = [];
+    const queryLower = query.toLowerCase();
+
+    // Determine which tools to call based on query intent
+    const wantFlights = queryLower.includes('flight') || queryLower.includes('fly') ||
+      queryLower.includes('airline') || travelParams.productType === 'flight' ||
+      (travelParams.origin && travelParams.destination);
+    const wantHotels = queryLower.includes('hotel') || queryLower.includes('stay') ||
+      queryLower.includes('accommodation') || queryLower.includes('lodge') ||
+      travelParams.productType === 'hotel' ||
+      (travelParams.checkin && travelParams.checkout);
+
+    // Search flights
+    const flightTool = tools.tools.find(t => t.name.toLowerCase().includes('flight'));
+    if (flightTool && wantFlights && travelParams.origin && travelParams.destination) {
+      const flightArgs: Record<string, string> = {
+        origin: travelParams.origin,
+        destination: travelParams.destination,
+      };
+      if (travelParams.date) flightArgs.date = travelParams.date;
+      if (travelParams.returnDate) flightArgs.returnDate = travelParams.returnDate;
+
+      console.log(`✈️  MCP rapidapi-travel: calling ${flightTool.name} with`, flightArgs);
+      calls.push(
+        client.callTool({ name: flightTool.name, arguments: flightArgs })
+          .then(response => this.normalizeResponse(response, 'rapidapi-travel'))
+          .catch(err => {
+            console.error(`✈️  MCP rapidapi-travel ${flightTool.name} error:`, err);
+            return [] as CreateProductDTO[];
+          })
+      );
+    }
+
+    // Search hotels
+    const hotelTool = tools.tools.find(t => t.name.toLowerCase().includes('hotel'));
+    if (hotelTool && (wantHotels || (!wantFlights && travelParams.destination))) {
+      const hotelArgs: Record<string, string> = {};
+      if (travelParams.destination) hotelArgs.destination = travelParams.destination;
+      if (travelParams.checkin) hotelArgs.checkin = travelParams.checkin;
+      if (travelParams.checkout) hotelArgs.checkout = travelParams.checkout;
+      // Fallback: use travel dates as checkin/checkout
+      if (!hotelArgs.checkin && travelParams.date) hotelArgs.checkin = travelParams.date;
+      if (!hotelArgs.checkout && travelParams.returnDate) hotelArgs.checkout = travelParams.returnDate;
+
+      console.log(`🏨 MCP rapidapi-travel: calling ${hotelTool.name} with`, hotelArgs);
+      calls.push(
+        client.callTool({ name: hotelTool.name, arguments: hotelArgs })
+          .then(response => this.normalizeResponse(response, 'rapidapi-travel'))
+          .catch(err => {
+            console.error(`🏨 MCP rapidapi-travel ${hotelTool.name} error:`, err);
+            return [] as CreateProductDTO[];
+          })
+      );
+    }
+
+    if (calls.length === 0) {
+      console.log(`⚠️  MCP rapidapi-travel: no matching tools for query "${query}" (want flights=${wantFlights}, want hotels=${wantHotels})`);
+      return [];
+    }
+
+    const results = await Promise.allSettled(calls);
+    const products: CreateProductDTO[] = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        products.push(...result.value);
+      }
+    }
+
+    console.log(`✅ MCP rapidapi-travel: found ${products.length} travel results`);
+    return products;
   }
 
   /**
