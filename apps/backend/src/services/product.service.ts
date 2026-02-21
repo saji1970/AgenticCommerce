@@ -65,15 +65,78 @@ export class ProductService {
       // Update status to processing
       await this.searchQueryRepository.updateStatus(searchQuery.id, 'processing');
 
-      // Step 1: Determine search type and fetch from Google
-      // Use Google Shopping for products, regular search for travel
-      const isProduct = (request.filters as any)?.isProduct ?? true; // Default to product
+      // Step 1: Determine search type and fetch results
+      const isProduct = (request.filters as any)?.isProduct ?? true;
       const isTravel = (request.filters as any)?.isTravel ?? false;
-      
-      const useShopping = isProduct && !isTravel; // Use Google Shopping for products only
-      
-      console.log(`🔍 Searching Google ${useShopping ? 'Shopping' : ''} for: "${request.query}"`);
-      const searchResults = await this.searchService.search(request.query, {
+      const origin = (request.filters as any)?.origin;
+      const destination = (request.filters as any)?.destination;
+      const startDate = (request.filters as any)?.startDate;
+      const endDate = (request.filters as any)?.endDate;
+
+      let searchResults: any[] = [];
+
+      // For travel with origin/destination, use SerpAPI flights directly
+      if (isTravel && origin && destination) {
+        console.log(`✈️  Searching flights: ${origin} → ${destination}`);
+        searchResults = await this.searchService.searchFlights({
+          origin,
+          destination,
+          departureDate: startDate,
+          returnDate: endDate,
+          query: request.query,
+        });
+
+        // If flights found, convert directly to products (skip scraping)
+        if (searchResults.length > 0) {
+          const flightProducts: CreateProductDTO[] = searchResults.map(result => ({
+            userId,
+            name: result.title,
+            description: result.snippet,
+            price: typeof result.price === 'number' ? result.price : undefined,
+            currency: result.currency || 'USD',
+            imageUrl: result.image || undefined,
+            productUrl: result.url,
+            source: `serpapi_flights:${result.displayUrl}`,
+            rawData: result.rawData,
+            aiExtracted: false,
+            searchQueryId: searchQuery.id,
+          } as CreateProductDTO)).filter(p => p.name && p.name.trim());
+
+          // Save to database
+          const savedProducts = [];
+          for (const dto of flightProducts) {
+            try {
+              const saved = await this.productRepository.create(dto);
+              savedProducts.push(saved);
+            } catch (error) {
+              console.error(`Failed to save flight product:`, error);
+            }
+          }
+
+          await this.searchQueryRepository.complete(searchQuery.id, savedProducts.length);
+          console.log(`✅ Flight search complete! Found ${savedProducts.length} flights in ${Date.now() - startTime}ms`);
+
+          return {
+            searchQueryId: searchQuery.id,
+            products: savedProducts,
+            filters: [],
+            metadata: {
+              totalResults: savedProducts.length,
+              processingTimeMs: Date.now() - startTime,
+              aiTokensUsed: 0,
+              sourcesUsed: ['serpapi_flights'],
+            },
+          };
+        }
+
+        // Fall through to regular search if no flight results
+        console.log('⚠️  No flight results from SerpAPI, falling back to regular search');
+      }
+
+      const useShopping = isProduct && !isTravel;
+
+      console.log(`🔍 Searching ${useShopping ? 'Google Shopping' : 'web'} for: "${request.query}"`);
+      searchResults = await this.searchService.search(request.query, {
         maxResults: request.filters?.maxResults || 10,
         useShopping: useShopping,
       });
@@ -442,6 +505,11 @@ export class ProductService {
         preferOnline: parsedQuery.preferOnline,
         isTravel: parsedQuery.isTravel,
         isProduct: parsedQuery.isProduct,
+        // Pass flight-specific data for SerpAPI google_flights
+        origin: parsedQuery.origin,
+        destination: parsedQuery.destination,
+        startDate: parsedQuery.startDate,
+        endDate: parsedQuery.endDate,
       },
     };
 
