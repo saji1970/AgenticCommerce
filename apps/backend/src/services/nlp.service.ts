@@ -148,12 +148,16 @@ export class NLPService {
       ? `User's current location: ${userLocation.city || 'Unknown city'}, ${userLocation.country || 'Unknown country'}`
       : 'User location not provided';
 
+    const currentDate = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+
     return `You are an intelligent shopping assistant. Parse this natural language shopping query into structured data.
 
 Natural Language Query:
 "${query}"
 
 ${locationContext}
+Today's date: ${currentDate}
 
 Extract the following information:
 
@@ -170,8 +174,8 @@ Extract the following information:
    - "time_based" - user wants to buy on specific date
    - "general" - general interest in purchasing
 9. **intentReasoning**: Brief explanation of why we should create an intent
-10. **startDate**: ISO date string if user mentioned a start date (YYYY-MM-DD). When user says only a month (e.g. "March"), use CURRENT year and first of that month (e.g. 2025-03-01). Never use past years.
-11. **endDate**: ISO date string if user mentioned an end date (YYYY-MM-DD). Same rule: use current year for month-only references.
+10. **startDate**: ISO date string if user mentioned a start date (YYYY-MM-DD). Return null if the user did NOT mention any date. When user says only a month (e.g. "March"), use the current year ${currentYear} and the first of that month. Never use past dates — always use ${currentYear} or later.
+11. **endDate**: ISO date string if user mentioned an end date (YYYY-MM-DD). Return null if the user did NOT mention any date. Same rule: use ${currentYear} or later for all dates.
 12. **origin**: Starting location (for flights, travel). For flight queries, use the 3-letter IATA airport code if you know it (e.g., "ATL" not "Atlanta", "EWR" not "Newark", "JFK" not "New York"). If unsure of the code, return the city name.
 13. **destination**: Ending location (for flights, travel). Same rule: use IATA airport codes for flights (e.g., "MAA" not "Chennai", "LHR" not "London", "CDG" not "Paris").
 14. **userCity**: User's city from context or query

@@ -624,6 +624,12 @@ export class ProductService {
       maxPrice: parsedQuery.maxPrice,
       shouldCreateIntent: parsedQuery.shouldCreateIntent,
       confidence: parsedQuery.confidence,
+      ...(parsedQuery.isTravel && {
+        origin: parsedQuery.origin,
+        destination: parsedQuery.destination,
+        startDate: parsedQuery.startDate ?? '(not specified)',
+        endDate: parsedQuery.endDate ?? '(not specified)',
+      }),
     });
 
     // Step 2: Perform AI search with extracted search query and constraints
