@@ -355,7 +355,7 @@ export class SearchService {
       });
 
       // SerpAPI Google Flights API: https://serpapi.com/search?engine=google_flights
-      const response = await axios.get('https://serpapi.com/search', {
+      const response = await axios.get('https://serpapi.com/search.json', {
         params: apiParams,
         timeout: 30000,
       });
@@ -541,17 +541,18 @@ export class SearchService {
       return cityOrCode.toUpperCase();
     }
 
-    // Common city to airport code mapping
+    // Common city to airport code mapping (expand as needed)
     const cityMap: Record<string, string> = {
-      'atlanta': 'ATL', 'chennai': 'MAA', 'new york': 'JFK', 'los angeles': 'LAX',
-      'chicago': 'ORD', 'dallas': 'DFW', 'denver': 'DEN', 'san francisco': 'SFO',
-      'seattle': 'SEA', 'miami': 'MIA', 'boston': 'BOS', 'washington': 'IAD',
-      'houston': 'IAH', 'phoenix': 'PHX', 'las vegas': 'LAS', 'orlando': 'MCO',
-      'london': 'LHR', 'paris': 'CDG', 'tokyo': 'NRT', 'dubai': 'DXB',
-      'singapore': 'SIN', 'hong kong': 'HKG', 'mumbai': 'BOM', 'delhi': 'DEL',
-      'bangalore': 'BLR', 'hyderabad': 'HYD', 'kolkata': 'CCU', 'pune': 'PNQ',
+      'atlanta': 'ATL', 'chennai': 'MAA', 'madras': 'MAA', 'new york': 'JFK', 'nyc': 'JFK',
+      'los angeles': 'LAX', 'la': 'LAX', 'chicago': 'ORD', 'dallas': 'DFW', 'denver': 'DEN',
+      'san francisco': 'SFO', 'sf': 'SFO', 'seattle': 'SEA', 'miami': 'MIA', 'boston': 'BOS',
+      'washington': 'IAD', 'dc': 'IAD', 'houston': 'IAH', 'phoenix': 'PHX', 'las vegas': 'LAS',
+      'orlando': 'MCO', 'london': 'LHR', 'paris': 'CDG', 'tokyo': 'NRT', 'dubai': 'DXB',
+      'singapore': 'SIN', 'hong kong': 'HKG', 'mumbai': 'BOM', 'delhi': 'DEL', 'new delhi': 'DEL',
+      'bangalore': 'BLR', 'bengaluru': 'BLR', 'hyderabad': 'HYD', 'kolkata': 'CCU', 'pune': 'PNQ',
       'sydney': 'SYD', 'toronto': 'YYZ', 'frankfurt': 'FRA', 'amsterdam': 'AMS',
-      'bangkok': 'BKK', 'kuala lumpur': 'KUL', 'doha': 'DOH',
+      'bangkok': 'BKK', 'kuala lumpur': 'KUL', 'doha': 'DOH', 'istanbul': 'IST',
+      'rome': 'FCO', 'madrid': 'MAD', 'barcelona': 'BCN', 'munich': 'MUC', 'zurich': 'ZRH',
     };
 
     return cityMap[cityOrCode.toLowerCase()] || cityOrCode.toUpperCase();

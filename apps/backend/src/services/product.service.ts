@@ -87,18 +87,22 @@ export class ProductService {
           }
         : undefined;
 
-      // For travel with origin/destination, run SerpAPI flights + MCP travel in parallel
+      // For travel with origin/destination, run SerpAPI + RapidAPI + MCP travel in parallel
       if (isTravel && origin && destination) {
-        console.log(`✈️  Searching flights: ${origin} → ${destination} (SerpAPI + MCP in parallel)`);
+        console.log(`✈️  Searching flights: ${origin} → ${destination} (SerpAPI + RapidAPI + MCP in parallel)`);
 
-        // Launch SerpAPI flights with full filter support
         const filters = request.filters as any;
-        const serpApiPromise = this.searchService.searchFlights({
+        const flightParams = {
           origin,
           destination,
           departureDate: startDate,
           returnDate: endDate,
           query: request.query,
+        };
+
+        // Launch SerpAPI flights with full filter support
+        const serpApiPromise = this.searchService.searchFlights({
+          ...flightParams,
           travelClass: filters?.travelClass,
           adults: filters?.adults,
           children: filters?.children,
@@ -125,6 +129,12 @@ export class ProductService {
           return [] as any[];
         });
 
+        // Launch RapidAPI flights in parallel (not just fallback - run always when configured)
+        const rapidApiPromise = this.searchService.searchFlightsRapidApi(flightParams).catch(err => {
+          console.error('RapidAPI flight search error:', err);
+          return [] as any[];
+        });
+
         // Launch MCP travel search in parallel
         const mcpTravelPromise = (async () => {
           try {
@@ -141,7 +151,11 @@ export class ProductService {
           }
         })();
 
-        const [serpApiResults, mcpTravelProducts] = await Promise.all([serpApiPromise, mcpTravelPromise]);
+        const [serpApiResults, rapidApiResults, mcpTravelProducts] = await Promise.all([
+          serpApiPromise,
+          rapidApiPromise,
+          mcpTravelPromise,
+        ]);
 
         // Convert SerpAPI flight results to CreateProductDTO
         const serpApiFlightProducts: CreateProductDTO[] = serpApiResults.map((result: any) => ({
@@ -165,23 +179,8 @@ export class ProductService {
           searchQueryId: searchQuery.id,
         }));
 
-        console.log(`✈️  SerpAPI flights: ${serpApiFlightProducts.length}, MCP travel: ${mcpWithIds.length}`);
-
-        // If SerpAPI and MCP returned nothing, try RapidAPI as fallback
-        let rapidApiProducts: CreateProductDTO[] = [];
-        if (serpApiFlightProducts.length === 0 && mcpWithIds.length === 0) {
-          console.log(`🔄 SerpAPI + MCP returned 0, trying RapidAPI fallback...`);
-          const rapidApiResults = await this.searchService.searchFlightsRapidApi({
-            origin,
-            destination,
-            departureDate: startDate,
-            returnDate: endDate,
-            query: request.query,
-          }).catch(err => {
-            console.error('RapidAPI flight search error:', err);
-            return [] as any[];
-          });
-          rapidApiProducts = rapidApiResults.map((result: any) => {
+        // Convert RapidAPI results to CreateProductDTO
+        const rapidApiProducts: CreateProductDTO[] = rapidApiResults.map((result: any) => {
             const price = typeof result.price === 'number' ? result.price
               : typeof result.price === 'string' ? parseFloat(result.price.replace(/[^0-9.]/g, '')) : undefined;
             return {
@@ -198,8 +197,8 @@ export class ProductService {
               searchQueryId: searchQuery.id,
             } as CreateProductDTO;
           }).filter((p: CreateProductDTO) => p.name && p.name.trim());
-          console.log(`✈️  RapidAPI fallback: ${rapidApiProducts.length} flights`);
-        }
+
+        console.log(`✈️  SerpAPI: ${serpApiFlightProducts.length}, RapidAPI: ${rapidApiProducts.length}, MCP: ${mcpWithIds.length}`);
 
         // Combine and deduplicate (handle empty productUrls from MCP travel results)
         const allTravelProducts = [...serpApiFlightProducts, ...mcpWithIds, ...rapidApiProducts];
