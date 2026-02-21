@@ -1,7 +1,6 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ProductsStackParamList } from '../types/navigation';
-import { ProductSearchScreen } from '../screens/products/ProductSearchScreen';
 import { ProductListScreen } from '../screens/products/ProductListScreen';
 import { ProductDetailsScreen } from '../screens/products/ProductDetailsScreen';
 
@@ -15,14 +14,9 @@ export const ProductsNavigator = () => {
       }}
     >
       <Stack.Screen
-        name="ProductSearch"
-        component={ProductSearchScreen}
-        options={{ title: 'AI Product Search' }}
-      />
-      <Stack.Screen
         name="ProductList"
         component={ProductListScreen}
-        options={{ title: 'Search Results' }}
+        options={{ title: 'Products' }}
       />
       <Stack.Screen
         name="ProductDetails"

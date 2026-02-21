@@ -103,7 +103,7 @@ export class ProductService {
       } else {
         // For regular search (travel, etc.), filter with AI
         console.log(`🤖 Filtering ${searchResults.length} results with AI...`);
-        const filteredResults = await this.aiService.filterShoppableProducts(searchResults);
+        const filteredResults = await this.aiService.filterShoppableProducts(searchResults, isTravel);
         shoppableResults = filteredResults.filter(r => r.isShoppable && r.confidence > 50);
         console.log(`✅ Found ${shoppableResults.length} shoppable results`);
       }
@@ -185,11 +185,13 @@ export class ProductService {
         }).filter(p => p.name && p.name.trim()); // Filter out products without names
       } else {
         // For non-shopping results, extract using AI
-        console.log(`📦 Extracting product data from ${shoppableResults.length} URLs...`);
+        console.log(`📦 Extracting ${isTravel ? 'travel' : 'product'} data from ${shoppableResults.length} URLs...`);
         const extractionPromises = shoppableResults.slice(0, 10).map(async (result) => {
           try {
             const html = await this.searchService.fetchPageContent(result.url);
-            const productData = await this.aiService.extractProductData(result.url, html);
+            const productData = isTravel
+              ? await this.aiService.extractTravelData(result.url, html)
+              : await this.aiService.extractProductData(result.url, html);
 
             if (!productData) {
               return null;

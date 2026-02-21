@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import { AppStackParamList } from '../types/navigation';
-import { HomeScreen } from '../screens/home';
+import { AIChatScreen } from '../screens/chat';
 import { ProductsNavigator } from './ProductsNavigator';
 import { CartNavigator } from './CartNavigator';
 import { ProfileNavigator } from './ProfileNavigator';
@@ -21,10 +21,12 @@ export const AppNavigator = () => {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={AIChatScreen}
         options={{
           headerShown: true,
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🏠</Text>,
+          title: 'AI Assistant',
+          tabBarLabel: 'Chat',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>💬</Text>,
         }}
       />
       <Tab.Screen

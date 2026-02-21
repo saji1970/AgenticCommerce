@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { ProductsStackParamList } from '../../types/navigation';
@@ -36,17 +36,6 @@ export const ProductListScreen = () => {
 
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    // Products are already loaded in context from the search
-    // They are now filtered by searchQueryId in the backend
-    if (!searchQueryId) {
-      console.warn('ProductListScreen: searchQueryId is missing from route params');
-      // Could navigate back or show error - but for now just log warning
-      return;
-    }
-    console.log('ProductListScreen mounted with searchQueryId:', searchQueryId);
-  }, [searchQueryId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -119,8 +108,12 @@ export const ProductListScreen = () => {
 
   if (!loading && products.length === 0) {
     return (
-      <View style={styles.container}>
-        <ErrorMessage message="No products found for this search" onRetry={() => {}} retryText="Go Back" />
+      <View style={styles.emptyStateContainer}>
+        <Text style={styles.emptyStateIcon}>💬</Text>
+        <Text style={styles.emptyStateTitle}>No products yet</Text>
+        <Text style={styles.emptyStateText}>
+          Search for products from the Chat tab — your results will appear here.
+        </Text>
       </View>
     );
   }
@@ -172,5 +165,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyStateIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 15,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

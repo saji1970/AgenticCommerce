@@ -13,6 +13,7 @@ import { config } from '../config/env';
  * 5. MercadoLibre MCP Server - Latin America marketplace
  * 6. Commercetools MCP - Enterprise commerce
  * 7. Shufersal MCP - Grocery shopping
+ * 8. RapidAPI Travel - Flights & Hotels via Sky Scrapper API
  */
 async function seedMCPServers() {
   const repository = new MCPServerConfigRepository();
@@ -128,6 +129,20 @@ async function seedMCPServers() {
       isActive: true,
     },
     {
+      name: 'rapidapi-travel',
+      serverType: 'stdio',
+      endpointUrl: '',
+      config: {
+        command: 'npx',
+        args: ['tsx', 'src/mcp-servers/rapidapi-travel-server.ts'],
+        env: {
+          RAPIDAPI_KEY: process.env.RAPIDAPI_KEY || '',
+        },
+        searchTool: 'search_flights',
+      },
+      isActive: true,
+    },
+    {
       name: 'dynamics365-commerce',
       serverType: 'stdio',
       endpointUrl: '',
@@ -178,6 +193,7 @@ async function seedMCPServers() {
   console.log('   - MERCADOLIBRE_APP_ID, MERCADOLIBRE_SECRET_KEY (for MercadoLibre marketplace)');
   console.log('   - COMMERCETOOLS_PROJECT_KEY, COMMERCETOOLS_CLIENT_ID, COMMERCETOOLS_CLIENT_SECRET (for Commercetools)');
   console.log('   - SHUFERSAL_API_KEY (for Shufersal - Groceries)');
+  console.log('   - RAPIDAPI_KEY (for RapidAPI Travel - Flights & Hotels via Sky Scrapper)');
   console.log('   - DYNAMICS365_TENANT_ID, DYNAMICS365_CLIENT_ID, DYNAMICS365_CLIENT_SECRET (for Dynamics 365 Commerce)');
   console.log('\n💡 You can activate/deactivate servers via the admin portal or database.');
   console.log('\n📋 Configured Servers:');
@@ -187,6 +203,7 @@ async function seedMCPServers() {
   console.log('   ✅ commercetools - Commercetools platform');
   console.log('   ✅ bitrefill - Gift cards');
   console.log('   ✅ shufersal - Groceries');
+  console.log('   ✅ rapidapi-travel - Flights & Hotels (Sky Scrapper)');
   console.log('   ✅ dynamics365-commerce - Microsoft Commerce');
 }
 

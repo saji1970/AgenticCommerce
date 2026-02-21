@@ -171,6 +171,7 @@ export class MCPService {
       'commercetools': ['search_products', 'products', 'query'],
       'shufersal': ['search_groceries', 'search', 'groceries'],
       'dynamics365-commerce': ['search_products', 'products', 'query'],
+      'rapidapi-travel': ['search_flights', 'search_hotels'],
     };
 
     return patterns[serverName] || ['search', 'query', 'product'];
@@ -214,7 +215,13 @@ export class MCPService {
           search: query,
           limit: 10,
         };
-      
+
+      case 'rapidapi-travel':
+        // Parse travel-related parameters from the query
+        return {
+          query,
+        };
+
       default:
         // Use tool's schema to determine arguments
         if (tool.inputSchema?.properties) {
@@ -253,7 +260,11 @@ export class MCPService {
       }
 
       // Handle different response structures from different servers
-      if (data.products) {
+      if (data.flights) {
+        data = data.flights; // RapidAPI travel — flights
+      } else if (data.hotels) {
+        data = data.hotels; // RapidAPI travel — hotels
+      } else if (data.products) {
         data = data.products; // Agora, Commercetools
       } else if (data.items) {
         data = data.items; // MercadoLibre
@@ -344,7 +355,42 @@ export class MCPService {
           imageUrl: item.image_url || item.imageUrl || item.image,
           productUrl: item.url || item.link || item.product_url || '',
         };
-      
+
+      case 'rapidapi-travel':
+        // Flights
+        if (item.airline || item.departure) {
+          const durationHrs = item.duration ? Math.floor(item.duration / 60) : undefined;
+          const durationMin = item.duration ? item.duration % 60 : undefined;
+          const durationStr = durationHrs != null ? `${durationHrs}h ${durationMin}m` : '';
+          return {
+            name: `${item.airline || 'Flight'} — ${item.origin} → ${item.destination}`,
+            description: [
+              durationStr && `Duration: ${durationStr}`,
+              item.stops != null && `Stops: ${item.stops === 0 ? 'Non-stop' : item.stops}`,
+              item.cabinClass && `Class: ${item.cabinClass}`,
+              item.departure && `Departs: ${item.departure}`,
+            ].filter(Boolean).join(' | '),
+            price: item.priceRaw ?? (typeof item.price === 'string' ? parseFloat(item.price.replace(/[^0-9.]/g, '')) : item.price),
+            currency: 'USD',
+            imageUrl: item.airlineLogo,
+            productUrl: '',
+          };
+        }
+        // Hotels
+        return {
+          name: item.name || 'Hotel',
+          description: [
+            item.rating && `${item.rating} stars`,
+            item.reviewScore && `Review: ${item.reviewScore}`,
+            item.location && `Location: ${item.location}`,
+            item.checkin && item.checkout && `${item.checkin} → ${item.checkout}`,
+          ].filter(Boolean).join(' | '),
+          price: item.priceRaw ?? (typeof item.price === 'string' ? parseFloat(item.price.replace(/[^0-9.]/g, '')) : item.price),
+          currency: 'USD',
+          imageUrl: item.imageUrl,
+          productUrl: '',
+        };
+
       default:
         // Generic mapping
         return {

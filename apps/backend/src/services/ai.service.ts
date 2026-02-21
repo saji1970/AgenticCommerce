@@ -140,12 +140,12 @@ export class AIService {
   /**
    * Filter search results to identify shoppable products
    */
-  async filterShoppableProducts(searchResults: SearchResult[]): Promise<FilteredResult[]> {
+  async filterShoppableProducts(searchResults: SearchResult[], isTravel: boolean = false): Promise<FilteredResult[]> {
     if (searchResults.length === 0) {
       return [];
     }
 
-    const prompt = this.buildFilteringPrompt(searchResults);
+    const prompt = this.buildFilteringPrompt(searchResults, isTravel);
 
     try {
       const message = await this.anthropic.messages.create({
@@ -220,6 +220,97 @@ export class AIService {
       return data;
     } catch (error: any) {
       console.error('AI extraction error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract travel listing data (flights, hotels, car rentals) from HTML
+   */
+  async extractTravelData(url: string, html: string): Promise<EnhancedProductData | null> {
+    const truncatedHtml = html.substring(0, 15000);
+    const prompt = `Extract travel listing information from this webpage. This could be a flight, hotel, car rental, or vacation package.
+
+Return a JSON object:
+{
+  "name": "Descriptive listing name (e.g. 'Round-trip flight: NYC to Delhi' or 'Hilton Paris Opera - Deluxe Room')",
+  "price": 599.99,
+  "currency": "USD",
+  "description": "Brief description of the travel option",
+  "imageUrl": "https://...",
+  "specifications": {
+    "type": "flight|hotel|car_rental|package",
+    "origin": "departure city if applicable",
+    "destination": "arrival city / location",
+    "departureDate": "date if shown",
+    "returnDate": "date if shown",
+    "airline": "airline name if flight",
+    "hotelName": "hotel name if hotel",
+    "starRating": "star rating if hotel",
+    "duration": "trip duration or stay length",
+    "stops": "nonstop / 1 stop / etc if flight",
+    "roomType": "room type if hotel",
+    "carType": "car type if rental"
+  },
+  "availability": "Available / Sold Out / Limited",
+  "rating": 4.5,
+  "reviewCount": 123,
+  "brand": "Airline / Hotel chain / Rental company name",
+  "category": "flight|hotel|car_rental|package",
+  "offers": [
+    {
+      "originalPrice": 799.99,
+      "salePrice": 599.99,
+      "discountPercent": 25,
+      "promoCode": null,
+      "dealType": "sale",
+      "expiresAt": null,
+      "terms": null
+    }
+  ]
+}
+
+IMPORTANT:
+- Extract price as a NUMBER (not a string with currency symbols)
+- For flights: look for fare prices, base fare, total price
+- For hotels: look for nightly rate or total stay cost
+- If multiple options exist, extract the cheapest or first prominent one
+- If the page lists multiple flights/hotels, extract the top result as a single listing
+- If a field cannot be found, set it to null
+
+URL: ${url}
+
+HTML Content (truncated):
+${truncatedHtml}
+
+Return only the JSON object, no other text.`;
+
+    try {
+      const message = await this.anthropic.messages.create({
+        model: this.modelName,
+        max_tokens: 4096,
+        temperature: 0.1,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const text = message.content[0]?.type === 'text'
+        ? message.content[0].text
+        : 'null';
+
+      const data = this.safeJSONParse<EnhancedProductData | null>(text, null);
+
+      const usage = message.usage;
+      if (usage) {
+        await this.logUsage(
+          'extract_travel',
+          (usage.input_tokens || 0) + (usage.output_tokens || 0),
+          this.modelName
+        );
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('AI travel extraction error:', error);
       return null;
     }
   }
@@ -572,7 +663,39 @@ Return ONLY the JSON array.`;
     }
   }
 
-  private buildFilteringPrompt(searchResults: SearchResult[]): string {
+  private buildFilteringPrompt(searchResults: SearchResult[], isTravel: boolean = false): string {
+    if (isTravel) {
+      return `You are a travel search expert. Analyze the following search results and identify which are actual BOOKABLE travel listings (flights, hotels, car rentals, vacation packages) from booking websites versus informational pages, blogs, or non-booking content.
+
+For each result, determine:
+1. Is it a bookable/purchasable travel listing? (true/false) — Mark as true for booking sites like Google Flights, Kayak, Expedia, Booking.com, Hotels.com, Priceline, Skyscanner, Airbnb, VRBO, Travelocity, Hotwire, airline sites, hotel chain sites, car rental sites, and any page showing bookable travel with pricing.
+2. Confidence level (0-100)
+3. Brief reasoning
+
+Search Results:
+${JSON.stringify(searchResults, null, 2)}
+
+Return a JSON array with this exact structure:
+[
+  {
+    "title": "exact title from input",
+    "url": "exact url from input",
+    "snippet": "exact snippet from input",
+    "displayUrl": "exact displayUrl from input",
+    "isShoppable": true,
+    "confidence": 85,
+    "reasoning": "This is a Kayak flight search page with bookable flights and pricing"
+  }
+]
+
+CRITICAL:
+- Return ONLY valid JSON, no markdown, no code fences, no explanations
+- Ensure all strings are properly escaped
+- Include ALL results from the input array
+- Travel aggregator pages, comparison pages, and booking pages should ALL be marked isShoppable: true
+- Pages with flight/hotel prices in snippets are likely bookable`;
+    }
+
     return `You are a product search expert. Analyze the following search results and identify which are actual product listings from e-commerce websites (shoppable products) versus informational pages, blogs, or non-shopping content.
 
 For each result, determine:

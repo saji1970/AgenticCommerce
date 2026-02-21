@@ -4,8 +4,7 @@ export type AuthStackParamList = {
 };
 
 export type ProductsStackParamList = {
-  ProductSearch: undefined;
-  ProductList: { searchQueryId: string };
+  ProductList: { searchQueryId?: string } | undefined;
   ProductDetails: { productId: string };
 };
 

@@ -5,19 +5,24 @@ import { Product } from '@agentic-commerce/shared-types';
 interface ProductCardProps {
   product: Product;
   onPress: () => void;
+  compact?: boolean;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, compact }) => {
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={[styles.card, compact && styles.cardCompact]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       {product.imageUrl && (
         <Image
           source={{ uri: product.imageUrl }}
-          style={styles.image}
+          style={[styles.image, compact && styles.imageCompact]}
           resizeMode="cover"
         />
       )}
-      <View style={styles.content}>
+      <View style={[styles.content, compact && styles.contentCompact]}>
         <Text style={styles.name} numberOfLines={2}>
           {product.name}
         </Text>
@@ -108,5 +113,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#495057',
     fontWeight: '500',
+  },
+  cardCompact: {
+    marginHorizontal: 8,
+    marginVertical: 4,
+  },
+  imageCompact: {
+    height: 120,
+  },
+  contentCompact: {
+    padding: 8,
   },
 });

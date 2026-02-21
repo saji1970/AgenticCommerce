@@ -76,6 +76,11 @@ export const config = {
     apiKey: process.env.GOOGLE_PLACES_API_KEY || '',
   },
 
+  rapidApi: {
+    key: process.env.RAPIDAPI_KEY || '',
+    host: 'sky-scrapper.p.rapidapi.com',
+  },
+
   mcp: {
     configPath: process.env.MCP_CONFIG_PATH || './config/mcp-servers.json',
   },
