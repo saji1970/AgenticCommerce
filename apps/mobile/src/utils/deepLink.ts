@@ -193,6 +193,7 @@ export async function openMandateAppForIntent(intentData: IntentData, mandateId:
     };
     const user = await storageService.getUser();
     if (user?.id) opts.userId = user.id;
+    if (user?.name) opts.userName = user.name;
     return await openMandateApp(mandateId, opts);
   } catch (error) {
     console.error('Error opening Mandate app for intent:', error);

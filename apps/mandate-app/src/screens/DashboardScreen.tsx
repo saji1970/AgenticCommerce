@@ -79,7 +79,7 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.userName}>{user?.name || user?.id || 'User'}</Text>
+            <Text style={styles.userName}>{user?.name || user?.email || 'User'}</Text>
           </View>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutButtonText}>Logout</Text>

@@ -1,6 +1,6 @@
 import { mandateServiceClient } from '../services/mandate-service.client';
 import { storageService } from '../services/storage.service';
-import { openMandateApp, CartData, saveCartDataForMandate } from './deepLink';
+import { openMandateApp, CartData, saveCartDataForMandate, OpenMandateAppOptions } from './deepLink';
 import { Alert } from 'react-native';
 import { PaymentMandateConstraints, CartMandateConstraints, IntentMandateConstraints } from '@agentic-commerce/shared-types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -106,7 +106,7 @@ export async function registerPaymentMandate(
       }
 
       // Open Mandate app for user to approve and sign
-      const opened = await openMandateApp(mandateId, cartData);
+      const opened = await openMandateApp(mandateId, { cartData, userId: user.id, userName: user.name });
       if (!opened) {
         Alert.alert(
           'Mandate App Required',
@@ -128,7 +128,7 @@ export async function registerPaymentMandate(
     });
 
     // Open Mandate app for user to approve and sign
-    const opened = await openMandateApp(mandate.id);
+    const opened = await openMandateApp(mandate.id, { userId: user.id, userName: user.name });
     if (!opened) {
       Alert.alert(
         'Mandate App Required',
@@ -216,7 +216,7 @@ export async function registerCartMandate(
       await saveLocalMandates(localMandates);
 
       // Open Mandate app for user to approve and sign
-      const opened = await openMandateApp(mandateId);
+      const opened = await openMandateApp(mandateId, { userId: user.id, userName: user.name });
       if (!opened) {
         Alert.alert(
           'Mandate App Required',
@@ -236,7 +236,7 @@ export async function registerCartMandate(
       constraints,
     });
 
-    const opened = await openMandateApp(mandate.id);
+    const opened = await openMandateApp(mandate.id, { userId: user.id, userName: user.name });
     if (!opened) {
       Alert.alert(
         'Mandate App Required',
@@ -324,7 +324,7 @@ export async function registerIntentMandate(
       await saveLocalMandates(localMandates);
 
       // Open Mandate app for user to approve and sign
-      const opened = await openMandateApp(mandateId);
+      const opened = await openMandateApp(mandateId, { userId: user.id, userName: user.name });
       if (!opened) {
         Alert.alert(
           'Mandate App Required',
@@ -344,7 +344,7 @@ export async function registerIntentMandate(
       constraints,
     });
 
-    const opened = await openMandateApp(mandate.id);
+    const opened = await openMandateApp(mandate.id, { userId: user.id, userName: user.name });
     if (!opened) {
       Alert.alert(
         'Mandate App Required',

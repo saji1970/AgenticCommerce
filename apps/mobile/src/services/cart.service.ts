@@ -103,7 +103,8 @@ export const cartService = {
     // If mandate requires approval, open Mandate app
     if (response.data.mandate?.requiresApproval && response.data.mandate.id) {
       result.mandate = response.data.mandate;
-      await openMandateApp(response.data.mandate.id);
+      const user = await storageService.getUser();
+      await openMandateApp(response.data.mandate.id, { userId: user?.id, userName: user?.name });
     }
 
     return result;
