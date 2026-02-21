@@ -541,21 +541,103 @@ export class SearchService {
       return cityOrCode.toUpperCase();
     }
 
-    // Common city to airport code mapping (expand as needed)
+    // Comprehensive city to airport code mapping
     const cityMap: Record<string, string> = {
-      'atlanta': 'ATL', 'chennai': 'MAA', 'madras': 'MAA', 'new york': 'JFK', 'nyc': 'JFK',
-      'los angeles': 'LAX', 'la': 'LAX', 'chicago': 'ORD', 'dallas': 'DFW', 'denver': 'DEN',
-      'san francisco': 'SFO', 'sf': 'SFO', 'seattle': 'SEA', 'miami': 'MIA', 'boston': 'BOS',
-      'washington': 'IAD', 'dc': 'IAD', 'houston': 'IAH', 'phoenix': 'PHX', 'las vegas': 'LAS',
-      'orlando': 'MCO', 'london': 'LHR', 'paris': 'CDG', 'tokyo': 'NRT', 'dubai': 'DXB',
-      'singapore': 'SIN', 'hong kong': 'HKG', 'mumbai': 'BOM', 'delhi': 'DEL', 'new delhi': 'DEL',
-      'bangalore': 'BLR', 'bengaluru': 'BLR', 'hyderabad': 'HYD', 'kolkata': 'CCU', 'pune': 'PNQ',
-      'sydney': 'SYD', 'toronto': 'YYZ', 'frankfurt': 'FRA', 'amsterdam': 'AMS',
-      'bangkok': 'BKK', 'kuala lumpur': 'KUL', 'doha': 'DOH', 'istanbul': 'IST',
-      'rome': 'FCO', 'madrid': 'MAD', 'barcelona': 'BCN', 'munich': 'MUC', 'zurich': 'ZRH',
+      // US Major Cities
+      'atlanta': 'ATL', 'los angeles': 'LAX', 'la': 'LAX', 'chicago': 'ORD',
+      'dallas': 'DFW', 'dallas fort worth': 'DFW', 'denver': 'DEN',
+      'new york': 'JFK', 'nyc': 'JFK', 'new york city': 'JFK', 'manhattan': 'JFK',
+      'newark': 'EWR', 'newark nj': 'EWR', 'new jersey': 'EWR',
+      'san francisco': 'SFO', 'sf': 'SFO', 'bay area': 'SFO',
+      'seattle': 'SEA', 'miami': 'MIA', 'boston': 'BOS',
+      'washington': 'IAD', 'dc': 'IAD', 'washington dc': 'IAD',
+      'houston': 'IAH', 'phoenix': 'PHX', 'las vegas': 'LAS', 'vegas': 'LAS',
+      'orlando': 'MCO', 'minneapolis': 'MSP', 'detroit': 'DTW',
+      'philadelphia': 'PHL', 'philly': 'PHL', 'charlotte': 'CLT',
+      'salt lake city': 'SLC', 'san diego': 'SAN', 'tampa': 'TPA',
+      'portland': 'PDX', 'nashville': 'BNA', 'austin': 'AUS',
+      'san antonio': 'SAT', 'fort lauderdale': 'FLL', 'raleigh': 'RDU',
+      'st louis': 'STL', 'saint louis': 'STL', 'kansas city': 'MCI',
+      'pittsburgh': 'PIT', 'indianapolis': 'IND', 'cleveland': 'CLE',
+      'columbus': 'CMH', 'cincinnati': 'CVG', 'milwaukee': 'MKE',
+      'new orleans': 'MSY', 'jacksonville': 'JAX', 'sacramento': 'SMF',
+      'san jose': 'SJC', 'oakland': 'OAK', 'baltimore': 'BWI',
+      'hartford': 'BDL', 'buffalo': 'BUF', 'memphis': 'MEM',
+      'honolulu': 'HNL', 'hawaii': 'HNL', 'anchorage': 'ANC', 'alaska': 'ANC',
+      'richmond': 'RIC', 'norfolk': 'ORF', 'charleston': 'CHS',
+      'savannah': 'SAV', 'birmingham': 'BHM', 'louisville': 'SDF',
+      'little rock': 'LIT', 'albuquerque': 'ABQ', 'tucson': 'TUS',
+      'el paso': 'ELP', 'boise': 'BOI', 'omaha': 'OMA', 'tulsa': 'TUL',
+      'oklahoma city': 'OKC', 'knoxville': 'TYS', 'dayton': 'DAY',
+
+      // Canada
+      'toronto': 'YYZ', 'vancouver': 'YVR', 'montreal': 'YUL', 'calgary': 'YYC',
+      'ottawa': 'YOW', 'edmonton': 'YEG', 'winnipeg': 'YWG', 'halifax': 'YHZ',
+
+      // Europe
+      'london': 'LHR', 'paris': 'CDG', 'frankfurt': 'FRA', 'amsterdam': 'AMS',
+      'rome': 'FCO', 'madrid': 'MAD', 'barcelona': 'BCN', 'munich': 'MUC',
+      'zurich': 'ZRH', 'vienna': 'VIE', 'brussels': 'BRU', 'lisbon': 'LIS',
+      'dublin': 'DUB', 'copenhagen': 'CPH', 'oslo': 'OSL', 'stockholm': 'ARN',
+      'helsinki': 'HEL', 'warsaw': 'WAW', 'prague': 'PRG', 'budapest': 'BUD',
+      'athens': 'ATH', 'edinburgh': 'EDI', 'manchester': 'MAN', 'milan': 'MXP',
+      'berlin': 'BER', 'hamburg': 'HAM', 'geneva': 'GVA', 'nice': 'NCE',
+      'istanbul': 'IST', 'moscow': 'SVO',
+
+      // Middle East
+      'dubai': 'DXB', 'abu dhabi': 'AUH', 'doha': 'DOH', 'riyadh': 'RUH',
+      'jeddah': 'JED', 'muscat': 'MCT', 'kuwait': 'KWI', 'bahrain': 'BAH',
+      'tel aviv': 'TLV', 'amman': 'AMM', 'beirut': 'BEY',
+
+      // India
+      'chennai': 'MAA', 'madras': 'MAA', 'mumbai': 'BOM', 'bombay': 'BOM',
+      'delhi': 'DEL', 'new delhi': 'DEL', 'bangalore': 'BLR', 'bengaluru': 'BLR',
+      'hyderabad': 'HYD', 'kolkata': 'CCU', 'calcutta': 'CCU', 'pune': 'PNQ',
+      'ahmedabad': 'AMD', 'goa': 'GOI', 'jaipur': 'JAI', 'lucknow': 'LKO',
+      'kochi': 'COK', 'cochin': 'COK', 'thiruvananthapuram': 'TRV',
+      'trivandrum': 'TRV', 'coimbatore': 'CJB', 'chandigarh': 'IXC',
+      'indore': 'IDR', 'nagpur': 'NAG', 'varanasi': 'VNS', 'amritsar': 'ATQ',
+      'patna': 'PAT', 'bhubaneswar': 'BBI', 'ranchi': 'IXR',
+      'visakhapatnam': 'VTZ', 'vizag': 'VTZ', 'mangalore': 'IXE',
+      'tiruchirappalli': 'TRZ', 'trichy': 'TRZ', 'madurai': 'IXM',
+
+      // Asia Pacific
+      'tokyo': 'NRT', 'osaka': 'KIX', 'singapore': 'SIN', 'hong kong': 'HKG',
+      'bangkok': 'BKK', 'kuala lumpur': 'KUL', 'sydney': 'SYD',
+      'melbourne': 'MEL', 'brisbane': 'BNE', 'auckland': 'AKL',
+      'seoul': 'ICN', 'beijing': 'PEK', 'shanghai': 'PVG', 'taipei': 'TPE',
+      'manila': 'MNL', 'jakarta': 'CGK', 'hanoi': 'HAN',
+      'ho chi minh': 'SGN', 'saigon': 'SGN', 'bali': 'DPS', 'denpasar': 'DPS',
+      'phuket': 'HKT', 'colombo': 'CMB', 'kathmandu': 'KTM', 'dhaka': 'DAC',
+      'karachi': 'KHI', 'lahore': 'LHE', 'islamabad': 'ISB',
+
+      // Africa
+      'johannesburg': 'JNB', 'cape town': 'CPT', 'nairobi': 'NBO',
+      'cairo': 'CAI', 'lagos': 'LOS', 'addis ababa': 'ADD', 'casablanca': 'CMN',
+      'dar es salaam': 'DAR', 'accra': 'ACC',
+
+      // South America
+      'sao paulo': 'GRU', 'rio de janeiro': 'GIG', 'buenos aires': 'EZE',
+      'bogota': 'BOG', 'lima': 'LIM', 'santiago': 'SCL', 'mexico city': 'MEX',
+      'cancun': 'CUN', 'panama city': 'PTY', 'san juan': 'SJU',
+
+      // Caribbean
+      'nassau': 'NAS', 'kingston': 'KIN', 'montego bay': 'MBJ',
+      'punta cana': 'PUJ', 'aruba': 'AUA', 'bermuda': 'BDA',
     };
 
-    return cityMap[cityOrCode.toLowerCase()] || cityOrCode.toUpperCase();
+    const resolved = cityMap[cityOrCode.toLowerCase()];
+    if (resolved) {
+      return resolved;
+    }
+
+    // If the input is longer than 4 chars and not in our map, it's likely a city name
+    // that SerpAPI won't recognize. Log a warning.
+    if (cityOrCode.length > 4) {
+      console.warn(`⚠️  Unknown city "${cityOrCode}" not in airport code map - passing as-is (may fail)`);
+    }
+
+    return cityOrCode.toUpperCase();
   }
 
   async fetchPageContent(url: string): Promise<string> {

@@ -7,7 +7,7 @@ import {
 import axios from 'axios';
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
-const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'sky-scrapper.p.rapidapi.com';
+const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'sky-scrapper3.p.rapidapi.com';
 
 const headers = {
   'X-RapidAPI-Key': RAPIDAPI_KEY,

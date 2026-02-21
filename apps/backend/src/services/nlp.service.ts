@@ -172,8 +172,8 @@ Extract the following information:
 9. **intentReasoning**: Brief explanation of why we should create an intent
 10. **startDate**: ISO date string if user mentioned a start date (YYYY-MM-DD). When user says only a month (e.g. "March"), use CURRENT year and first of that month (e.g. 2025-03-01). Never use past years.
 11. **endDate**: ISO date string if user mentioned an end date (YYYY-MM-DD). Same rule: use current year for month-only references.
-12. **origin**: Starting location (for flights, travel)
-13. **destination**: Ending location (for flights, travel)
+12. **origin**: Starting location (for flights, travel). For flight queries, use the 3-letter IATA airport code if you know it (e.g., "ATL" not "Atlanta", "EWR" not "Newark", "JFK" not "New York"). If unsure of the code, return the city name.
+13. **destination**: Ending location (for flights, travel). Same rule: use IATA airport codes for flights (e.g., "MAA" not "Chennai", "LHR" not "London", "CDG" not "Paris").
 14. **userCity**: User's city from context or query
 15. **userCountry**: User's country from context or query
 16. **searchRadius**: Search radius in miles if user wants local results (default 25 if local search)
@@ -333,8 +333,8 @@ Response:
   "intentReasoning": "User wants automatic booking if round-trip price is below $1000",
   "startDate": "2026-01-28",
   "endDate": "2026-02-02",
-  "origin": "Atlanta",
-  "destination": "Pune",
+  "origin": "ATL",
+  "destination": "PNQ",
   "userCity": "Atlanta",
   "userCountry": "USA",
   "searchRadius": null,
@@ -374,8 +374,8 @@ Response:
   "intentReasoning": null,
   "startDate": null,
   "endDate": null,
-  "origin": "New York",
-  "destination": "London",
+  "origin": "JFK",
+  "destination": "LHR",
   "userCity": null,
   "userCountry": null,
   "searchRadius": null,

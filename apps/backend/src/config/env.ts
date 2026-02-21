@@ -82,8 +82,8 @@ export const config = {
 
   rapidApi: {
     key: process.env.RAPIDAPI_KEY || '',
-    // Default: sky-scrapper. Use RAPIDAPI_HOST for sky-scrapper3 or other providers (e.g. sky-scrapper3.p.rapidapi.com)
-    host: process.env.RAPIDAPI_HOST || 'sky-scrapper.p.rapidapi.com',
+    // Default: sky-scrapper3. Use RAPIDAPI_HOST to override (e.g. sky-scrapper.p.rapidapi.com)
+    host: process.env.RAPIDAPI_HOST || 'sky-scrapper3.p.rapidapi.com',
   },
 
   mcp: {
