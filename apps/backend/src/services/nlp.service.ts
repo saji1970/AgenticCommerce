@@ -151,8 +151,8 @@ Extract the following information:
    - "time_based" - user wants to buy on specific date
    - "general" - general interest in purchasing
 9. **intentReasoning**: Brief explanation of why we should create an intent
-10. **startDate**: ISO date string if user mentioned a start date (YYYY-MM-DD)
-11. **endDate**: ISO date string if user mentioned an end date (YYYY-MM-DD)
+10. **startDate**: ISO date string if user mentioned a start date (YYYY-MM-DD). When user says only a month (e.g. "March"), use CURRENT year and first of that month (e.g. 2025-03-01). Never use past years.
+11. **endDate**: ISO date string if user mentioned an end date (YYYY-MM-DD). Same rule: use current year for month-only references.
 12. **origin**: Starting location (for flights, travel)
 13. **destination**: Ending location (for flights, travel)
 14. **userCity**: User's city from context or query

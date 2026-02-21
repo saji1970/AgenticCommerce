@@ -271,10 +271,17 @@ export class SearchService {
         apiParams.arrival_id = this.resolveAirportCode(params.destination);
       }
       if (params.departureDate) {
-        apiParams.outbound_date = params.departureDate;
+        // SerpAPI rejects past dates - ensure we never send one
+        const today = new Date().toISOString().split('T')[0];
+        apiParams.outbound_date = params.departureDate < today ? today : params.departureDate;
+        if (params.departureDate < today) {
+          console.log(`⚠️  Adjusted past departure date ${params.departureDate} → ${apiParams.outbound_date}`);
+        }
       }
       if (params.returnDate) {
-        apiParams.return_date = params.returnDate;
+        const today = new Date().toISOString().split('T')[0];
+        const depart = apiParams.outbound_date || today;
+        apiParams.return_date = params.returnDate < depart ? depart : params.returnDate;
       }
 
       console.log(`✈️  SerpAPI Flights search:`, {
