@@ -247,6 +247,7 @@ export class SearchService {
   /**
    * Search for flights using SerpAPI's google_flights engine.
    * Returns structured flight data as SearchResult[].
+   * Supports all SerpAPI Google Flights parameters.
    */
   async searchFlights(params: {
     origin?: string;
@@ -254,6 +255,28 @@ export class SearchService {
     departureDate?: string;
     returnDate?: string;
     query: string;
+    // SerpAPI Google Flights optional params
+    travelClass?: 'economy' | 'premium_economy' | 'business' | 'first';
+    adults?: number;
+    children?: number;
+    infantsInSeat?: number;
+    infantsOnLap?: number;
+    stops?: 0 | 1 | 2 | 3;
+    sortBy?: 1 | 2 | 3 | 4 | 5 | 6;
+    deepSearch?: boolean;
+    maxPrice?: number;
+    excludeAirlines?: string;
+    includeAirlines?: string;
+    excludeBasic?: boolean;
+    emissions?: boolean;
+    outboundTimes?: string;
+    returnTimes?: string;
+    bags?: number;
+    excludeConns?: string;
+    maxDuration?: number;
+    currency?: string;
+    gl?: string;
+    hl?: string;
   }): Promise<SearchResult[]> {
     if (!this.serpApiKey) {
       console.log('⚠️  SerpAPI not configured, cannot search flights directly');
@@ -261,12 +284,19 @@ export class SearchService {
     }
 
     try {
+      const travelClassMap: Record<string, string> = {
+        economy: '1',
+        premium_economy: '2',
+        business: '3',
+        first: '4',
+      };
+
       const apiParams: any = {
         api_key: this.serpApiKey,
         engine: 'google_flights',
-        hl: 'en',
-        gl: 'us',
-        currency: 'USD',
+        hl: params.hl ?? 'en',
+        gl: params.gl ?? 'us',
+        currency: params.currency ?? 'USD',
         type: params.returnDate ? '1' : '2', // 1=round trip, 2=one way
       };
 
@@ -286,10 +316,31 @@ export class SearchService {
         console.log(`⚠️  Adjusted past departure date ${params.departureDate} → ${apiParams.outbound_date}`);
       }
       if (params.returnDate) {
-        const today = new Date().toISOString().split('T')[0];
         const depart = apiParams.outbound_date || today;
         apiParams.return_date = params.returnDate < depart ? depart : params.returnDate;
       }
+
+      // Optional SerpAPI params
+      if (params.travelClass && travelClassMap[params.travelClass]) {
+        apiParams.travel_class = travelClassMap[params.travelClass];
+      }
+      if (params.adults != null) apiParams.adults = params.adults;
+      if (params.children != null) apiParams.children = params.children;
+      if (params.infantsInSeat != null) apiParams.infants_in_seat = params.infantsInSeat;
+      if (params.infantsOnLap != null) apiParams.infants_on_lap = params.infantsOnLap;
+      if (params.stops != null) apiParams.stops = params.stops;
+      if (params.sortBy != null) apiParams.sort_by = params.sortBy;
+      if (params.deepSearch === true) apiParams.deep_search = true;
+      if (params.maxPrice != null) apiParams.max_price = params.maxPrice;
+      if (params.excludeAirlines) apiParams.exclude_airlines = params.excludeAirlines;
+      if (params.includeAirlines) apiParams.include_airlines = params.includeAirlines;
+      if (params.excludeBasic === true) apiParams.exclude_basic = true;
+      if (params.emissions === true) apiParams.emissions = 1;
+      if (params.outboundTimes) apiParams.outbound_times = params.outboundTimes;
+      if (params.returnTimes) apiParams.return_times = params.returnTimes;
+      if (params.bags != null) apiParams.bags = params.bags;
+      if (params.excludeConns) apiParams.exclude_conns = params.excludeConns;
+      if (params.maxDuration != null) apiParams.max_duration = params.maxDuration;
 
       console.log(`✈️  SerpAPI Flights search:`, {
         from: apiParams.departure_id,
@@ -297,9 +348,14 @@ export class SearchService {
         depart: apiParams.outbound_date,
         return: apiParams.return_date,
         type: params.returnDate ? 'round-trip' : 'one-way',
+        ...(params.stops != null && { stops: params.stops }),
+        ...(params.sortBy != null && { sortBy: params.sortBy }),
+        ...(params.maxPrice != null && { maxPrice: params.maxPrice }),
+        ...(params.deepSearch && { deepSearch: true }),
       });
 
-      const response = await axios.get('https://serpapi.com/search.json', {
+      // SerpAPI Google Flights API: https://serpapi.com/search?engine=google_flights
+      const response = await axios.get('https://serpapi.com/search', {
         params: apiParams,
         timeout: 30000,
       });

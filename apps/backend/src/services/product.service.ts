@@ -91,13 +91,35 @@ export class ProductService {
       if (isTravel && origin && destination) {
         console.log(`✈️  Searching flights: ${origin} → ${destination} (SerpAPI + MCP in parallel)`);
 
-        // Launch SerpAPI flights
+        // Launch SerpAPI flights with full filter support
+        const filters = request.filters as any;
         const serpApiPromise = this.searchService.searchFlights({
           origin,
           destination,
           departureDate: startDate,
           returnDate: endDate,
           query: request.query,
+          travelClass: filters?.travelClass,
+          adults: filters?.adults,
+          children: filters?.children,
+          infantsInSeat: filters?.infantsInSeat,
+          infantsOnLap: filters?.infantsOnLap,
+          stops: filters?.stops,
+          sortBy: filters?.sortBy,
+          deepSearch: filters?.deepSearch,
+          maxPrice: filters?.maxPrice ?? filters?.priceRange?.max,
+          excludeAirlines: filters?.excludeAirlines,
+          includeAirlines: filters?.includeAirlines,
+          excludeBasic: filters?.excludeBasic,
+          emissions: filters?.emissions,
+          outboundTimes: filters?.outboundTimes,
+          returnTimes: filters?.returnTimes,
+          bags: filters?.bags,
+        excludeConns: filters?.excludeConns,
+        maxDuration: filters?.maxDuration,
+        currency: filters?.currency,
+        gl: filters?.gl,
+        hl: filters?.hl,
         }).catch(err => {
           console.error('SerpAPI flight search error:', err);
           return [] as any[];
@@ -625,6 +647,25 @@ export class ProductService {
         destination: parsedQuery.destination,
         startDate: parsedQuery.startDate,
         endDate: parsedQuery.endDate,
+        currency: parsedQuery.currency,
+        // SerpAPI Google Flights optional params
+        travelClass: parsedQuery.travelClass,
+        adults: parsedQuery.adults,
+        children: parsedQuery.children,
+        infantsInSeat: parsedQuery.infantsInSeat,
+        infantsOnLap: parsedQuery.infantsOnLap,
+        stops: parsedQuery.stops,
+        sortBy: parsedQuery.sortBy,
+        deepSearch: parsedQuery.deepSearch,
+        excludeAirlines: parsedQuery.excludeAirlines,
+        includeAirlines: parsedQuery.includeAirlines,
+        excludeBasic: parsedQuery.excludeBasic,
+        emissions: parsedQuery.emissions,
+        outboundTimes: parsedQuery.outboundTimes,
+        returnTimes: parsedQuery.returnTimes,
+        bags: parsedQuery.bags,
+        excludeConns: parsedQuery.excludeConns,
+        maxDuration: parsedQuery.maxDuration,
       },
     };
 

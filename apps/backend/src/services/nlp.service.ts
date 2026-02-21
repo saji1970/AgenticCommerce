@@ -44,6 +44,25 @@ export interface ParsedSearchQuery {
   // Search type detection
   isTravel?: boolean; // true for flights, hotels, travel services
   isProduct?: boolean; // true for physical products
+
+  // Flight-specific (SerpAPI Google Flights)
+  travelClass?: 'economy' | 'premium_economy' | 'business' | 'first';
+  adults?: number;
+  children?: number;
+  infantsInSeat?: number;
+  infantsOnLap?: number;
+  stops?: 0 | 1 | 2 | 3; // 0=any, 1=nonstop, 2=1 or fewer, 3=2 or fewer
+  sortBy?: 1 | 2 | 3 | 4 | 5 | 6; // 1=top, 2=price, 3=departure, 4=arrival, 5=duration, 6=emissions
+  deepSearch?: boolean;
+  excludeAirlines?: string; // comma-separated IATA codes
+  includeAirlines?: string;
+  excludeBasic?: boolean; // exclude basic economy (US domestic only)
+  emissions?: boolean; // less emissions only
+  outboundTimes?: string; // e.g. "4,18" for 4am-7pm departure
+  returnTimes?: string;
+  bags?: number; // carry-on bags
+  excludeConns?: string; // comma-separated airport codes to exclude
+  maxDuration?: number; // max flight duration in minutes
 }
 
 /**
@@ -167,6 +186,20 @@ Extract the following information:
 23. **isTravel**: true if query is for flights, hotels, travel services (not physical products)
 24. **isProduct**: true if query is for physical products (not travel)
 
+For FLIGHT queries, also extract (all optional, null if not mentioned):
+25. **travelClass**: "economy" | "premium_economy" | "business" | "first"
+26. **adults**: number of adults (default 1)
+27. **children**: number of children
+28. **stops**: 0=any, 1=nonstop only, 2=1 stop or fewer, 3=2 stops or fewer
+29. **sortBy**: 1=top flights, 2=price, 3=departure time, 4=arrival time, 5=duration, 6=emissions
+30. **deepSearch**: true if user wants precise/browser-identical results (slower)
+31. **excludeAirlines**: comma-separated IATA codes (e.g. "UA,AA")
+32. **includeAirlines**: comma-separated IATA codes
+33. **excludeBasic**: true to exclude basic economy (US domestic)
+34. **emissions**: true for less emissions only
+35. **bags**: number of carry-on bags
+36. **maxDuration**: max flight duration in minutes
+
 IMPORTANT: Detect local shopping intent from phrases like:
 - "near me", "nearby", "close to me", "in my area"
 - "local stores", "stores around me", "where can I buy"
@@ -201,7 +234,19 @@ Response:
   "needsDelivery": false,
   "needsPickup": false,
   "isTravel": false,
-  "isProduct": true
+  "isProduct": true,
+  "travelClass": null,
+  "adults": null,
+  "children": null,
+  "stops": null,
+  "sortBy": null,
+  "deepSearch": null,
+  "excludeAirlines": null,
+  "includeAirlines": null,
+  "excludeBasic": null,
+  "emissions": null,
+  "bags": null,
+  "maxDuration": null
 }
 
 Query: "Where can I buy AirPods Pro near me in Atlanta?"
@@ -230,7 +275,19 @@ Response:
   "needsDelivery": false,
   "needsPickup": true,
   "isTravel": false,
-  "isProduct": true
+  "isProduct": true,
+  "travelClass": null,
+  "adults": null,
+  "children": null,
+  "stops": null,
+  "sortBy": null,
+  "deepSearch": null,
+  "excludeAirlines": null,
+  "includeAirlines": null,
+  "excludeBasic": null,
+  "emissions": null,
+  "bags": null,
+  "maxDuration": null
 }
 
 Query: "Find me the best deals on MacBook Pro"
@@ -288,7 +345,60 @@ Response:
   "needsDelivery": false,
   "needsPickup": false,
   "isTravel": true,
-  "isProduct": false
+  "isProduct": false,
+  "travelClass": "economy",
+  "adults": 1,
+  "children": null,
+  "stops": null,
+  "sortBy": null,
+  "deepSearch": false,
+  "excludeAirlines": null,
+  "includeAirlines": null,
+  "excludeBasic": null,
+  "emissions": null,
+  "bags": null,
+  "maxDuration": null
+}
+
+Query: "Nonstop flights from JFK to London under $500, sort by price"
+Response:
+{
+  "searchQuery": "flights JFK to London",
+  "productType": "flight",
+  "maxPrice": 500,
+  "minPrice": null,
+  "currency": "USD",
+  "specifications": {},
+  "shouldCreateIntent": false,
+  "intentType": null,
+  "intentReasoning": null,
+  "startDate": null,
+  "endDate": null,
+  "origin": "New York",
+  "destination": "London",
+  "userCity": null,
+  "userCountry": null,
+  "searchRadius": null,
+  "confidence": 92,
+  "clarificationNeeded": null,
+  "preferLocalStores": false,
+  "preferOnline": true,
+  "needsDelivery": false,
+  "needsPickup": false,
+  "isTravel": true,
+  "isProduct": false,
+  "travelClass": null,
+  "adults": 1,
+  "children": null,
+  "stops": 1,
+  "sortBy": 2,
+  "deepSearch": false,
+  "excludeAirlines": null,
+  "includeAirlines": null,
+  "excludeBasic": null,
+  "emissions": null,
+  "bags": null,
+  "maxDuration": null
 }
 
 Query: "Show me stores selling Sony headphones with good discounts"
@@ -317,7 +427,19 @@ Response:
   "needsDelivery": false,
   "needsPickup": false,
   "isTravel": false,
-  "isProduct": true
+  "isProduct": true,
+  "travelClass": null,
+  "adults": null,
+  "children": null,
+  "stops": null,
+  "sortBy": null,
+  "deepSearch": null,
+  "excludeAirlines": null,
+  "includeAirlines": null,
+  "excludeBasic": null,
+  "emissions": null,
+  "bags": null,
+  "maxDuration": null
 }
 
 Now parse the user's query and return ONLY the JSON object, no other text.`;
