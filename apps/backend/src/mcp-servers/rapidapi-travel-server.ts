@@ -23,24 +23,33 @@ interface SkyEntity {
 }
 
 async function autoSuggest(query: string): Promise<SkyEntity | null> {
-  try {
-    const { data } = await axios.get(
-      `https://${RAPIDAPI_HOST}/api/v1/flights/searchAirport`,
-      { headers, params: { query, locale: 'en-US' } }
-    );
-    const places = data?.data;
-    if (Array.isArray(places) && places.length > 0) {
-      return {
-        skyId: places[0].skyId,
-        entityId: places[0].entityId,
-        presentation: places[0].presentation ?? { title: query, subtitle: '' },
-      };
+  const paths = [
+    '/api/v1/flights/searchAirport',
+    '/api/v2/flights/searchAirport',
+    '/api/v1/flights/auto-complete',
+  ];
+
+  for (const path of paths) {
+    try {
+      const { data } = await axios.get(
+        `https://${RAPIDAPI_HOST}${path}`,
+        { headers, params: { query, locale: 'en-US' } }
+      );
+      const places = data?.data;
+      if (Array.isArray(places) && places.length > 0) {
+        return {
+          skyId: places[0].skyId,
+          entityId: places[0].entityId,
+          presentation: places[0].presentation ?? { title: query, subtitle: '' },
+        };
+      }
+    } catch (err: any) {
+      if (err.response?.status === 404) continue; // Try next path
+      console.error('autoSuggest error:', err.message);
+      return null;
     }
-    return null;
-  } catch (err: any) {
-    console.error('autoSuggest error:', err.message);
-    return null;
   }
+  return null;
 }
 
 async function searchFlights(params: {

@@ -291,13 +291,16 @@ export class SearchService {
         first: '4',
       };
 
+      // Detect round-trip from returnDate or query text (e.g. "round trip flights...")
+      const isRoundTrip = !!params.returnDate || /round\s*trip/i.test(params.query || '');
+
       const apiParams: any = {
         api_key: this.serpApiKey,
         engine: 'google_flights',
         hl: params.hl ?? 'en',
         gl: params.gl ?? 'us',
         currency: params.currency ?? 'USD',
-        type: params.returnDate ? '1' : '2', // 1=round trip, 2=one way
+        type: isRoundTrip ? '1' : '2', // 1=round trip, 2=one way
       };
 
       // Map city names to airport codes if needed
@@ -307,17 +310,37 @@ export class SearchService {
       if (params.destination) {
         apiParams.arrival_id = this.resolveAirportCode(params.destination);
       }
-      // SerpAPI requires outbound_date - default to today if not provided or past
+      // SerpAPI requires outbound_date - default to tomorrow if not provided or past
       const today = new Date().toISOString().split('T')[0];
-      apiParams.outbound_date = (params.departureDate && params.departureDate >= today)
-        ? params.departureDate
-        : today;
-      if (params.departureDate && params.departureDate < today) {
-        console.log(`⚠️  Adjusted past departure date ${params.departureDate} → ${apiParams.outbound_date}`);
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+      if (params.departureDate && params.departureDate >= today) {
+        apiParams.outbound_date = params.departureDate;
+      } else {
+        // No date or past date: use tomorrow to ensure flights are available
+        apiParams.outbound_date = tomorrow;
+        if (params.departureDate) {
+          console.log(`⚠️  Adjusted past departure date ${params.departureDate} → ${apiParams.outbound_date}`);
+        }
       }
+
       if (params.returnDate) {
-        const depart = apiParams.outbound_date || today;
-        apiParams.return_date = params.returnDate < depart ? depart : params.returnDate;
+        const depart = apiParams.outbound_date;
+        if (params.returnDate > depart) {
+          apiParams.return_date = params.returnDate;
+        } else {
+          // Return date is on or before departure — push it 7 days after departure
+          const returnDate = new Date(depart);
+          returnDate.setDate(returnDate.getDate() + 7);
+          apiParams.return_date = returnDate.toISOString().split('T')[0];
+          console.log(`⚠️  Adjusted return date ${params.returnDate} → ${apiParams.return_date} (7 days after departure)`);
+        }
+      } else if (isRoundTrip) {
+        // Round-trip requested but no return date — default to 7 days after departure
+        const returnDate = new Date(apiParams.outbound_date);
+        returnDate.setDate(returnDate.getDate() + 7);
+        apiParams.return_date = returnDate.toISOString().split('T')[0];
+        console.log(`ℹ️  No return date provided for round-trip, defaulting to ${apiParams.return_date}`);
       }
 
       // Optional SerpAPI params
@@ -347,7 +370,7 @@ export class SearchService {
         to: apiParams.arrival_id,
         depart: apiParams.outbound_date,
         return: apiParams.return_date,
-        type: params.returnDate ? 'round-trip' : 'one-way',
+        type: isRoundTrip ? 'round-trip' : 'one-way',
         ...(params.stops != null && { stops: params.stops }),
         ...(params.sortBy != null && { sortBy: params.sortBy }),
         ...(params.maxPrice != null && { maxPrice: params.maxPrice }),
@@ -392,7 +415,8 @@ export class SearchService {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const date = (params.departureDate && params.departureDate >= today) ? params.departureDate : today;
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const date = (params.departureDate && params.departureDate >= today) ? params.departureDate : tomorrow;
 
     const rapidHost = config.rapidApi.host;
 
@@ -402,25 +426,55 @@ export class SearchService {
         'X-RapidAPI-Host': rapidHost,
       };
 
-      // Resolve origin - /api/v1/flights/searchAirport
-      const originRes = await axios.get(
-        `https://${rapidHost}/api/v1/flights/searchAirport`,
-        { headers, params: { query: params.origin, locale: 'en-US' }, timeout: 10000 }
-      );
-      const originPlaces = originRes.data?.data;
-      if (!Array.isArray(originPlaces) || originPlaces.length === 0) {
+      // Resolve origin - try multiple endpoint paths for different sky-scrapper versions
+      const searchAirportPaths = [
+        '/api/v1/flights/searchAirport',
+        '/api/v2/flights/searchAirport',
+        '/api/v1/flights/auto-complete',
+      ];
+
+      let originPlaces: any[] | null = null;
+      for (const path of searchAirportPaths) {
+        try {
+          const res = await axios.get(
+            `https://${rapidHost}${path}`,
+            { headers, params: { query: params.origin, locale: 'en-US' }, timeout: 10000 }
+          );
+          const places = res.data?.data;
+          if (Array.isArray(places) && places.length > 0) {
+            originPlaces = places;
+            break;
+          }
+        } catch (err: any) {
+          if (err.response?.status === 404) continue; // Try next path
+          throw err; // Re-throw non-404 errors (auth, rate limit, etc.)
+        }
+      }
+      if (!originPlaces || originPlaces.length === 0) {
         console.log(`⚠️  RapidAPI: could not resolve origin "${params.origin}"`);
         return [];
       }
       const originEntity = originPlaces[0];
 
-      // Resolve destination
-      const destRes = await axios.get(
-        `https://${rapidHost}/api/v1/flights/searchAirport`,
-        { headers, params: { query: params.destination, locale: 'en-US' }, timeout: 10000 }
-      );
-      const destPlaces = destRes.data?.data;
-      if (!Array.isArray(destPlaces) || destPlaces.length === 0) {
+      // Resolve destination using the same endpoint paths
+      let destPlaces: any[] | null = null;
+      for (const path of searchAirportPaths) {
+        try {
+          const res = await axios.get(
+            `https://${rapidHost}${path}`,
+            { headers, params: { query: params.destination, locale: 'en-US' }, timeout: 10000 }
+          );
+          const places = res.data?.data;
+          if (Array.isArray(places) && places.length > 0) {
+            destPlaces = places;
+            break;
+          }
+        } catch (err: any) {
+          if (err.response?.status === 404) continue;
+          throw err;
+        }
+      }
+      if (!destPlaces || destPlaces.length === 0) {
         console.log(`⚠️  RapidAPI: could not resolve destination "${params.destination}"`);
         return [];
       }
@@ -439,8 +493,15 @@ export class SearchService {
         market: 'en-US',
         countryCode: 'US',
       };
-      if (params.returnDate && params.returnDate >= date) {
-        flightParams.returnDate = params.returnDate;
+      if (params.returnDate) {
+        if (params.returnDate > date) {
+          flightParams.returnDate = params.returnDate;
+        } else {
+          // Return date on or before departure — push 7 days after
+          const rd = new Date(date);
+          rd.setDate(rd.getDate() + 7);
+          flightParams.returnDate = rd.toISOString().split('T')[0];
+        }
       }
 
       const { data } = await axios.get(
