@@ -8,6 +8,7 @@ export class SearchService {
   private googleApiKey: string;
   private searchEngineId: string;
   private serpApiKey: string;
+  private rapidApiKey: string;
   private requestCount: number = 0;
   private lastResetTime: number = Date.now();
   private readonly MAX_REQUESTS_PER_MINUTE = 100;
@@ -16,12 +17,18 @@ export class SearchService {
     this.googleApiKey = config.googleSearch.apiKey;
     this.searchEngineId = config.googleSearch.searchEngineId;
     this.serpApiKey = config.serpApi.apiKey;
+    this.rapidApiKey = config.rapidApi.key;
 
     if (this.serpApiKey) {
       console.log('✅ SerpAPI configured as primary search provider');
-    } else if (this.googleApiKey && this.searchEngineId) {
+    }
+    if (this.rapidApiKey) {
+      console.log('✅ RapidAPI configured as flight search fallback');
+    }
+    if (!this.serpApiKey && this.googleApiKey && this.searchEngineId) {
       console.log('✅ Google Custom Search configured as search provider');
-    } else {
+    }
+    if (!this.serpApiKey && !(this.googleApiKey && this.searchEngineId)) {
       console.warn('⚠️  No search API credentials configured (set SERPAPI_KEY or GOOGLE_API_KEY + GOOGLE_SEARCH_ENGINE_ID)');
     }
   }
@@ -270,13 +277,13 @@ export class SearchService {
       if (params.destination) {
         apiParams.arrival_id = this.resolveAirportCode(params.destination);
       }
-      if (params.departureDate) {
-        // SerpAPI rejects past dates - ensure we never send one
-        const today = new Date().toISOString().split('T')[0];
-        apiParams.outbound_date = params.departureDate < today ? today : params.departureDate;
-        if (params.departureDate < today) {
-          console.log(`⚠️  Adjusted past departure date ${params.departureDate} → ${apiParams.outbound_date}`);
-        }
+      // SerpAPI requires outbound_date - default to today if not provided or past
+      const today = new Date().toISOString().split('T')[0];
+      apiParams.outbound_date = (params.departureDate && params.departureDate >= today)
+        ? params.departureDate
+        : today;
+      if (params.departureDate && params.departureDate < today) {
+        console.log(`⚠️  Adjusted past departure date ${params.departureDate} → ${apiParams.outbound_date}`);
       }
       if (params.returnDate) {
         const today = new Date().toISOString().split('T')[0];
@@ -309,6 +316,119 @@ export class SearchService {
         });
       } else {
         console.error('SerpAPI Flights unexpected error:', error);
+      }
+      return [];
+    }
+  }
+
+  /**
+   * Search flights via RapidAPI Sky Scrapper - used as fallback when SerpAPI returns nothing.
+   */
+  async searchFlightsRapidApi(params: {
+    origin?: string;
+    destination?: string;
+    departureDate?: string;
+    returnDate?: string;
+    query: string;
+  }): Promise<SearchResult[]> {
+    if (!this.rapidApiKey || !params.origin || !params.destination) {
+      return [];
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const date = (params.departureDate && params.departureDate >= today) ? params.departureDate : today;
+
+    try {
+      const headers = {
+        'X-RapidAPI-Key': this.rapidApiKey,
+        'X-RapidAPI-Host': 'sky-scrapper.p.rapidapi.com',
+      };
+
+      // Resolve origin
+      const originRes = await axios.get(
+        `https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchAirport`,
+        { headers, params: { query: params.origin, locale: 'en-US' }, timeout: 10000 }
+      );
+      const originPlaces = originRes.data?.data;
+      if (!Array.isArray(originPlaces) || originPlaces.length === 0) {
+        console.log(`⚠️  RapidAPI: could not resolve origin "${params.origin}"`);
+        return [];
+      }
+      const originEntity = originPlaces[0];
+
+      // Resolve destination
+      const destRes = await axios.get(
+        `https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchAirport`,
+        { headers, params: { query: params.destination, locale: 'en-US' }, timeout: 10000 }
+      );
+      const destPlaces = destRes.data?.data;
+      if (!Array.isArray(destPlaces) || destPlaces.length === 0) {
+        console.log(`⚠️  RapidAPI: could not resolve destination "${params.destination}"`);
+        return [];
+      }
+      const destEntity = destPlaces[0];
+
+      // Search flights
+      const flightParams: Record<string, any> = {
+        originSkyId: originEntity.skyId,
+        destinationSkyId: destEntity.skyId,
+        originEntityId: originEntity.entityId,
+        destinationEntityId: destEntity.entityId,
+        date,
+        cabinClass: 'economy',
+        adults: 1,
+        currency: 'USD',
+        market: 'en-US',
+        countryCode: 'US',
+      };
+      if (params.returnDate && params.returnDate >= date) {
+        flightParams.returnDate = params.returnDate;
+      }
+
+      const { data } = await axios.get(
+        `https://sky-scrapper.p.rapidapi.com/api/v2/flights/searchFlightsWebComplete`,
+        { headers, params: flightParams, timeout: 30000 }
+      );
+
+      const itineraries = data?.data?.itineraries ?? [];
+      if (itineraries.length === 0) {
+        console.log('⚠️  RapidAPI returned 0 flight results');
+        return [];
+      }
+
+      console.log(`✅ RapidAPI returned ${itineraries.length} flight results`);
+
+      return itineraries.slice(0, 10).map((it: any) => {
+        const leg = it.legs?.[0];
+        const airline = leg?.carriers?.marketing?.[0]?.name ?? 'Unknown';
+        const airlineLogo = leg?.carriers?.marketing?.[0]?.logoUrl;
+        const originCode = leg?.origin?.displayCode || params.origin;
+        const destCode = leg?.destination?.displayCode || params.destination;
+        const duration = leg?.durationInMinutes ? `${Math.floor(leg.durationInMinutes / 60)}h ${leg.durationInMinutes % 60}m` : '';
+        const stops = leg?.stopCount ?? 0;
+        const stopText = stops === 0 ? 'Nonstop' : `${stops} stop${stops > 1 ? 's' : ''}`;
+
+        return {
+          title: `${airline} - ${originCode} to ${destCode}`,
+          url: 'https://www.google.com/travel/flights',
+          snippet: `${stopText} · ${duration} · Departs ${leg?.departure || ''}, Arrives ${leg?.arrival || ''}`.trim(),
+          displayUrl: airline,
+          price: it.price?.raw ?? (typeof it.price?.formatted === 'string' ? parseFloat(it.price.formatted.replace(/[^0-9.]/g, '')) : null),
+          currency: 'USD',
+          availability: 'Available',
+          image: airlineLogo || null,
+          rawData: it,
+        } as SearchResult & { rawData?: any };
+      });
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        console.error('RapidAPI Flights error:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+      } else {
+        console.error('RapidAPI Flights unexpected error:', error);
       }
       return [];
     }

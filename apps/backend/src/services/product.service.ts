@@ -145,8 +145,42 @@ export class ProductService {
 
         console.log(`✈️  SerpAPI flights: ${serpApiFlightProducts.length}, MCP travel: ${mcpWithIds.length}`);
 
+        // If SerpAPI and MCP returned nothing, try RapidAPI as fallback
+        let rapidApiProducts: CreateProductDTO[] = [];
+        if (serpApiFlightProducts.length === 0 && mcpWithIds.length === 0) {
+          console.log(`🔄 SerpAPI + MCP returned 0, trying RapidAPI fallback...`);
+          const rapidApiResults = await this.searchService.searchFlightsRapidApi({
+            origin,
+            destination,
+            departureDate: startDate,
+            returnDate: endDate,
+            query: request.query,
+          }).catch(err => {
+            console.error('RapidAPI flight search error:', err);
+            return [] as any[];
+          });
+          rapidApiProducts = rapidApiResults.map((result: any) => {
+            const price = typeof result.price === 'number' ? result.price
+              : typeof result.price === 'string' ? parseFloat(result.price.replace(/[^0-9.]/g, '')) : undefined;
+            return {
+              userId,
+              name: result.title,
+              description: result.snippet,
+              price: !isNaN(price as number) ? price : undefined,
+              currency: result.currency || 'USD',
+              imageUrl: result.image || undefined,
+              productUrl: result.url,
+              source: `rapidapi_flights:${result.displayUrl || 'sky_scrapper'}`,
+              rawData: result.rawData,
+              aiExtracted: false,
+              searchQueryId: searchQuery.id,
+            } as CreateProductDTO;
+          }).filter((p: CreateProductDTO) => p.name && p.name.trim());
+          console.log(`✈️  RapidAPI fallback: ${rapidApiProducts.length} flights`);
+        }
+
         // Combine and deduplicate (handle empty productUrls from MCP travel results)
-        const allTravelProducts = [...serpApiFlightProducts, ...mcpWithIds];
+        const allTravelProducts = [...serpApiFlightProducts, ...mcpWithIds, ...rapidApiProducts];
         const seen = new Set<string>();
         const uniqueTravelProducts = allTravelProducts.filter(p => {
           // For products with a real URL, deduplicate by URL
