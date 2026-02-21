@@ -91,7 +91,7 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
     try {
       const defaultAgent = AppConfig.getDefaultAgent();
 
-      // Prepare intent data for Mandate app
+      // Prepare intent data for Mandate app (include structured conditions)
       const intentData = {
         productId: product.id,
         productName: product.name,
@@ -101,6 +101,10 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
         maxPrice: conditions.maxPrice || product.price,
         reasoning,
         agentName: defaultAgent.name,
+        intentType: conditions.type,
+        targetPrice: conditions.targetPrice,
+        scheduledDate: conditions.scheduledDate ? conditions.scheduledDate.toISOString() : undefined,
+        customReasoning: conditions.customReasoning,
       };
 
       // Use real mandate ID (from MandateFlowManager flow) - same as cart, no fake IDs

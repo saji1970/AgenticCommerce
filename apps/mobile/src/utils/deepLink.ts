@@ -136,6 +136,10 @@ export interface IntentData {
   maxPrice?: number;
   reasoning?: string;
   agentName: string;
+  intentType?: string;
+  targetPrice?: number;
+  scheduledDate?: string;
+  customReasoning?: string;
 }
 
 const PENDING_INTENT_DATA_KEY = 'pending_intent_data';
@@ -189,6 +193,10 @@ export async function openMandateAppForIntent(intentData: IntentData, mandateId:
         maxPrice: intentData.maxPrice || intentData.price,
         reasoning: intentData.reasoning,
         agentName: intentData.agentName,
+        intentType: intentData.intentType,
+        targetPrice: intentData.targetPrice,
+        scheduledDate: intentData.scheduledDate,
+        customReasoning: intentData.customReasoning,
       },
     };
     const user = await storageService.getUser();

@@ -557,7 +557,7 @@ export class SearchService {
     // SerpAPI returns best_flights and other_flights arrays
     const bestFlights = data.best_flights || [];
     const otherFlights = data.other_flights || [];
-    const allFlights = [...bestFlights, ...otherFlights];
+    let allFlights = [...bestFlights, ...otherFlights];
 
     if (allFlights.length === 0) {
       console.log('⚠️  SerpAPI returned 0 flight results');
@@ -565,6 +565,34 @@ export class SearchService {
     }
 
     console.log(`✅ SerpAPI returned ${allFlights.length} flight results (${bestFlights.length} best, ${otherFlights.length} other)`);
+
+    // Validate flights match the requested route — SerpAPI sometimes returns wrong destinations
+    const requestedDep = params.origin ? this.resolveAirportCode(params.origin) : null;
+    const requestedArr = params.destination ? this.resolveAirportCode(params.destination) : null;
+    if (requestedDep || requestedArr) {
+      const beforeCount = allFlights.length;
+      allFlights = allFlights.filter((flight: any) => {
+        const legs = flight.flights || [];
+        if (legs.length === 0) return true; // keep if no leg data to check
+        const firstLeg = legs[0];
+        const lastLeg = legs[legs.length - 1];
+        const depCode = (firstLeg.departure_airport?.id || '').toUpperCase();
+        const arrCode = (lastLeg.arrival_airport?.id || '').toUpperCase();
+        // If airport codes are present in the response, verify they match
+        if (requestedDep && depCode && depCode !== requestedDep) {
+          console.log(`⚠️  Filtering out flight: departure ${depCode} != requested ${requestedDep}`);
+          return false;
+        }
+        if (requestedArr && arrCode && arrCode !== requestedArr) {
+          console.log(`⚠️  Filtering out flight: arrival ${arrCode} != requested ${requestedArr}`);
+          return false;
+        }
+        return true;
+      });
+      if (beforeCount !== allFlights.length) {
+        console.log(`⚠️  Filtered ${beforeCount - allFlights.length} flights with wrong route (kept ${allFlights.length})`);
+      }
+    }
 
     return allFlights.slice(0, 10).map((flight: any) => {
       const legs = flight.flights || [];

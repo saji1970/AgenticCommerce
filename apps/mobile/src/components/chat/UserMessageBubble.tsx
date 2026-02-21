@@ -1,17 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ChatMessage } from '../../types/chat';
 
 interface Props {
   message: ChatMessage;
+  onCopy?: (text: string) => void;
 }
 
-export const UserMessageBubble: React.FC<Props> = ({ message }) => {
+export const UserMessageBubble: React.FC<Props> = ({ message, onCopy }) => {
+  const handleLongPress = () => {
+    if (message.text && onCopy) {
+      onCopy(message.text);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.bubble}>
+      <TouchableOpacity
+        style={styles.bubble}
+        onLongPress={handleLongPress}
+        activeOpacity={0.8}
+        delayLongPress={400}
+      >
         <Text style={styles.text}>{message.text}</Text>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 };

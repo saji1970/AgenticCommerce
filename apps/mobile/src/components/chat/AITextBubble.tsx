@@ -1,17 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ChatMessage } from '../../types/chat';
 
 interface Props {
   message: ChatMessage;
+  onCopy?: (text: string) => void;
 }
 
-export const AITextBubble: React.FC<Props> = ({ message }) => {
+export const AITextBubble: React.FC<Props> = ({ message, onCopy }) => {
   const { parsedQuery } = message;
+
+  const handleLongPress = () => {
+    if (message.text && onCopy) {
+      onCopy(message.text);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.bubble}>
+      <TouchableOpacity
+        style={styles.bubble}
+        onLongPress={handleLongPress}
+        activeOpacity={0.8}
+        delayLongPress={400}
+      >
         <Text style={styles.text}>{message.text}</Text>
         {parsedQuery && (parsedQuery.origin || parsedQuery.destination) && (
           <View style={styles.travelInfo}>
@@ -33,7 +45,7 @@ export const AITextBubble: React.FC<Props> = ({ message }) => {
             )}
           </View>
         )}
-      </View>
+      </TouchableOpacity>
     </View>
   );
 };

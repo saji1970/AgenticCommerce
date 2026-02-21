@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,10 @@ import {
   Platform,
   StyleSheet,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { useNavigation } from '@react-navigation/native';
 import { ChatMessage } from '../../types/chat';
 import { ChatBubble } from '../../components/chat/ChatBubble';
 import { ChatInput } from '../../components/chat/ChatInput';
@@ -26,8 +29,47 @@ const generateId = () => `msg_${Date.now()}_${++messageCounter}`;
 export const AIChatScreen = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [copyToast, setCopyToast] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const { performNLPSearch } = useProduct();
+  const navigation = useNavigation();
+
+  // Set up header right button for clearing chat
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () =>
+        messages.length > 0 ? (
+          <TouchableOpacity onPress={handleClearChat} style={styles.headerButton}>
+            <Text style={styles.headerButtonText}>Clear</Text>
+          </TouchableOpacity>
+        ) : null,
+    });
+  }, [messages.length, navigation]);
+
+  const handleClearChat = useCallback(() => {
+    Alert.alert(
+      'Clear Chat',
+      'Are you sure you want to clear all messages?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => setMessages([]),
+        },
+      ]
+    );
+  }, []);
+
+  const handleCopyMessage = useCallback(async (text: string) => {
+    try {
+      await Clipboard.setStringAsync(text);
+      setCopyToast(true);
+      setTimeout(() => setCopyToast(false), 1500);
+    } catch (err) {
+      console.warn('[AIChatScreen] Failed to copy:', err);
+    }
+  }, []);
 
   const addMessages = useCallback((newMessages: ChatMessage[]) => {
     setMessages((prev) => [...prev, ...newMessages]);
@@ -177,7 +219,7 @@ export const AIChatScreen = () => {
   };
 
   const renderMessage = ({ item }: { item: ChatMessage }) => (
-    <ChatBubble message={item} />
+    <ChatBubble message={item} onCopy={handleCopyMessage} />
   );
 
   const renderWelcome = () => (
@@ -227,6 +269,15 @@ export const AIChatScreen = () => {
         />
       )}
       <ChatInput onSend={handleSend} disabled={isSearching} />
+
+      {/* Copy toast */}
+      {copyToast && (
+        <View style={styles.toastContainer}>
+          <View style={styles.toast}>
+            <Text style={styles.toastText}>Copied to clipboard</Text>
+          </View>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -238,6 +289,16 @@ const styles = StyleSheet.create({
   },
   messagesList: {
     paddingVertical: 12,
+  },
+  headerButton: {
+    marginRight: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  headerButtonText: {
+    fontSize: 16,
+    color: '#EF4444',
+    fontWeight: '600',
   },
   welcomeContainer: {
     flex: 1,
@@ -284,5 +345,23 @@ const styles = StyleSheet.create({
   exampleText: {
     fontSize: 15,
     color: '#2563EB',
+  },
+  toastContainer: {
+    position: 'absolute',
+    bottom: 80,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  toast: {
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

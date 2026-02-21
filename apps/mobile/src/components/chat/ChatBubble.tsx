@@ -9,20 +9,21 @@ import { TypingIndicator } from './TypingIndicator';
 
 interface Props {
   message: ChatMessage;
+  onCopy?: (text: string) => void;
 }
 
-export const ChatBubble: React.FC<Props> = ({ message }) => {
+export const ChatBubble: React.FC<Props> = ({ message, onCopy }) => {
   switch (message.type) {
     case 'user':
-      return <UserMessageBubble message={message} />;
+      return <UserMessageBubble message={message} onCopy={onCopy} />;
     case 'ai_text':
-      return <AITextBubble message={message} />;
+      return <AITextBubble message={message} onCopy={onCopy} />;
     case 'ai_products':
       return <AIProductsBubble message={message} />;
     case 'ai_see_all':
       return <AISeeAllBubble message={message} />;
     case 'ai_error':
-      return <AITextBubble message={{ ...message, text: message.text || 'Something went wrong. Please try again.' }} />;
+      return <AITextBubble message={{ ...message, text: message.text || 'Something went wrong. Please try again.' }} onCopy={onCopy} />;
     case 'ai_mandate':
       return <AIMandateBubble message={message} />;
     case 'ai_typing':

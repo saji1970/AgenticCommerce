@@ -19,7 +19,7 @@ export interface CartData {
 
 export interface OpenMandateAppOptions {
   cartData?: CartData;
-  intentData?: { type: string; product: any; maxPrice: number; reasoning?: string; agentName: string };
+  intentData?: { type: string; product: any; maxPrice: number; reasoning?: string; agentName: string; intentType?: string; targetPrice?: number; scheduledDate?: string; customReasoning?: string };
   userId?: string;
   userName?: string;
 }

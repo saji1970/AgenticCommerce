@@ -57,6 +57,10 @@ interface IntentData {
   maxPrice: number;
   reasoning?: string;
   agentName: string;
+  intentType?: string;
+  targetPrice?: number;
+  scheduledDate?: string;
+  customReasoning?: string;
 }
 
 export const MandateDetailScreen: React.FC = () => {
@@ -310,6 +314,22 @@ export const MandateDetailScreen: React.FC = () => {
       callbackUrl += `&cartData=${cartDataParam}`;
     }
 
+    // Revoke intent mandate after confirmation so it disappears from active list
+    if (mandate.type === 'intent' || isIntentFlow) {
+      try {
+        const user = await storageService.getUser();
+        const revokeUserId = mandate.userId || user?.id;
+        if (revokeUserId) {
+          await mandateServiceClient.revokeMandate(mandateId, revokeUserId, 'Intent fulfilled - confirmed by user');
+          await refreshMandates();
+          console.log('[MandateDetail] Intent mandate revoked after confirmation');
+        }
+      } catch (revokeError) {
+        console.warn('[MandateDetail] Failed to revoke intent mandate:', revokeError);
+        // Continue with callback even if revoke fails
+      }
+    }
+
     try {
       await Linking.openURL(callbackUrl);
     } catch (e) {
@@ -473,6 +493,21 @@ export const MandateDetailScreen: React.FC = () => {
                 <Text style={styles.intentConstraintValue}>{intentData.agentName}</Text>
               </View>
             </View>
+            {/* Intent Conditions Summary */}
+            {intentData.intentType && (
+              <View style={styles.intentConditionsSummary}>
+                <Text style={styles.intentConditionsSummaryLabel}>Intent Condition:</Text>
+                <Text style={styles.intentConditionsSummaryText}>
+                  {intentData.intentType === 'price_drop'
+                    ? `Buy when price drops to $${intentData.targetPrice?.toFixed(2) || intentData.maxPrice.toFixed(2)}`
+                    : intentData.intentType === 'availability'
+                    ? 'Notify when back in stock'
+                    : intentData.intentType === 'time_based'
+                    ? `Scheduled purchase on ${intentData.scheduledDate ? new Date(intentData.scheduledDate).toLocaleDateString() : 'TBD'}`
+                    : intentData.customReasoning || intentData.reasoning || 'General purchase intent'}
+                </Text>
+              </View>
+            )}
             {intentData.reasoning && (
               <View style={styles.intentReasoning}>
                 <Text style={styles.intentReasoningLabel}>Reasoning:</Text>
@@ -481,9 +516,13 @@ export const MandateDetailScreen: React.FC = () => {
             )}
           </View>
           <Text style={styles.intentDescription}>
-            By approving, you authorize the AI Agent to automatically purchase this item when
-            the price drops to or below your max price.
-          </Text>
+            {intentData.intentType === 'price_drop'
+              ? `By approving, you authorize the AI Agent to automatically purchase this item when the price drops to $${intentData.targetPrice?.toFixed(2) || intentData.maxPrice.toFixed(2)} or below.`
+              : intentData.intentType === 'availability'
+              ? 'By approving, you authorize the AI Agent to notify you and purchase this item when it becomes available.'
+              : intentData.intentType === 'time_based'
+              ? `By approving, you authorize the AI Agent to purchase this item on ${intentData.scheduledDate ? new Date(intentData.scheduledDate).toLocaleDateString() : 'the scheduled date'}.`
+              : 'By approving, you authorize the AI Agent to automatically purchase this item when conditions are met.'}
         </View>
       )}
 
@@ -977,6 +1016,27 @@ const styles = StyleSheet.create({
   },
   intentConstraintValue: {
     fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  intentConditionsSummary: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
+  },
+  intentConditionsSummaryLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  intentConditionsSummaryText: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#1F2937',
   },
