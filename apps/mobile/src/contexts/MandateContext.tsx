@@ -115,7 +115,19 @@ export const MandateProvider: React.FC<MandateProviderProps> = ({ children }) =>
       setLoading(true);
       setError(null);
 
-      const userId = await getUserId();
+      let userId: string;
+      try {
+        userId = await getUserId();
+      } catch (authErr: any) {
+        // User not logged in - expected when on login screen or before auth loads
+        if (authErr?.message === 'User not logged in') {
+          setMandates([]);
+          setActiveMandates({});
+          return {};
+        }
+        throw authErr;
+      }
+
       const apiMandates = await mandateServiceClient.getUserMandates(userId);
       // Cast AgentMandate[] to Mandate[] - structurally compatible
       const allMandates = apiMandates as any as Mandate[];
