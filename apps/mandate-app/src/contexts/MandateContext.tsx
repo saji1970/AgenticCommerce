@@ -125,12 +125,6 @@ export const MandateProvider: React.FC<{ children: ReactNode }> = ({ children })
       await refreshMandates();
     } catch (error) {
       console.error('Error approving mandate:', error);
-      // Fallback to demo data update
-      const updated = updateDemoMandate(mandateId, { status: 'active' });
-      if (updated) {
-        await refreshMandates();
-        return;
-      }
       throw error;
     }
   };
@@ -153,17 +147,24 @@ export const MandateProvider: React.FC<{ children: ReactNode }> = ({ children })
         return;
       }
 
-      if (!user?.id) throw new Error('User not logged in');
-      await mandateServiceClient.revokeMandate(mandateId, user.id, reason);
+      // In production mode, get userId from mandate itself if auth user is not set
+      let userId = user?.id;
+      if (!userId) {
+        // Try to get userId from the mandate being revoked
+        try {
+          const mandate = await mandateServiceClient.getMandate(mandateId);
+          userId = mandate.userId;
+        } catch (e) {
+          console.error('Could not fetch mandate to get userId:', e);
+        }
+      }
+      if (!userId) throw new Error('User not logged in');
+
+      await mandateServiceClient.revokeMandate(mandateId, userId, reason);
+      console.log('[MandateContext] Mandate revoked on server:', mandateId);
       await refreshMandates();
     } catch (error) {
       console.error('Error revoking mandate:', error);
-      // Fallback to demo data update
-      const updated = updateDemoMandate(mandateId, { status: 'revoked' });
-      if (updated) {
-        await refreshMandates();
-        return;
-      }
       throw error;
     }
   };

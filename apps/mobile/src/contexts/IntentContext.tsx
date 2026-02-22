@@ -23,6 +23,8 @@ interface IntentContextType {
   loadIntents: () => Promise<void>;
   approveIntent: (intentId: string) => Promise<void>;
   rejectIntent: (intentId: string, reason: string) => Promise<void>;
+  removeIntent: (intentId: string) => Promise<void>;
+  fulfillIntent: (intentId: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -251,6 +253,62 @@ export const IntentProvider: React.FC<IntentProviderProps> = ({ children }) => {
   };
 
   /**
+   * Remove an intent completely (deletes from storage)
+   */
+  const removeIntent = async (intentId: string): Promise<void> => {
+    try {
+      setError(null);
+
+      if (DEMO_MODE) {
+        const localIntents = await getLocalIntents();
+        const filtered = localIntents.filter(i => i.id !== intentId);
+        await saveLocalIntents(filtered);
+        await loadIntents();
+        return;
+      }
+
+      // Non-demo: reject as "removed by user"
+      await mandateService.rejectIntent(intentId, 'Removed by user');
+      await loadIntents();
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.error?.message || err.message || 'Failed to remove intent';
+      setError(errorMessage);
+      throw err;
+    }
+  };
+
+  /**
+   * Mark an intent as fulfilled (added to cart / purchased)
+   */
+  const fulfillIntent = async (intentId: string): Promise<void> => {
+    try {
+      setError(null);
+
+      if (DEMO_MODE) {
+        const localIntents = await getLocalIntents();
+        const index = localIntents.findIndex(i => i.id === intentId);
+        if (index >= 0) {
+          localIntents[index].status = 'fulfilled';
+          localIntents[index].updatedAt = new Date();
+          await saveLocalIntents(localIntents);
+        }
+        await loadIntents();
+        return;
+      }
+
+      // Non-demo: mark as executed on the server
+      await mandateService.approveIntent(intentId); // or a dedicated fulfill endpoint
+      await loadIntents();
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.error?.message || err.message || 'Failed to fulfill intent';
+      setError(errorMessage);
+      throw err;
+    }
+  };
+
+  /**
    * Clear error state
    */
   const clearError = () => {
@@ -267,6 +325,8 @@ export const IntentProvider: React.FC<IntentProviderProps> = ({ children }) => {
     loadIntents,
     approveIntent,
     rejectIntent,
+    removeIntent,
+    fulfillIntent,
     clearError,
   };
 

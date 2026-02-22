@@ -3,15 +3,14 @@ import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, Alert } from 're
 import {
   Product,
   MandateType,
-  CreateIntentRequest,
-  PurchaseIntentItem,
 } from '@agentic-commerce/shared-types';
 import { useMandate } from '../../contexts/MandateContext';
 import { useIntent } from '../../contexts/IntentContext';
 import { AppConfig } from '../../config/app.config';
-import { MandateFlowManager } from '../mandate/MandateFlowManager';
 import { IntentCreationModal } from './IntentCreationModal';
 import { IntentConditions } from '../../types/intent.types';
+import { mandateServiceClient } from '../../services/mandate-service.client';
+import { storageService } from '../../services/storage.service';
 
 interface IntentButtonProps {
   product: Product;
@@ -30,14 +29,15 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
   onSuccess,
   onError,
 }) => {
-  const { getActiveMandateByType, loadMandates } = useMandate();
-  const { createIntent, requestIntentApproval } = useIntent();
-  const [showMandateFlow, setShowMandateFlow] = useState(false);
+  const { getActiveMandateByType } = useMandate();
+  const { requestIntentApproval } = useIntent();
   const [showIntentModal, setShowIntentModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   /**
    * Handle intent button press
+   * Show intent details modal FIRST (price drop, scheduled date, etc.) so user can specify
+   * what kind of intent they want before any mandate flow.
    */
   const handlePress = () => {
     try {
@@ -49,9 +49,9 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
         return;
       }
 
-      // Always show mandate signing UI for user consent, even if mandate exists
-      console.log('[IntentButton] Starting mandate flow for user consent');
-      setShowMandateFlow(true);
+      // Show intent details UI first (price change, scheduled date, etc.)
+      console.log('[IntentButton] Showing intent creation modal');
+      setShowIntentModal(true);
     } catch (error: any) {
       console.error('[IntentButton] Error in handlePress:', error);
       Alert.alert('Error', `Failed to process intent action: ${error.message || 'Unknown error'}`);
@@ -59,83 +59,94 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
   };
 
   /**
-   * Handle mandate ready (created or already exists)
+   * Open Mandate app with intent data for approval.
+   * Uses explicit mandateId to avoid stale cache issues.
    */
-  const handleMandateReady = async () => {
-    setShowMandateFlow(false);
-    // Reload mandates and use returned value directly to avoid React state timing issues
-    const freshMandates = await loadMandates();
-    const mandate = freshMandates.intent;
-    console.log('[IntentButton] handleMandateReady - freshMandates:', freshMandates, 'intent mandate:', mandate);
-    if (mandate) {
-      setShowIntentModal(true);
+  const doRequestIntentApproval = async (reasoning: string, conditions: IntentConditions, explicitMandateId: string) => {
+    const defaultAgent = AppConfig.getDefaultAgent();
+    const intentData = {
+      productId: product.id,
+      productName: product.name,
+      productImage: product.imageUrl || product.image,
+      price: product.price,
+      quantity: 1,
+      maxPrice: conditions.maxPrice || product.price,
+      reasoning,
+      agentName: defaultAgent.name,
+      intentType: conditions.type,
+      targetPrice: conditions.targetPrice,
+      scheduledDate: conditions.scheduledDate ? conditions.scheduledDate.toISOString() : undefined,
+      customReasoning: conditions.customReasoning,
+    };
+
+    const mandateId = await requestIntentApproval(intentData, explicitMandateId);
+    if (mandateId) {
+      setShowIntentModal(false);
+      Alert.alert(
+        'Approval Required',
+        'Please approve the intent in the Mandate app using biometric verification and signing.'
+      );
     } else {
-      console.warn('[IntentButton] No intent mandate found after loading mandates');
+      Alert.alert('Error', 'Failed to open Mandate app for approval');
     }
   };
 
   /**
-   * Handle mandate flow cancellation
-   */
-  const handleMandateCancel = () => {
-    setShowMandateFlow(false);
-  };
-
-  /**
-   * Handle intent confirmation and creation
-   * Opens Mandate app for biometric approval and signing
+   * Handle intent confirmation and creation.
+   * Always creates a NEW pending intent mandate for each intent request.
+   * Never reuses cached/active mandates — each intent needs its own approval context.
    */
   const handleConfirm = async (reasoning: string, conditions: IntentConditions) => {
     setLoading(true);
-
     try {
       const defaultAgent = AppConfig.getDefaultAgent();
-
-      // Prepare intent data for Mandate app (include structured conditions)
-      const intentData = {
-        productId: product.id,
-        productName: product.name,
-        productImage: product.imageUrl || product.image,
-        price: product.price,
-        quantity: 1,
-        maxPrice: conditions.maxPrice || product.price,
-        reasoning,
-        agentName: defaultAgent.name,
-        intentType: conditions.type,
-        targetPrice: conditions.targetPrice,
-        scheduledDate: conditions.scheduledDate ? conditions.scheduledDate.toISOString() : undefined,
-        customReasoning: conditions.customReasoning,
-      };
-
-      // Use real mandate ID (from MandateFlowManager flow) - same as cart, no fake IDs
-      const mandate = getActiveMandateByType(MandateType.INTENT);
-      if (!mandate) {
-        Alert.alert('Error', 'Intent mandate not found. Please complete the mandate flow first.');
+      const user = await storageService.getUser();
+      if (!user?.id) {
+        Alert.alert('Error', 'Please log in first');
         return;
       }
 
-      const mandateId = await requestIntentApproval(intentData, mandate.id);
-
-      if (mandateId) {
-        setShowIntentModal(false);
-        // Intent will be created after user approves in Mandate app
-        // and returns via deep link callback
-        Alert.alert(
-          'Approval Required',
-          'Please approve the intent in the Mandate app using biometric verification and signing.'
-        );
-      } else {
-        Alert.alert('Error', 'Failed to open Mandate app for approval');
+      // Find parent app mandate for hierarchy
+      let parentMandateId: string | undefined;
+      try {
+        const appMandates = await mandateServiceClient.getUserAppMandates(user.id);
+        const activeApp = appMandates.find((m: any) => m.status === 'active');
+        if (activeApp) parentMandateId = activeApp.id;
+      } catch (e) {
+        console.warn('[IntentButton] Could not check app mandates:', e);
       }
+
+      // Always register a NEW pending intent mandate — don't reuse cached ones
+      // Include product data in constraints so mandate detail can display it later
+      const defaultConstraints = AppConfig.getDefaultConstraints(MandateType.INTENT);
+      const newMandate = await mandateServiceClient.registerMandate({
+        userId: user.id,
+        agentId: defaultAgent.id,
+        agentName: defaultAgent.name,
+        type: 'intent',
+        constraints: {
+          ...defaultConstraints,
+          productId: product.id,
+          productName: product.name,
+          productImage: product.imageUrl || product.image,
+          productPrice: product.price,
+          intentType: conditions.type,
+          targetPrice: conditions.targetPrice,
+          scheduledDate: conditions.scheduledDate ? conditions.scheduledDate.toISOString() : undefined,
+          reasoning: reasoning,
+        },
+        parentMandateId,
+      });
+      console.log('[IntentButton] Created new pending intent mandate:', newMandate.id, 'status:', newMandate.status);
+
+      // Open Mandate app with the NEW pending mandate ID and full intent data
+      await doRequestIntentApproval(reasoning, conditions, newMandate.id);
     } catch (error: any) {
       console.error('Failed to request intent approval:', error);
       const errorMessage =
         error.response?.data?.error?.message || error.message || 'Failed to create intent';
       Alert.alert('Error', errorMessage);
-
-      if (onError) {
-        onError(error);
-      }
+      if (onError) onError(error);
     } finally {
       setLoading(false);
     }
@@ -208,17 +219,6 @@ export const IntentButton: React.FC<IntentButtonProps> = ({
   return (
     <>
       {renderButton()}
-
-      {/* Mandate Flow Manager */}
-      {showMandateFlow && (
-        <MandateFlowManager
-          mandateType={MandateType.INTENT}
-          onMandateReady={handleMandateReady}
-          onCancel={handleMandateCancel}
-          autoCheck={true}
-          product={product}
-        />
-      )}
 
       {/* Intent Creation Modal */}
       {showIntentModal && (

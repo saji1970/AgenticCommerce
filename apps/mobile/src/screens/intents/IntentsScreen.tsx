@@ -11,19 +11,13 @@ import {
 } from 'react-native';
 import { useIntent } from '../../contexts/IntentContext';
 import { useCart } from '../../contexts/CartContext';
-import { useMandate } from '../../contexts/MandateContext';
-import { PurchaseIntent, MandateType, AgentCartRequest } from '@agentic-commerce/shared-types';
-import { acpService } from '../../services/acp.service';
-import { MandateFlowManager } from '../../components/mandate/MandateFlowManager';
-import { validateAgainstCartMandate } from '../../utils/mandateValidation';
+import { PurchaseIntent } from '@agentic-commerce/shared-types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const IntentsScreen: React.FC = () => {
-  const { intents, loading, loadIntents } = useIntent();
-  const { refreshCart } = useCart();
-  const { getActiveMandateByType } = useMandate();
+  const { intents, loading, loadIntents, removeIntent, fulfillIntent } = useIntent();
+  const { addToCart, refreshCart } = useCart();
   const [refreshing, setRefreshing] = useState(false);
-  const [showMandateFlow, setShowMandateFlow] = useState(false);
-  const [pendingIntent, setPendingIntent] = useState<PurchaseIntent | null>(null);
   const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
@@ -83,60 +77,47 @@ export const IntentsScreen: React.FC = () => {
   };
 
   /**
-   * Handle adding intent item to cart via ACP with mandate validation
+   * Handle adding intent item to cart with its mandate token, then mark as fulfilled
    */
   const handleAddToCart = async (intent: PurchaseIntent) => {
     try {
-      // Check for active cart mandate
-      const mandate = getActiveMandateByType(MandateType.CART);
-
-      if (!mandate) {
-        // No mandate, need to get user approval first
-        setPendingIntent(intent);
-        setShowMandateFlow(true);
-        return;
-      }
-
-      // Validate intent product against mandate constraints
-      const mockProduct = {
-        id: intent.productId,
-        name: intent.productName || 'Unknown Product',
-        price: intent.maxPrice || 0,
-        category: (intent as any).category,
-      };
-
-      const validation = validateAgainstCartMandate(mockProduct as any, mandate);
-      if (!validation.valid) {
-        Alert.alert(
-          'Mandate Constraint Violation',
-          validation.errors.join('\n'),
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      // Add to cart via ACP (with mandate validation)
       setAddingToCart(true);
-      const request: AgentCartRequest = {
-        mandateId: mandate.id,
-        agentId: mandate.agentId,
+
+      // Retrieve the intent's mandate token for audit trail at checkout
+      let mandateId = (intent as any).mandateId;
+      let mandateToken: string | null = null;
+      if (mandateId) {
+        mandateToken = await AsyncStorage.getItem(`mandate_token_${mandateId}`);
+        if (!mandateToken) {
+          // Fallback to global token
+          mandateToken = await AsyncStorage.getItem('mandate_token');
+        }
+      }
+
+      await addToCart({
         productId: intent.productId,
         productName: intent.productName || 'Unknown Product',
         quantity: intent.quantity || 1,
         price: intent.maxPrice || 0,
-        reasoning: `Added from approved purchase intent: ${intent.id}`,
-      };
-
-      await acpService.agentAddToCart(request);
+        mandateId: mandateId || undefined,
+        mandateToken: mandateToken || undefined,
+      });
       await refreshCart();
+
+      // Mark intent as fulfilled so it disappears from the intents page
+      try {
+        await fulfillIntent(intent.id);
+      } catch (e) {
+        console.warn('[IntentsScreen] Could not mark intent as fulfilled:', e);
+      }
 
       Alert.alert(
         'Added to Cart',
-        `${intent.productName} has been added to your cart by ${mandate.agentName}.`,
+        `${intent.productName} has been added to your cart.`,
         [{ text: 'OK' }]
       );
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to add item to cart';
+      const errorMessage = error.message || 'Failed to add item to cart';
       Alert.alert('Error', errorMessage);
     } finally {
       setAddingToCart(false);
@@ -144,23 +125,27 @@ export const IntentsScreen: React.FC = () => {
   };
 
   /**
-   * Handle mandate ready callback - proceed with pending intent
+   * Handle removing an intent
    */
-  const handleMandateReady = async () => {
-    setShowMandateFlow(false);
-    if (pendingIntent) {
-      // Retry adding to cart now that we have a mandate
-      await handleAddToCart(pendingIntent);
-      setPendingIntent(null);
-    }
-  };
-
-  /**
-   * Handle mandate flow cancellation
-   */
-  const handleMandateCancel = () => {
-    setShowMandateFlow(false);
-    setPendingIntent(null);
+  const handleRemoveIntent = (intent: PurchaseIntent) => {
+    Alert.alert(
+      'Remove Intent',
+      `Remove "${intent.productName}" from your intents?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeIntent(intent.id);
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to remove intent');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleTriggerPurchase = async (intent: PurchaseIntent) => {
@@ -245,9 +230,10 @@ export const IntentsScreen: React.FC = () => {
             <TouchableOpacity
               style={[styles.actionButton, conditions.met ? styles.actionButtonPrimary : styles.actionButtonSecondary]}
               onPress={() => handleTriggerPurchase(item)}
+              disabled={addingToCart}
             >
               <Text style={conditions.met ? styles.actionButtonTextPrimary : styles.actionButtonTextSecondary}>
-                {conditions.met ? 'Add to Cart' : 'Check Conditions'}
+                {addingToCart ? 'Adding...' : conditions.met ? 'Add to Cart' : 'Check Conditions'}
               </Text>
             </TouchableOpacity>
           )}
@@ -261,6 +247,16 @@ export const IntentsScreen: React.FC = () => {
           {item.status === 'pending' && (
             <Text style={styles.pendingText}>Waiting for approval in Mandate app</Text>
           )}
+
+          {/* Remove Intent button - available for active and pending intents */}
+          {(isActive || item.status === 'pending') && (
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={() => handleRemoveIntent(item)}
+            >
+              <Text style={styles.removeButtonText}>Remove Intent</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -272,16 +268,6 @@ export const IntentsScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Mandate Flow Manager for cart mandate approval */}
-      {showMandateFlow && (
-        <MandateFlowManager
-          mandateType={MandateType.CART}
-          onMandateReady={handleMandateReady}
-          onCancel={handleMandateCancel}
-          autoCheck={true}
-        />
-      )}
-
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
@@ -494,6 +480,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  removeButton: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  removeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   emptyContainer: {
     flex: 1,

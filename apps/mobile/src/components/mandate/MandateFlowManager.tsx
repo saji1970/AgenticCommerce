@@ -214,13 +214,22 @@ export const MandateFlowManager: React.FC<MandateFlowManagerProps> = ({
 
       // Always register a NEW mandate without approving it.
       // This keeps it in "pending" status so the mandate app shows the signing UI.
+      // Include product data in constraints so mandate detail can display it later
+      const constraintsWithProduct = { ...defaultConstraints } as Record<string, any>;
+      if (product) {
+        constraintsWithProduct.productId = product.id;
+        constraintsWithProduct.productName = product.name;
+        constraintsWithProduct.productImage = product.imageUrl || (product as any).image;
+        constraintsWithProduct.productPrice = product.price;
+      }
+
       console.log('[MandateFlowManager] Registering mandate with service...');
       const pendingMandate = await mandateServiceClient.registerMandate({
         userId: user.id,
         agentId: defaultAgent.id,
         agentName: defaultAgent.name,
         type: mandateType as 'cart' | 'intent' | 'payment' | 'app',
-        constraints: defaultConstraints,
+        constraints: constraintsWithProduct,
         parentMandateId,
       });
 

@@ -194,6 +194,7 @@ export const RootNavigator = () => {
                       maxPrice: pendingIntent.maxPrice || pendingIntent.price,
                       status: 'approved',
                       agentId: defaultAgent.id,
+                      mandateId: mandateId, // Store mandate ID for token lookup at checkout
                       constraints: {},
                       createdAt: new Date(),
                       updatedAt: new Date(),

@@ -888,28 +888,44 @@ export class ProductService {
     // Find matching search queries for this user
     // Try to find an exact match or partial match
     const allUserQueries = await this.searchQueryRepository.findByUserId(userId, 100);
-    
+
+    // For travel queries with origin/destination, require route match — don't reuse cached
+    // results from different routes just because keywords overlap (e.g. "Atlanta" matches both
+    // "Atlanta to Newark" and "Atlanta to Miami").
+    const isTravel = filters?.isTravel;
+    const filterOrigin = filters?.origin?.toLowerCase();
+    const filterDest = filters?.destination?.toLowerCase();
+
     // Find the best matching search query
     let matchingQuery: SearchQuery | null = null;
     let bestMatch = 0;
 
     for (const query of allUserQueries) {
       const queryText = query.queryText.toLowerCase();
-      
+      const queryMeta = query.metadata || {};
+
       // Exact match
       if (queryText === normalizedQuery) {
         matchingQuery = query;
         bestMatch = 100;
         break;
       }
-      
+
+      // For travel queries: require origin AND destination to match the cached query
+      if (isTravel && filterOrigin && filterDest) {
+        const cachedOrigin = queryMeta.origin?.toLowerCase();
+        const cachedDest = queryMeta.destination?.toLowerCase();
+        if (!cachedOrigin || !cachedDest) continue; // Skip non-travel cached queries
+        if (cachedOrigin !== filterOrigin || cachedDest !== filterDest) continue; // Different route
+      }
+
       // Check if search query contains keywords from normalized query
       const queryWords = normalizedQuery.split(/\s+/);
       const queryTextWords = queryText.split(/\s+/);
-      const matchCount = queryWords.filter(word => 
+      const matchCount = queryWords.filter(word =>
         queryTextWords.some(qWord => qWord.includes(word) || word.includes(qWord))
       ).length;
-      
+
       const matchScore = (matchCount / queryWords.length) * 100;
       if (matchScore > bestMatch && matchScore > 50) {
         bestMatch = matchScore;
@@ -937,6 +953,16 @@ export class ProductService {
         const demoQueries = await this.searchQueryRepository.findByUserId(demoUserId, 100);
         for (const query of demoQueries) {
           const queryText = query.queryText.toLowerCase();
+          const queryMeta = query.metadata || {};
+
+          // For travel queries: require route match in cached query metadata
+          if (isTravel && filterOrigin && filterDest) {
+            const cachedOrigin = queryMeta.origin?.toLowerCase();
+            const cachedDest = queryMeta.destination?.toLowerCase();
+            if (!cachedOrigin || !cachedDest) continue;
+            if (cachedOrigin !== filterOrigin || cachedDest !== filterDest) continue;
+          }
+
           if (queryText.includes(normalizedQuery) || normalizedQuery.includes(queryText)) {
             matchingQuery = query;
             break;

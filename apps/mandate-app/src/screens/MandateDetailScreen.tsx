@@ -132,6 +132,41 @@ export const MandateDetailScreen: React.FC = () => {
     try {
       const mandateData = await mandateServiceClient.getMandate(mandateId);
       setMandate(mandateData);
+
+      // If no cart/intent data from route params, try to extract from mandate constraints
+      const c = mandateData.constraints as Record<string, any>;
+      if (!routeCartData && !routeIntentData && c?.productName) {
+        if (mandateData.type === 'cart') {
+          setCartData({
+            items: [{
+              id: c.productId || mandateId,
+              name: c.productName,
+              price: c.productPrice || 0,
+              quantity: 1,
+              imageUrl: c.productImage,
+            }],
+            total: c.productPrice || 0,
+            agentName: mandateData.agentName,
+          });
+        } else if (mandateData.type === 'intent') {
+          setIntentData({
+            type: 'intent',
+            product: {
+              id: c.productId || mandateId,
+              name: c.productName,
+              image: c.productImage,
+              price: c.productPrice || 0,
+              quantity: 1,
+            },
+            maxPrice: c.maxIntentValue || c.productPrice || 0,
+            reasoning: c.reasoning,
+            agentName: mandateData.agentName,
+            intentType: c.intentType,
+            targetPrice: c.targetPrice,
+            scheduledDate: c.scheduledDate,
+          });
+        }
+      }
     } catch (error) {
       console.error('Error loading mandate:', error);
       Alert.alert('Error', 'Failed to load mandate from server');
@@ -523,6 +558,7 @@ export const MandateDetailScreen: React.FC = () => {
               : intentData.intentType === 'time_based'
               ? `By approving, you authorize the AI Agent to purchase this item on ${intentData.scheduledDate ? new Date(intentData.scheduledDate).toLocaleDateString() : 'the scheduled date'}.`
               : 'By approving, you authorize the AI Agent to automatically purchase this item when conditions are met.'}
+          </Text>
         </View>
       )}
 
@@ -648,31 +684,58 @@ export const MandateDetailScreen: React.FC = () => {
                     const sigData = JSON.parse(signatureData);
                     if (sigData.paths && sigData.paths.length > 0) {
                       const previewWidth = Dimensions.get('window').width - 96;
-                      const scale = previewWidth / (sigData.width || previewWidth);
-                      const previewHeight = (sigData.height || 120) * scale;
+                      const sigWidth = sigData.width || previewWidth;
+                      const sigHeight = sigData.height || 120;
+                      const scale = Math.min(previewWidth / sigWidth, 120 / sigHeight);
+                      const previewHeight = Math.min(sigHeight * scale, 120);
                       return (
                         <View style={styles.signaturePreview}>
                           <Text style={styles.signaturePreviewLabel}>Your Signature</Text>
                           <View style={styles.signaturePreviewBox}>
-                            <Svg width={previewWidth} height={previewHeight} viewBox={`0 0 ${sigData.width || previewWidth} ${sigData.height || previewHeight}`}>
-                              {sigData.paths.map((pathD: string, i: number) => (
-                                <SvgPath
-                                  key={i}
-                                  d={pathD}
-                                  stroke="#1F2937"
-                                  strokeWidth={3}
-                                  fill="none"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              ))}
+                            <Svg
+                              width={previewWidth}
+                              height={previewHeight}
+                              viewBox={`0 0 ${sigWidth} ${sigHeight}`}
+                              preserveAspectRatio="xMidYMid meet"
+                            >
+                              {sigData.paths
+                                .filter((p: string) => p && p.trim().length > 0)
+                                .map((pathD: string, i: number) => (
+                                  <SvgPath
+                                    key={i}
+                                    d={pathD}
+                                    stroke="#1F2937"
+                                    strokeWidth={3}
+                                    fill="none"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                ))}
                             </Svg>
+                            <TouchableOpacity
+                              style={styles.signatureChangeButton}
+                              onPress={() => setShowSignaturePad(true)}
+                            >
+                              <Text style={styles.signatureChangeText}>Change signature</Text>
+                            </TouchableOpacity>
                           </View>
                         </View>
                       );
                     }
-                  } catch {}
-                  return null;
+                  } catch {
+                    /* parse error - show fallback */
+                  }
+                  return (
+                    <View style={styles.signaturePreview}>
+                      <Text style={styles.signaturePreviewLabel}>Your Signature</Text>
+                      <View style={[styles.signaturePreviewBox, styles.signatureCapturedFallback]}>
+                        <Text style={styles.signatureCapturedText}>✓ Signature captured</Text>
+                        <TouchableOpacity onPress={() => setShowSignaturePad(true)}>
+                          <Text style={styles.signatureChangeText}>Change signature</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
                 })()}
               </View>
             )}
@@ -1131,6 +1194,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
     alignItems: 'center',
+    minHeight: 80,
+  },
+  signatureCapturedFallback: {
+    justifyContent: 'center',
+  },
+  signatureCapturedText: {
+    fontSize: 14,
+    color: '#065F46',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  signatureChangeText: {
+    fontSize: 13,
+    color: '#2563EB',
+    fontWeight: '500',
+  },
+  signatureChangeButton: {
+    marginTop: 8,
   },
   stepContainer: {
     marginBottom: 20,
