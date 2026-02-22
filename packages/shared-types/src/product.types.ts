@@ -94,6 +94,39 @@ export interface AISearchRequest {
       max?: number;
     };
     sources?: string[];
+    // Travel / flight filters
+    isTravel?: boolean;
+    isProduct?: boolean;
+    origin?: string;
+    destination?: string;
+    startDate?: string;
+    endDate?: string;
+    travelClass?: string;
+    adults?: number;
+    children?: number;
+    infantsInSeat?: number;
+    infantsOnLap?: number;
+    stops?: number | string;
+    sortBy?: number | string;
+    deepSearch?: boolean;
+    maxPrice?: number;
+    excludeAirlines?: string;
+    includeAirlines?: string;
+    excludeBasic?: boolean;
+    emissions?: boolean | string;
+    outboundTimes?: any;
+    returnTimes?: any;
+    bags?: number;
+    excludeConns?: string;
+    maxDuration?: number;
+    currency?: string;
+    gl?: string;
+    hl?: string;
+    preferLocalStores?: boolean;
+    preferOnline?: boolean;
+    // Pagination
+    page?: number;
+    limit?: number;
   };
 }
 

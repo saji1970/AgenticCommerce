@@ -633,7 +633,7 @@ export class ProductService {
     });
 
     // Step 2: Perform AI search with extracted search query and constraints
-    const searchRequest: AISearchRequest & { filters?: any } = {
+    const searchRequest: AISearchRequest = {
       query: parsedQuery.searchQuery,
       filters: {
         priceRange:
