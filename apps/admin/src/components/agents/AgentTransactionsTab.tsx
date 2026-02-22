@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ap2Api } from '../../api/client';
+import { transactionsApi } from '../../api/client';
 import {
   Select,
   Badge,
@@ -18,7 +17,9 @@ import {
   Alert,
 } from '../common';
 import { CreditCard } from 'lucide-react';
-import type { AP2Transaction } from '../../types';
+import type { Transaction } from '../../types';
+import { TransactionDetailModal } from '../transactions/TransactionDetailModal';
+import { MandateDetailModal } from '../mandates/MandateDetailModal';
 
 const statusOptions = [
   { value: '', label: 'All Statuses' },
@@ -43,26 +44,28 @@ interface AgentTransactionsTabProps {
 }
 
 export function AgentTransactionsTab({ agentId }: AgentTransactionsTabProps) {
-  const { id: merchantId } = useParams<{ id: string }>();
   const [status, setStatus] = useState('');
   const [type, setType] = useState('');
   const [page, setPage] = useState(1);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  const [selectedMandateId, setSelectedMandateId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['ap2-transactions', { merchantId, agentId, status, type, page }],
+    queryKey: ['transactions', { agentId, status, type, page }],
     queryFn: () =>
-      ap2Api.getAll({
-        merchantId: merchantId,
+      transactionsApi.getAll({
         agentId: agentId,
         status: status || undefined,
         type: type || undefined,
         limit: ITEMS_PER_PAGE,
         offset: (page - 1) * ITEMS_PER_PAGE,
       }),
-    enabled: !!merchantId && !!agentId,
+    enabled: !!agentId,
   });
 
-  const transactions: AP2Transaction[] = data?.transactions || [];
+  const transactions: Transaction[] = data?.data || [];
+  const total = data?.pagination?.total || 0;
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
   const getStatusBadge = (txStatus: string) => {
     const variants: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
@@ -133,22 +136,20 @@ export function AgentTransactionsTab({ agentId }: AgentTransactionsTabProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Merchant</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Requested</TableHead>
-                    <TableHead>Completed</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Processed</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {transactions.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell>
-                        <div className="text-sm">{tx.userEmail}</div>
-                      </TableCell>
-                      <TableCell>{tx.merchantName || '-'}</TableCell>
+                    <TableRow
+                      key={tx.id}
+                      className="cursor-pointer hover:bg-gray-50"
+                      onClick={() => setSelectedTransactionId(tx.id)}
+                    >
                       <TableCell>{getTypeBadge(tx.type)}</TableCell>
                       <TableCell>
                         <div className="font-medium">
@@ -160,17 +161,17 @@ export function AgentTransactionsTab({ agentId }: AgentTransactionsTabProps) {
                       </TableCell>
                       <TableCell>{getStatusBadge(tx.status)}</TableCell>
                       <TableCell>
-                        <div>{new Date(tx.requestedAt).toLocaleDateString()}</div>
+                        <div>{new Date(tx.createdAt).toLocaleDateString()}</div>
                         <div className="text-sm text-gray-500">
-                          {new Date(tx.requestedAt).toLocaleTimeString()}
+                          {new Date(tx.createdAt).toLocaleTimeString()}
                         </div>
                       </TableCell>
                       <TableCell>
-                        {tx.completedAt ? (
+                        {tx.processedAt ? (
                           <>
-                            <div>{new Date(tx.completedAt).toLocaleDateString()}</div>
+                            <div>{new Date(tx.processedAt).toLocaleDateString()}</div>
                             <div className="text-sm text-gray-500">
-                              {new Date(tx.completedAt).toLocaleTimeString()}
+                              {new Date(tx.processedAt).toLocaleTimeString()}
                             </div>
                           </>
                         ) : (
@@ -181,17 +182,35 @@ export function AgentTransactionsTab({ agentId }: AgentTransactionsTabProps) {
                   ))}
                 </TableBody>
               </Table>
-              {transactions.length >= ITEMS_PER_PAGE && (
+              {totalPages > 1 && (
                 <Pagination
                   currentPage={page}
-                  totalPages={Math.ceil(transactions.length / ITEMS_PER_PAGE) + 1}
+                  totalPages={totalPages}
                   onPageChange={setPage}
+                  totalItems={total}
+                  itemsPerPage={ITEMS_PER_PAGE}
                 />
               )}
             </>
           )}
         </Card>
       )}
+
+      <TransactionDetailModal
+        transactionId={selectedTransactionId}
+        isOpen={!!selectedTransactionId}
+        onClose={() => setSelectedTransactionId(null)}
+        onOpenMandate={(id) => {
+          setSelectedTransactionId(null);
+          setSelectedMandateId(id);
+        }}
+      />
+      <MandateDetailModal
+        mandateId={selectedMandateId}
+        isOpen={!!selectedMandateId}
+        onClose={() => setSelectedMandateId(null)}
+        onOpenMandate={(id) => setSelectedMandateId(id)}
+      />
     </div>
   );
 }

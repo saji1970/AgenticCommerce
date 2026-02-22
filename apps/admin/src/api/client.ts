@@ -156,6 +156,10 @@ export const mandatesApi = {
     const response = await apiClient.get(`/mandates/${id}`);
     return response.data;
   },
+  getDetail: async (id: string) => {
+    const response = await apiClient.get(`/mandates/${id}/detail`);
+    return response.data;
+  },
   revoke: async (id: string, reason?: string) => {
     const response = await apiClient.put(`/mandates/${id}/revoke`, { reason });
     return response.data;
@@ -180,6 +184,10 @@ export const transactionsApi = {
     const response = await apiClient.get(`/transactions/${id}`);
     return response.data;
   },
+  getDetail: async (id: string) => {
+    const response = await apiClient.get(`/transactions/${id}/detail`);
+    return response.data;
+  },
 };
 
 // Audit Logs API
@@ -194,6 +202,10 @@ export const auditLogsApi = {
     endDate?: string;
   }) => {
     const response = await apiClient.get('/audit-logs', { params });
+    return response.data;
+  },
+  getByAgent: async (agentId: string, params?: { limit?: number; offset?: number }) => {
+    const response = await apiClient.get(`/audit-logs/by-agent/${agentId}`, { params });
     return response.data;
   },
 };

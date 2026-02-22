@@ -138,6 +138,11 @@ router.get('/mandates',
   adminMandateController.list,
 );
 
+router.get('/mandates/:id/detail',
+  authenticateAdmin,
+  adminMandateController.getDetail,
+);
+
 router.get('/mandates/:id',
   authenticateAdmin,
   adminMandateController.getById,
@@ -169,6 +174,11 @@ router.get('/transactions',
   adminTransactionController.list,
 );
 
+router.get('/transactions/:id/detail',
+  authenticateAdmin,
+  adminTransactionController.getDetail,
+);
+
 router.get('/transactions/:id',
   authenticateAdmin,
   adminTransactionController.getById,
@@ -177,6 +187,28 @@ router.get('/transactions/:id',
 // ============================================================================
 // Audit Logs (super_admin only)
 // ============================================================================
+router.get('/audit-logs/by-agent/:agentId',
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const { auditLogService } = await import('../services/audit-log.service');
+      const { agentId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 100;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const entries = await auditLogService.getByActor('agent', agentId, limit);
+      // Apply offset manually since getByActor doesn't support it
+      const sliced = entries.slice(offset, offset + limit);
+      res.json({
+        success: true,
+        data: sliced,
+        pagination: { total: entries.length, limit, offset },
+      });
+    } catch {
+      res.json({ success: true, data: [], pagination: { total: 0, limit: 100, offset: 0 } });
+    }
+  },
+);
+
 router.get('/audit-logs',
   authenticateAdmin,
   requireAdminRole('super_admin'),

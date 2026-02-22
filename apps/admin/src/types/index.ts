@@ -125,15 +125,76 @@ export interface Mandate {
   userId: string;
   agentId: string;
   agentName: string;
-  type: 'cart' | 'intent' | 'payment';
+  type: 'app' | 'cart' | 'intent' | 'payment';
   status: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
   constraints: Record<string, unknown>;
+  parentMandateId?: string;
+  paymentMethods?: unknown[];
+  validFrom?: string;
+  validUntil?: string;
+  revokedAt?: string;
+  revokedReason?: string;
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;
   userEmail?: string;
   firstName?: string;
   lastName?: string;
+}
+
+export interface MandateTimelineEntry {
+  id: string;
+  eventType: string;
+  eventCategory: string;
+  severity: string;
+  description: string;
+  actorType: string;
+  actorId: string;
+  oldState?: Record<string, unknown>;
+  newState?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface MandateDetail {
+  mandate: Mandate;
+  parentMandate: {
+    id: string;
+    type: string;
+    status: string;
+    agentName: string;
+    constraints: Record<string, unknown>;
+  } | null;
+  childMandates: {
+    id: string;
+    type: string;
+    status: string;
+    constraints: Record<string, unknown>;
+    createdAt: string;
+  }[];
+  timeline: MandateTimelineEntry[];
+  transactions: {
+    id: string;
+    type: string;
+    status: string;
+    amount: number;
+    currency: string;
+    createdAt: string;
+    processedAt: string | null;
+  }[];
+}
+
+export interface TransactionDetail {
+  transaction: Transaction;
+  linkedMandate: {
+    id: string;
+    type: string;
+    status: string;
+    agentId: string;
+    agentName: string;
+    constraints: Record<string, unknown>;
+    createdAt: string;
+  } | null;
 }
 
 export interface PurchaseIntent {

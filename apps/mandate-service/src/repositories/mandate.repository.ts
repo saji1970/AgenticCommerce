@@ -94,25 +94,51 @@ export class MandateRepository {
     return result.rows.map(row => this.mapRowToMandate(row));
   }
 
-  async getAllMandates(status?: string, type?: string, limit: number = 100): Promise<AgentMandate[]> {
-    let queryText = 'SELECT * FROM agent_mandates WHERE 1=1';
+  async getAllMandates(
+    status?: string,
+    type?: string,
+    limit: number = 100,
+    agentId?: string,
+    offset: number = 0,
+  ): Promise<{ mandates: AgentMandate[]; total: number }> {
+    let where = 'WHERE 1=1';
     const params: any[] = [];
+    const countParams: any[] = [];
 
     if (status) {
       params.push(status);
-      queryText += ` AND status = $${params.length}`;
+      countParams.push(status);
+      where += ` AND status = $${params.length}`;
     }
 
     if (type) {
       params.push(type);
-      queryText += ` AND type = $${params.length}`;
+      countParams.push(type);
+      where += ` AND type = $${params.length}`;
     }
 
-    params.push(limit);
-    queryText += ` ORDER BY created_at DESC LIMIT $${params.length}`;
+    if (agentId) {
+      params.push(agentId);
+      countParams.push(agentId);
+      where += ` AND agent_id = $${params.length}`;
+    }
 
-    const result = await query(queryText, params);
-    return result.rows.map(row => this.mapRowToMandate(row));
+    const countText = `SELECT COUNT(*)::int AS total FROM agent_mandates ${where}`;
+
+    params.push(limit);
+    let queryText = `SELECT * FROM agent_mandates ${where} ORDER BY created_at DESC LIMIT $${params.length}`;
+    params.push(offset);
+    queryText += ` OFFSET $${params.length}`;
+
+    const [dataResult, countResult] = await Promise.all([
+      query(queryText, params),
+      query(countText, countParams),
+    ]);
+
+    return {
+      mandates: dataResult.rows.map(row => this.mapRowToMandate(row)),
+      total: countResult.rows[0].total,
+    };
   }
 
   async getByUserAndAgent(
@@ -202,28 +228,49 @@ export class MandateRepository {
     merchantId: string,
     status?: string,
     type?: string,
-    limit: number = 100
-  ): Promise<AgentMandate[]> {
-    let queryText = `
-      SELECT am.* FROM agent_mandates am
+    limit: number = 100,
+    agentId?: string,
+    offset: number = 0,
+  ): Promise<{ mandates: AgentMandate[]; total: number }> {
+    let where = `
+      FROM agent_mandates am
       INNER JOIN ai_agent_apps aaa ON am.agent_id = aaa.agent_id
       WHERE aaa.merchant_id = $1`;
     const params: any[] = [merchantId];
+    const countParams: any[] = [merchantId];
 
     if (status) {
       params.push(status);
-      queryText += ` AND am.status = $${params.length}`;
+      countParams.push(status);
+      where += ` AND am.status = $${params.length}`;
     }
     if (type) {
       params.push(type);
-      queryText += ` AND am.type = $${params.length}`;
+      countParams.push(type);
+      where += ` AND am.type = $${params.length}`;
+    }
+    if (agentId) {
+      params.push(agentId);
+      countParams.push(agentId);
+      where += ` AND am.agent_id = $${params.length}`;
     }
 
-    params.push(limit);
-    queryText += ` ORDER BY am.created_at DESC LIMIT $${params.length}`;
+    const countText = `SELECT COUNT(*)::int AS total ${where}`;
 
-    const result = await query(queryText, params);
-    return result.rows.map(row => this.mapRowToMandate(row));
+    params.push(limit);
+    let queryText = `SELECT am.* ${where} ORDER BY am.created_at DESC LIMIT $${params.length}`;
+    params.push(offset);
+    queryText += ` OFFSET $${params.length}`;
+
+    const [dataResult, countResult] = await Promise.all([
+      query(queryText, params),
+      query(countText, countParams),
+    ]);
+
+    return {
+      mandates: dataResult.rows.map(row => this.mapRowToMandate(row)),
+      total: countResult.rows[0].total,
+    };
   }
 
   async getByIdWithMerchantCheck(mandateId: string): Promise<(AgentMandate & { agentMerchantId?: string }) | null> {

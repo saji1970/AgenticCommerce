@@ -18,6 +18,8 @@ import {
 } from '../common';
 import { FileText } from 'lucide-react';
 import type { Mandate } from '../../types';
+import { MandateDetailModal } from '../mandates/MandateDetailModal';
+import { TransactionDetailModal } from '../transactions/TransactionDetailModal';
 
 const statusOptions = [
   { value: '', label: 'All Statuses' },
@@ -30,6 +32,7 @@ const statusOptions = [
 
 const typeOptions = [
   { value: '', label: 'All Types' },
+  { value: 'app', label: 'App' },
   { value: 'cart', label: 'Cart' },
   { value: 'intent', label: 'Intent' },
   { value: 'payment', label: 'Payment' },
@@ -45,6 +48,8 @@ export function AgentMandatesTab({ agentId }: AgentMandatesTabProps) {
   const [status, setStatus] = useState('');
   const [type, setType] = useState('');
   const [page, setPage] = useState(1);
+  const [selectedMandateId, setSelectedMandateId] = useState<string | null>(null);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['mandates', { agentId, status, type, page }],
@@ -59,7 +64,9 @@ export function AgentMandatesTab({ agentId }: AgentMandatesTabProps) {
     enabled: !!agentId,
   });
 
-  const mandates: Mandate[] = data?.mandates || [];
+  const mandates: Mandate[] = data?.data || [];
+  const total = data?.pagination?.total || 0;
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
   const getStatusBadge = (mandateStatus: string) => {
     const variants: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
@@ -74,6 +81,7 @@ export function AgentMandatesTab({ agentId }: AgentMandatesTabProps) {
 
   const getTypeBadge = (mandateType: string) => {
     const variants: Record<string, 'info' | 'warning' | 'success'> = {
+      app: 'info',
       cart: 'info',
       intent: 'warning',
       payment: 'success',
@@ -130,7 +138,7 @@ export function AgentMandatesTab({ agentId }: AgentMandatesTabProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
+                    <TableHead>User ID</TableHead>
                     <TableHead>Agent</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
@@ -140,14 +148,13 @@ export function AgentMandatesTab({ agentId }: AgentMandatesTabProps) {
                 </TableHeader>
                 <TableBody>
                   {mandates.map((mandate) => (
-                    <TableRow key={mandate.id}>
+                    <TableRow
+                      key={mandate.id}
+                      className="cursor-pointer hover:bg-gray-50"
+                      onClick={() => setSelectedMandateId(mandate.id)}
+                    >
                       <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {mandate.firstName} {mandate.lastName}
-                          </div>
-                          <div className="text-sm text-gray-500">{mandate.userEmail}</div>
-                        </div>
+                        <code className="text-xs">{mandate.userId.substring(0, 8)}...</code>
                       </TableCell>
                       <TableCell>{mandate.agentName}</TableCell>
                       <TableCell>{getTypeBadge(mandate.type)}</TableCell>
@@ -164,17 +171,39 @@ export function AgentMandatesTab({ agentId }: AgentMandatesTabProps) {
                   ))}
                 </TableBody>
               </Table>
-              {mandates.length >= ITEMS_PER_PAGE && (
+              {totalPages > 1 && (
                 <Pagination
                   currentPage={page}
-                  totalPages={Math.ceil(mandates.length / ITEMS_PER_PAGE) + 1}
+                  totalPages={totalPages}
                   onPageChange={setPage}
+                  totalItems={total}
+                  itemsPerPage={ITEMS_PER_PAGE}
                 />
               )}
             </>
           )}
         </Card>
       )}
+
+      <MandateDetailModal
+        mandateId={selectedMandateId}
+        isOpen={!!selectedMandateId}
+        onClose={() => setSelectedMandateId(null)}
+        onOpenMandate={(id) => setSelectedMandateId(id)}
+        onOpenTransaction={(id) => {
+          setSelectedMandateId(null);
+          setSelectedTransactionId(id);
+        }}
+      />
+      <TransactionDetailModal
+        transactionId={selectedTransactionId}
+        isOpen={!!selectedTransactionId}
+        onClose={() => setSelectedTransactionId(null)}
+        onOpenMandate={(id) => {
+          setSelectedTransactionId(null);
+          setSelectedMandateId(id);
+        }}
+      />
     </div>
   );
 }
