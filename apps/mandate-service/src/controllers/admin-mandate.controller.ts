@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { MandateRepository } from '../repositories/mandate.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { auditLogService } from '../services/audit-log.service';
+import { backendDataRepository } from '../repositories/backend-data.repository';
 
 const mandateRepo = new MandateRepository();
 const transactionRepo = new TransactionRepository();
@@ -124,11 +125,14 @@ export const adminMandateController = {
       }
 
       // Fetch related data in parallel
-      const [parentMandate, childMandates, timeline, transactions] = await Promise.all([
+      const [parentMandate, childMandates, timeline, transactions, purchaseIntents, cartItems, linkedOrders] = await Promise.all([
         mandate.parentMandateId ? mandateRepo.getById(mandate.parentMandateId) : null,
         mandate.type === 'app' ? mandateRepo.getChildMandates(id) : [],
         auditLogService.getByMandateId(id).catch(() => []),
         transactionRepo.getByMandateId(id).catch(() => []),
+        backendDataRepository.getPurchaseIntentsByMandateId(id),
+        backendDataRepository.getCartItemsByMandateId(id),
+        backendDataRepository.getOrdersByMandateId(id),
       ]);
 
       res.json({
@@ -186,6 +190,9 @@ export const adminMandateController = {
           createdAt: t.createdAt,
           processedAt: t.processedAt,
         })),
+        purchaseIntents,
+        cartItems,
+        linkedOrders,
       });
     } catch (error) {
       res.status(500).json({ error: 'Failed to get mandate detail' });

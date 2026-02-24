@@ -15,6 +15,7 @@ export const config = {
   cors: {
     origin: process.env.CORS_ORIGIN || '*',
   },
+  backendDatabaseUrl: process.env.BACKEND_DATABASE_URL || process.env.DATABASE_URL || '',
   backendApiUrl: process.env.BACKEND_API_URL || '', // Main backend API URL for admin endpoints
   adminToken: process.env.ADMIN_TOKEN || '', // Admin token for backend API access
   paymentGateway: {

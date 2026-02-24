@@ -200,6 +200,132 @@ export function MandateDetailModal({
             </div>
           )}
 
+          {/* Cart Items */}
+          {detail.cartItems && detail.cartItems.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-sm text-gray-700 uppercase tracking-wide mb-2">
+                Cart Items ({detail.cartItems.length})
+              </h3>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Product</th>
+                      <th className="text-right px-3 py-2 font-medium text-gray-600">Price</th>
+                      <th className="text-right px-3 py-2 font-medium text-gray-600">Qty</th>
+                      <th className="text-right px-3 py-2 font-medium text-gray-600">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {detail.cartItems.map((item) => (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            {item.productImage && (
+                              <img src={item.productImage} alt={item.productName} className="w-8 h-8 rounded object-cover" />
+                            )}
+                            <div>
+                              <div className="font-medium">{item.productName}</div>
+                              {item.variants && Object.keys(item.variants).length > 0 && (
+                                <div className="text-xs text-gray-500">
+                                  {Object.entries(item.variants).map(([k, v]) => `${k}: ${v}`).join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right">${item.price.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right">{item.quantity}</td>
+                        <td className="px-3 py-2 text-right font-medium">${(item.price * item.quantity).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Purchase Intents */}
+          {detail.purchaseIntents && detail.purchaseIntents.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-sm text-gray-700 uppercase tracking-wide mb-2">
+                Purchase Intents ({detail.purchaseIntents.length})
+              </h3>
+              <div className="space-y-3">
+                {detail.purchaseIntents.map((intent) => (
+                  <div key={intent.id} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Badge variant={statusVariant(intent.status)}>{intent.status}</Badge>
+                      <span className="font-semibold">${intent.total.toFixed(2)}</span>
+                    </div>
+                    {intent.items.length > 0 && (
+                      <div className="text-sm">
+                        {intent.items.map((item: any, i: number) => (
+                          <div key={i} className="flex justify-between text-gray-600">
+                            <span>{item.productName || item.name} x{item.quantity}</span>
+                            <span>${(item.price * item.quantity).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {intent.reasoning && (
+                      <div className="text-xs bg-blue-50 text-blue-700 rounded p-2">
+                        <span className="font-medium">AI Reasoning:</span> {intent.reasoning}
+                      </div>
+                    )}
+                    <div className="flex gap-4 text-xs text-gray-500">
+                      <span>Created: {formatDate(intent.createdAt)}</span>
+                      {intent.expiresAt && <span>Expires: {formatDate(intent.expiresAt)}</span>}
+                      {intent.approvedAt && <span>Approved: {formatDate(intent.approvedAt)}</span>}
+                      {intent.executedAt && <span>Executed: {formatDate(intent.executedAt)}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Linked Orders */}
+          {detail.linkedOrders && detail.linkedOrders.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-sm text-gray-700 uppercase tracking-wide mb-2">
+                Linked Orders ({detail.linkedOrders.length})
+              </h3>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Order ID</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Items</th>
+                      <th className="text-right px-3 py-2 font-medium text-gray-600">Total</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Status</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {detail.linkedOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2">
+                          <code className="text-xs">{order.id.slice(0, 8)}...</code>
+                        </td>
+                        <td className="px-3 py-2 text-gray-600">
+                          {order.items.map((item: any, i: number) => (
+                            <div key={i} className="text-xs">
+                              {item.productName || item.name} x{item.quantity}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium">${order.total.toFixed(2)}</td>
+                        <td className="px-3 py-2"><Badge variant={statusVariant(order.status)}>{order.status}</Badge></td>
+                        <td className="px-3 py-2 text-gray-500">{formatDate(order.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Linked Transactions */}
           {detail.transactions.length > 0 && (
             <div>

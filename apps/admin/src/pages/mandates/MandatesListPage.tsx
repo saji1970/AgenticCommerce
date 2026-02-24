@@ -21,6 +21,7 @@ import {
   Alert,
 } from '../../components/common';
 import { FileText, Ban, Pause, Play } from 'lucide-react';
+import { MandateDetailModal } from '../../components/mandates/MandateDetailModal';
 
 export function MandatesListPage() {
   const [statusFilter, setStatusFilter] = useState('');
@@ -38,6 +39,9 @@ export function MandatesListPage() {
 
   // Reactivate dialog state
   const [reactivateTarget, setReactivateTarget] = useState<string | null>(null);
+
+  // Detail modal state
+  const [selectedMandateId, setSelectedMandateId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['mandates', { status: statusFilter, type: typeFilter }],
@@ -165,7 +169,7 @@ export function MandatesListPage() {
               </TableHeader>
               <TableBody>
                 {mandates.map((mandate: any) => (
-                  <TableRow key={mandate.id}>
+                  <TableRow key={mandate.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedMandateId(mandate.id)}>
                     <TableCell>
                       <span className="font-mono text-xs">{mandate.id.slice(0, 8)}...</span>
                     </TableCell>
@@ -180,7 +184,7 @@ export function MandatesListPage() {
                     </TableCell>
                     {canManage && (
                       <TableCell>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                           {mandate.status === 'active' && (
                             <>
                               <Button
@@ -297,6 +301,14 @@ export function MandatesListPage() {
         confirmText="Reactivate"
         variant="warning"
         isLoading={reactivateMutation.isPending}
+      />
+
+      {/* Detail Modal */}
+      <MandateDetailModal
+        mandateId={selectedMandateId}
+        isOpen={!!selectedMandateId}
+        onClose={() => setSelectedMandateId(null)}
+        onOpenMandate={(id) => setSelectedMandateId(id)}
       />
     </div>
   );

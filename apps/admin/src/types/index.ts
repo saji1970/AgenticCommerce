@@ -156,6 +156,25 @@ export interface MandateTimelineEntry {
   createdAt: string;
 }
 
+export interface CartItem {
+  id: string;
+  productName: string;
+  productImage: string | null;
+  quantity: number;
+  price: number;
+  variants: Record<string, unknown> | null;
+}
+
+export interface LinkedOrder {
+  id: string;
+  items: { productName?: string; name?: string; quantity: number; price: number }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  status: string;
+  createdAt: string;
+}
+
 export interface MandateDetail {
   mandate: Mandate;
   parentMandate: {
@@ -182,6 +201,21 @@ export interface MandateDetail {
     createdAt: string;
     processedAt: string | null;
   }[];
+  purchaseIntents: {
+    id: string;
+    items: { productName?: string; name?: string; quantity: number; price: number }[];
+    subtotal: number;
+    tax: number;
+    total: number;
+    reasoning: string;
+    status: string;
+    createdAt: string;
+    expiresAt: string | null;
+    approvedAt: string | null;
+    executedAt: string | null;
+  }[];
+  cartItems: CartItem[];
+  linkedOrders: LinkedOrder[];
 }
 
 export interface TransactionDetail {
