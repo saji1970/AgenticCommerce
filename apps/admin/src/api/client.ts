@@ -148,7 +148,7 @@ export const adminUsersApi = {
 
 // Mandates API (admin view)
 export const mandatesApi = {
-  getAll: async (params?: { status?: string; type?: string; agentId?: string; limit?: number; offset?: number }) => {
+  getAll: async (params?: { status?: string; type?: string; agentId?: string; merchantId?: string; startDate?: string; endDate?: string; limit?: number; offset?: number }) => {
     const response = await apiClient.get('/mandates', { params });
     return response.data;
   },

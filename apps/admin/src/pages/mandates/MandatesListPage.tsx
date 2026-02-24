@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { mandatesApi } from '../../api/client';
+import { mandatesApi, merchantsApi } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Badge,
@@ -26,6 +26,10 @@ import { MandateDetailModal } from '../../components/mandates/MandateDetailModal
 export function MandatesListPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [merchantFilter, setMerchantFilter] = useState('');
+  const [agentFilter, setAgentFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const queryClient = useQueryClient();
   const { isSuperAdmin, isMerchantAdmin } = useAuth();
   const canManage = isSuperAdmin || isMerchantAdmin;
@@ -43,14 +47,36 @@ export function MandatesListPage() {
   // Detail modal state
   const [selectedMandateId, setSelectedMandateId] = useState<string | null>(null);
 
+  // Fetch merchants for filter dropdown
+  const { data: merchantsData } = useQuery({
+    queryKey: ['merchants-list'],
+    queryFn: () => merchantsApi.getAll({ limit: 200 }),
+  });
+  const merchants = merchantsData?.merchants || merchantsData?.data || [];
+
+  // Build unique agent list from mandates data
   const { data, isLoading, error } = useQuery({
-    queryKey: ['mandates', { status: statusFilter, type: typeFilter }],
+    queryKey: ['mandates', { status: statusFilter, type: typeFilter, merchantId: merchantFilter, agentId: agentFilter, startDate, endDate }],
     queryFn: () => mandatesApi.getAll({
       status: statusFilter || undefined,
       type: typeFilter || undefined,
+      merchantId: merchantFilter || undefined,
+      agentId: agentFilter || undefined,
+      startDate: startDate ? new Date(startDate).toISOString() : undefined,
+      endDate: endDate ? new Date(endDate + 'T23:59:59').toISOString() : undefined,
       limit: 100,
     }),
   });
+
+  // Derive unique agents from all fetched mandates for the agent filter
+  const agentOptions = useMemo(() => {
+    const allMandates = data?.data || [];
+    const agentMap = new Map<string, string>();
+    allMandates.forEach((m: any) => {
+      if (m.agentId && m.agentName) agentMap.set(m.agentId, m.agentName);
+    });
+    return Array.from(agentMap.entries()).map(([id, name]) => ({ value: id, label: name }));
+  }, [data]);
 
   const mandates = data?.data || [];
 
@@ -108,32 +134,93 @@ export function MandatesListPage() {
 
       {/* Filters */}
       <Card>
-        <div className="p-4 flex flex-col sm:flex-row gap-4">
-          <div className="w-full sm:w-48">
-            <Select
-              options={[
-                { value: '', label: 'All Statuses' },
-                { value: 'pending', label: 'Pending' },
-                { value: 'active', label: 'Active' },
-                { value: 'suspended', label: 'Suspended' },
-                { value: 'revoked', label: 'Revoked' },
-                { value: 'expired', label: 'Expired' },
-              ]}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            />
+        <div className="p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="w-full sm:w-44">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+              <Select
+                options={[
+                  { value: '', label: 'All Statuses' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'active', label: 'Active' },
+                  { value: 'suspended', label: 'Suspended' },
+                  { value: 'revoked', label: 'Revoked' },
+                  { value: 'expired', label: 'Expired' },
+                ]}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              />
+            </div>
+            <div className="w-full sm:w-44">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Type</label>
+              <Select
+                options={[
+                  { value: '', label: 'All Types' },
+                  { value: 'app', label: 'App' },
+                  { value: 'cart', label: 'Cart' },
+                  { value: 'intent', label: 'Intent' },
+                  { value: 'payment', label: 'Payment' },
+                ]}
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              />
+            </div>
+            <div className="w-full sm:w-48">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Merchant</label>
+              <Select
+                options={[
+                  { value: '', label: 'All Merchants' },
+                  ...merchants.map((m: any) => ({ value: m.id, label: m.name })),
+                ]}
+                value={merchantFilter}
+                onChange={(e) => setMerchantFilter(e.target.value)}
+              />
+            </div>
+            <div className="w-full sm:w-48">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Agent</label>
+              <Select
+                options={[
+                  { value: '', label: 'All Agents' },
+                  ...agentOptions,
+                ]}
+                value={agentFilter}
+                onChange={(e) => setAgentFilter(e.target.value)}
+              />
+            </div>
           </div>
-          <div className="w-full sm:w-48">
-            <Select
-              options={[
-                { value: '', label: 'All Types' },
-                { value: 'cart', label: 'Cart' },
-                { value: 'intent', label: 'Intent' },
-                { value: 'payment', label: 'Payment' },
-              ]}
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row gap-3 items-end">
+            <div className="w-full sm:w-44">
+              <label className="block text-xs font-medium text-gray-500 mb-1">From Date</label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="w-full sm:w-44">
+              <label className="block text-xs font-medium text-gray-500 mb-1">To Date</label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+            {(statusFilter || typeFilter || merchantFilter || agentFilter || startDate || endDate) && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setStatusFilter('');
+                  setTypeFilter('');
+                  setMerchantFilter('');
+                  setAgentFilter('');
+                  setStartDate('');
+                  setEndDate('');
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -159,10 +246,10 @@ export function MandatesListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
+                  <TableHead>Merchant</TableHead>
                   <TableHead>Agent</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>User ID</TableHead>
                   <TableHead>Created</TableHead>
                   {canManage && <TableHead>Actions</TableHead>}
                 </TableRow>
@@ -173,12 +260,12 @@ export function MandatesListPage() {
                     <TableCell>
                       <span className="font-mono text-xs">{mandate.id.slice(0, 8)}...</span>
                     </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{mandate.merchantName || '-'}</span>
+                    </TableCell>
                     <TableCell>{mandate.agentName}</TableCell>
                     <TableCell>{getTypeBadge(mandate.type)}</TableCell>
                     <TableCell>{getStatusBadge(mandate.status)}</TableCell>
-                    <TableCell>
-                      <span className="font-mono text-xs">{mandate.userId?.slice(0, 8)}...</span>
-                    </TableCell>
                     <TableCell>
                       {new Date(mandate.createdAt).toLocaleString()}
                     </TableCell>

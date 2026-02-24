@@ -11,7 +11,7 @@ export const adminMandateController = {
   list: async (req: Request, res: Response) => {
     try {
       const caller = req.adminCaller!;
-      const { status, type, limit, agentId, offset } = req.query;
+      const { status, type, limit, agentId, offset, merchantId, startDate, endDate } = req.query;
       const parsedLimit = parseInt(limit as string) || 100;
       const parsedOffset = parseInt(offset as string) || 0;
 
@@ -32,12 +32,15 @@ export const adminMandateController = {
           parsedLimit,
           agentId as string | undefined,
           parsedOffset,
+          merchantId as string | undefined,
+          startDate as string | undefined,
+          endDate as string | undefined,
         );
       }
 
       res.json({
         success: true,
-        data: result.mandates.map(m => ({
+        data: result.mandates.map((m: any) => ({
           id: m.id,
           userId: m.userId,
           agentId: m.agentId,
@@ -47,6 +50,8 @@ export const adminMandateController = {
           constraints: m.constraints,
           parentMandateId: m.parentMandateId,
           paymentMethods: m.paymentMethods,
+          merchantId: m.merchantId,
+          merchantName: m.merchantName,
           validFrom: m.validFrom,
           validUntil: m.validUntil,
           revokedAt: m.revokedAt,

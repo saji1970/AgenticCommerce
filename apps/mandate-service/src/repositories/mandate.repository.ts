@@ -100,7 +100,10 @@ export class MandateRepository {
     limit: number = 100,
     agentId?: string,
     offset: number = 0,
-  ): Promise<{ mandates: AgentMandate[]; total: number }> {
+    merchantId?: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{ mandates: (AgentMandate & { merchantId?: string; merchantName?: string })[]; total: number }> {
     let where = 'WHERE 1=1';
     const params: any[] = [];
     const countParams: any[] = [];
@@ -108,25 +111,47 @@ export class MandateRepository {
     if (status) {
       params.push(status);
       countParams.push(status);
-      where += ` AND status = $${params.length}`;
+      where += ` AND am.status = $${params.length}`;
     }
 
     if (type) {
       params.push(type);
       countParams.push(type);
-      where += ` AND type = $${params.length}`;
+      where += ` AND am.type = $${params.length}`;
     }
 
     if (agentId) {
       params.push(agentId);
       countParams.push(agentId);
-      where += ` AND agent_id = $${params.length}`;
+      where += ` AND am.agent_id = $${params.length}`;
     }
 
-    const countText = `SELECT COUNT(*)::int AS total FROM agent_mandates ${where}`;
+    if (merchantId) {
+      params.push(merchantId);
+      countParams.push(merchantId);
+      where += ` AND aaa.merchant_id = $${params.length}`;
+    }
+
+    if (startDate) {
+      params.push(startDate);
+      countParams.push(startDate);
+      where += ` AND am.created_at >= $${params.length}::timestamp`;
+    }
+
+    if (endDate) {
+      params.push(endDate);
+      countParams.push(endDate);
+      where += ` AND am.created_at <= $${params.length}::timestamp`;
+    }
+
+    const fromClause = `FROM agent_mandates am
+      LEFT JOIN ai_agent_apps aaa ON am.agent_id = aaa.agent_id
+      LEFT JOIN merchants m ON aaa.merchant_id = m.id`;
+
+    const countText = `SELECT COUNT(*)::int AS total ${fromClause} ${where}`;
 
     params.push(limit);
-    let queryText = `SELECT * FROM agent_mandates ${where} ORDER BY created_at DESC LIMIT $${params.length}`;
+    let queryText = `SELECT am.*, aaa.merchant_id, m.name AS merchant_name ${fromClause} ${where} ORDER BY am.created_at DESC LIMIT $${params.length}`;
     params.push(offset);
     queryText += ` OFFSET $${params.length}`;
 
@@ -136,7 +161,11 @@ export class MandateRepository {
     ]);
 
     return {
-      mandates: dataResult.rows.map(row => this.mapRowToMandate(row)),
+      mandates: dataResult.rows.map(row => ({
+        ...this.mapRowToMandate(row),
+        merchantId: row.merchant_id || undefined,
+        merchantName: row.merchant_name || undefined,
+      })),
       total: countResult.rows[0].total,
     };
   }
