@@ -18,6 +18,7 @@ import { NLPService, ParsedSearchQuery } from './nlp.service';
 import { AppError } from '../middleware/errorHandler';
 import { isDemoUserById } from '../utils/demo-users';
 import { extractPriceFromGoogleShoppingResult, parsePrice } from '../utils/price-extractor';
+import { extractOriginDestinationFromQuery } from '../utils/travel-query-extractor';
 
 export class ProductService {
   private productRepository: ProductRepository;
@@ -68,10 +69,30 @@ export class ProductService {
       // Step 1: Determine search type and fetch results
       const isProduct = (request.filters as any)?.isProduct ?? true;
       const isTravel = (request.filters as any)?.isTravel ?? false;
-      const origin = (request.filters as any)?.origin;
-      const destination = (request.filters as any)?.destination;
+      let origin = (request.filters as any)?.origin;
+      let destination = (request.filters as any)?.destination;
       const startDate = (request.filters as any)?.startDate;
       const endDate = (request.filters as any)?.endDate;
+
+      // Query-based fallback: extract origin/destination from raw query when NLP may be wrong
+      // (e.g. "flights from new york to las vegas" returning Atlanta-Newark due to NLP confusion)
+      if (isTravel && request.query) {
+        const extracted = extractOriginDestinationFromQuery(request.query);
+        if (extracted.origin && extracted.destination) {
+          const prevOrigin = origin?.toLowerCase();
+          const prevDest = destination?.toLowerCase();
+          const extOrigin = extracted.origin.toLowerCase();
+          const extDest = extracted.destination.toLowerCase();
+          // Override if NLP differs from query (e.g. "atlanta"/"newark" vs "new york"/"las vegas")
+          if (!prevOrigin || !prevDest || prevOrigin !== extOrigin || prevDest !== extDest) {
+            origin = extracted.origin;
+            destination = extracted.destination;
+            if (prevOrigin || prevDest) {
+              console.log(`✈️  Using query-extracted route: ${origin} → ${destination} (overrode NLP: ${prevOrigin || '?'} → ${prevDest || '?'})`);
+            }
+          }
+        }
+      }
 
       let searchResults: any[] = [];
 

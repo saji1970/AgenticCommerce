@@ -21,6 +21,8 @@ export interface MandateSignature {
   biometricType?: string;
   verifiedAt?: string;
   createdAt: string;
+  /** Stored drawn signature (JSON with paths) for display as evidence */
+  signatureImageUrl?: string;
 }
 
 class SignatureService {

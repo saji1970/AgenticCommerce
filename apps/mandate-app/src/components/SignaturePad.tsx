@@ -32,7 +32,9 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
         isDrawingRef.current = true;
@@ -117,7 +119,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
               key={index}
               d={path}
               stroke="#000000"
-              strokeWidth={3.5}
+              strokeWidth={4}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -127,7 +129,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
             <Path
               d={currentPath}
               stroke="#000000"
-              strokeWidth={3.5}
+              strokeWidth={4}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"

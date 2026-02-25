@@ -353,7 +353,8 @@ export class SearchService {
       if (params.infantsOnLap != null) apiParams.infants_on_lap = params.infantsOnLap;
       if (params.stops != null) apiParams.stops = params.stops;
       if (params.sortBy != null) apiParams.sort_by = params.sortBy;
-      if (params.deepSearch === true) apiParams.deep_search = true;
+      // Enable deep_search by default to get more results (matches Google Flights web experience)
+      apiParams.deep_search = params.deepSearch !== false;
       if (params.maxPrice != null) apiParams.max_price = params.maxPrice;
       if (params.excludeAirlines) apiParams.exclude_airlines = params.excludeAirlines;
       if (params.includeAirlines) apiParams.include_airlines = params.includeAirlines;
@@ -517,7 +518,7 @@ export class SearchService {
 
       console.log(`✅ RapidAPI returned ${itineraries.length} flight results`);
 
-      return itineraries.slice(0, 10).map((it: any) => {
+      return itineraries.slice(0, 20).map((it: any) => {
         const leg = it.legs?.[0];
         const airline = leg?.carriers?.marketing?.[0]?.name ?? 'Unknown';
         const airlineLogo = leg?.carriers?.marketing?.[0]?.logoUrl;
@@ -576,8 +577,15 @@ export class SearchService {
         if (legs.length === 0) return true; // keep if no leg data to check
         const firstLeg = legs[0];
         const lastLeg = legs[legs.length - 1];
-        const depCode = (firstLeg.departure_airport?.id || '').toUpperCase();
-        const arrCode = (lastLeg.arrival_airport?.id || '').toUpperCase();
+        // Use id when present; fallback to extracting from airport name (SerpAPI sometimes omits id)
+        let depCode = (firstLeg.departure_airport?.id || '').toUpperCase();
+        let arrCode = (lastLeg.arrival_airport?.id || '').toUpperCase();
+        if (!depCode && firstLeg.departure_airport?.name) {
+          depCode = this.extractAirportCodeFromName(firstLeg.departure_airport.name);
+        }
+        if (!arrCode && lastLeg.arrival_airport?.name) {
+          arrCode = this.extractAirportCodeFromName(lastLeg.arrival_airport.name);
+        }
         // If airport codes are present in the response, verify they match
         if (requestedDep && depCode && depCode !== requestedDep) {
           console.log(`⚠️  Filtering out flight: departure ${depCode} != requested ${requestedDep}`);
@@ -594,7 +602,7 @@ export class SearchService {
       }
     }
 
-    return allFlights.slice(0, 10).map((flight: any) => {
+    return allFlights.slice(0, 20).map((flight: any) => {
       const legs = flight.flights || [];
       const firstLeg = legs[0] || {};
       const airline = firstLeg.airline || 'Unknown Airline';
@@ -622,6 +630,27 @@ export class SearchService {
         rawData: flight,
       };
     });
+  }
+
+  /**
+   * Extract airport code from airport name when SerpAPI omits the id field.
+   * Matches known city names within the airport name (e.g. "Hartsfield-Jackson Atlanta" -> ATL).
+   */
+  private extractAirportCodeFromName(airportName: string): string {
+    if (!airportName || typeof airportName !== 'string') return '';
+    const nameLower = airportName.toLowerCase();
+    // Match city names that appear in airport names (longest first to avoid "New" matching "Newark" before "New York")
+    const cityToCode: [string, string][] = [
+      ['new york', 'JFK'], ['newark', 'EWR'], ['atlanta', 'ATL'], ['chennai', 'MAA'], ['madras', 'MAA'],
+      ['mumbai', 'BOM'], ['delhi', 'DEL'], ['bangalore', 'BLR'], ['hyderabad', 'HYD'], ['kolkata', 'CCU'],
+      ['los angeles', 'LAX'], ['chicago', 'ORD'], ['dallas', 'DFW'], ['denver', 'DEN'], ['las vegas', 'LAS'],
+      ['san francisco', 'SFO'], ['seattle', 'SEA'], ['miami', 'MIA'], ['boston', 'BOS'], ['london', 'LHR'],
+      ['paris', 'CDG'], ['dubai', 'DXB'], ['singapore', 'SIN'], ['hong kong', 'HKG'], ['tokyo', 'NRT'],
+    ];
+    for (const [city, code] of cityToCode) {
+      if (nameLower.includes(city)) return code;
+    }
+    return '';
   }
 
   private resolveAirportCode(cityOrCode: string): string {

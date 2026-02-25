@@ -20,7 +20,7 @@ import { mandateServiceClient } from '../services/mandate-service.client';
 import { useMandates } from '../contexts/MandateContext';
 import { SignaturePad } from '../components/SignaturePad';
 import { MandateLimitsEditor, MandateLimits } from '../components/MandateLimitsEditor';
-import signatureService from '../services/signature.service';
+import signatureService, { MandateSignature } from '../services/signature.service';
 import secureElementService from '../services/secure-element.service';
 import { storageService } from '../services/storage.service';
 
@@ -78,6 +78,7 @@ export const MandateDetailScreen: React.FC = () => {
   const [signing, setSigning] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [storedSignature, setStoredSignature] = useState<MandateSignature | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [biometricVerified, setBiometricVerified] = useState(false);
   const [biometricType, setBiometricType] = useState<string>('fingerprint');
@@ -92,6 +93,7 @@ export const MandateDetailScreen: React.FC = () => {
     // Reset approval state when mandateId changes - each mandate requires fresh biometric + signature
     setBiometricVerified(false);
     setSignatureData(null);
+    setStoredSignature(null);
     setAgreed(false);
     setShowSignaturePad(false);
     setCustomLimits(null);
@@ -132,6 +134,14 @@ export const MandateDetailScreen: React.FC = () => {
     try {
       const mandateData = await mandateServiceClient.getMandate(mandateId);
       setMandate(mandateData);
+
+      // Load stored signature for display (evidence for active mandates)
+      try {
+        const sig = await signatureService.getSignatureByMandate(mandateId);
+        setStoredSignature(sig);
+      } catch {
+        setStoredSignature(null);
+      }
 
       // If no cart/intent data from route params, try to extract from mandate constraints
       const c = mandateData.constraints as Record<string, any>;
@@ -422,6 +432,9 @@ export const MandateDetailScreen: React.FC = () => {
     return `I authorize ${mandate.agentName} to perform ${mandate.type} operations with the following constraints:\n\n${constraintsText}\n\nThis authorization is valid until revoked.`;
   };
 
+  // Use in-memory signature (current session) or stored signature from DB for display
+  const effectiveSignatureData = signatureData || storedSignature?.signatureImageUrl || null;
+
   if (loading || !mandate) {
     return (
       <View style={styles.centerContainer}>
@@ -666,7 +679,7 @@ export const MandateDetailScreen: React.FC = () => {
           {/* Step 2: Add Signature */}
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Step 2: Add Signature</Text>
-            {!signatureData ? (
+            {!effectiveSignatureData ? (
               <TouchableOpacity
                 style={[styles.signatureButton, !biometricVerified && styles.buttonDisabled]}
                 onPress={() => setShowSignaturePad(true)}
@@ -681,7 +694,7 @@ export const MandateDetailScreen: React.FC = () => {
                 </View>
                 {(() => {
                   try {
-                    const sigData = JSON.parse(signatureData);
+                    const sigData = JSON.parse(effectiveSignatureData);
                     if (sigData.paths && sigData.paths.length > 0) {
                       const previewWidth = Dimensions.get('window').width - 96;
                       const sigWidth = sigData.width || previewWidth;
@@ -764,6 +777,60 @@ export const MandateDetailScreen: React.FC = () => {
 
       {mandate.status === 'active' && (
         <View style={styles.actions}>
+          {/* Show stored signature as evidence for active mandates */}
+          {effectiveSignatureData && (
+            <View style={[styles.stepContainer, { marginBottom: 20 }]}>
+              <Text style={styles.stepTitle}>Your Signature (signed evidence)</Text>
+              {(() => {
+                try {
+                  const sigData = JSON.parse(effectiveSignatureData);
+                  if (sigData.paths && sigData.paths.length > 0) {
+                    const previewWidth = Dimensions.get('window').width - 96;
+                    const sigWidth = sigData.width || previewWidth;
+                    const sigHeight = sigData.height || 120;
+                    const scale = Math.min(previewWidth / sigWidth, 120 / sigHeight);
+                    const previewHeight = Math.min(sigHeight * scale, 120);
+                    return (
+                      <View style={styles.signaturePreview}>
+                        <View style={styles.signaturePreviewBox}>
+                          <Svg
+                            width={previewWidth}
+                            height={previewHeight}
+                            viewBox={`0 0 ${sigWidth} ${sigHeight}`}
+                            preserveAspectRatio="xMidYMid meet"
+                          >
+                            {sigData.paths
+                              .filter((p: string) => p && p.trim().length > 0)
+                              .map((pathD: string, i: number) => (
+                                <SvgPath
+                                  key={i}
+                                  d={pathD}
+                                  stroke="#1F2937"
+                                  strokeWidth={3}
+                                  fill="none"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              ))}
+                            </Svg>
+                          </View>
+                        </View>
+                      );
+                    );
+                  }
+                } catch {
+                  /* parse error */
+                }
+                return (
+                  <View style={styles.signaturePreview}>
+                    <View style={[styles.signaturePreviewBox, styles.signatureCapturedFallback]}>
+                      <Text style={styles.signatureCapturedText}>✓ Signature on file</Text>
+                    </View>
+                  </View>
+                );
+              })()}
+            </View>
+          )}
           {/* When opened from Shopping app with cart/intent data, show Confirm button */}
           {(cartData?.items?.length || intentData) && (
             <TouchableOpacity

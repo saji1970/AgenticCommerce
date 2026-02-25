@@ -270,6 +270,7 @@ export class SignatureController {
           biometricType: signature.biometricType,
           verifiedAt: signature.verifiedAt,
           createdAt: signature.createdAt,
+          signatureImageUrl: signature.signatureImageUrl,
         },
       });
     } catch (error: any) {

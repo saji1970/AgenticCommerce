@@ -176,8 +176,8 @@ Extract the following information:
 9. **intentReasoning**: Brief explanation of why we should create an intent
 10. **startDate**: ISO date string if user mentioned a start date (YYYY-MM-DD). Return null if the user did NOT mention any date. When user says only a month (e.g. "March"), use the current year ${currentYear} and the first of that month. Never use past dates — always use ${currentYear} or later.
 11. **endDate**: ISO date string if user mentioned an end date (YYYY-MM-DD). Return null if the user did NOT mention any date. Same rule: use ${currentYear} or later for all dates.
-12. **origin**: Starting location (for flights, travel). For flight queries, use the 3-letter IATA airport code if you know it (e.g., "ATL" not "Atlanta", "EWR" not "Newark", "JFK" not "New York"). If unsure of the code, return the city name.
-13. **destination**: Ending location (for flights, travel). Same rule: use IATA airport codes for flights (e.g., "MAA" not "Chennai", "LHR" not "London", "CDG" not "Paris").
+12. **origin**: Starting location (for flights, travel). For flight queries, use the 3-letter IATA airport code if you know it (e.g., "ATL" not "Atlanta", "JFK" not "New York"). If unsure, return the city name. IMPORTANT: "New York" = JFK/NYC area; "Newark" = EWR (different city in NJ). Do not confuse them.
+13. **destination**: Ending location (for flights, travel). Same rule: use IATA airport codes for flights (e.g., "LAS" not "Las Vegas", "MAA" not "Chennai", "LHR" not "London"). If unsure, return the city name.
 14. **userCity**: User's city from context or query
 15. **userCountry**: User's country from context or query
 16. **searchRadius**: Search radius in miles if user wants local results (default 25 if local search)
@@ -397,6 +397,88 @@ Response:
   "stops": 1,
   "sortBy": 2,
   "deepSearch": false,
+  "excludeAirlines": null,
+  "includeAirlines": null,
+  "excludeBasic": null,
+  "emissions": null,
+  "bags": null,
+  "maxDuration": null
+}
+
+Query: "Search flights from New York to Las Vegas"
+Response:
+{
+  "searchQuery": "flights New York to Las Vegas",
+  "productType": "flight",
+  "maxPrice": null,
+  "minPrice": null,
+  "currency": "USD",
+  "specifications": {},
+  "shouldCreateIntent": false,
+  "intentType": null,
+  "intentReasoning": null,
+  "startDate": null,
+  "endDate": null,
+  "origin": "New York",
+  "destination": "Las Vegas",
+  "userCity": null,
+  "userCountry": null,
+  "searchRadius": null,
+  "confidence": 95,
+  "clarificationNeeded": null,
+  "preferLocalStores": false,
+  "preferOnline": true,
+  "needsDelivery": false,
+  "needsPickup": false,
+  "isTravel": true,
+  "isProduct": false,
+  "travelClass": null,
+  "adults": 1,
+  "children": null,
+  "stops": null,
+  "sortBy": null,
+  "deepSearch": null,
+  "excludeAirlines": null,
+  "includeAirlines": null,
+  "excludeBasic": null,
+  "emissions": null,
+  "bags": null,
+  "maxDuration": null
+}
+
+Query: "flights from New York to Chennai"
+Response:
+{
+  "searchQuery": "flights New York to Chennai",
+  "productType": "flight",
+  "maxPrice": null,
+  "minPrice": null,
+  "currency": "USD",
+  "specifications": {},
+  "shouldCreateIntent": false,
+  "intentType": null,
+  "intentReasoning": null,
+  "startDate": null,
+  "endDate": null,
+  "origin": "New York",
+  "destination": "Chennai",
+  "userCity": null,
+  "userCountry": null,
+  "searchRadius": null,
+  "confidence": 95,
+  "clarificationNeeded": null,
+  "preferLocalStores": false,
+  "preferOnline": true,
+  "needsDelivery": false,
+  "needsPickup": false,
+  "isTravel": true,
+  "isProduct": false,
+  "travelClass": null,
+  "adults": 1,
+  "children": null,
+  "stops": null,
+  "sortBy": null,
+  "deepSearch": null,
   "excludeAirlines": null,
   "includeAirlines": null,
   "excludeBasic": null,
