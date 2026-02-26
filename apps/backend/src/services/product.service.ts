@@ -44,8 +44,14 @@ export class ProductService {
     let aiTokensUsed = 0;
 
     // Check if user is a demo user - try sample data first, fall back to real API
+    // Skip demo for ALL travel searches (flights, hotels) — they need live API data
+    const isTravel = (request.filters as any)?.isTravel ?? false;
+    const productType = (request.filters as any)?.productType as string | undefined;
+    const isHotelQuery = /hotel/i.test(request.query) || productType === 'hotel';
+    const skipDemoForTravel = isTravel || isHotelQuery;
+
     const isDemoUser = await isDemoUserById(userId);
-    if (isDemoUser) {
+    if (isDemoUser && !skipDemoForTravel) {
       console.log(`🎭 Demo user detected - trying sample data for: "${request.query}"`);
       const demoResult = await this.getDemoProducts(userId, request.query, request.filters);
       if (demoResult.products.length > 0) {
@@ -53,6 +59,8 @@ export class ProductService {
       }
       console.log(`🔄 No demo products matched, falling back to Google search for: "${request.query}"`);
       // Fall through to Google search below
+    } else if (isDemoUser && skipDemoForTravel) {
+      console.log(`✈️  Demo user: skipping demo for flight search, using real SerpAPI for: "${request.query}"`);
     }
 
     // Create search query record
@@ -266,9 +274,10 @@ export class ProductService {
 
         await this.searchQueryRepository.complete(searchQuery.id, savedProducts.length);
         const processingTimeMs = Date.now() - startTime;
-        console.log(`✅ Combined travel search complete! Found ${savedProducts.length} results in ${processingTimeMs}ms`);
+        console.log(`✅ Combined travel search complete! SerpAPI: ${serpApiFlightProducts.length}, RapidAPI: ${rapidApiProducts.length}, MCP: ${mcpWithIds.length} → ${savedProducts.length} unique results in ${processingTimeMs}ms`);
 
         const sourcesUsed = ['serpapi_flights'];
+        if (rapidApiProducts.length > 0) sourcesUsed.push('rapidapi_flights');
         if (mcpTravelProducts.length > 0) {
           const mcpSources = mcpTravelProducts.map(p => p.source).filter((s, i, arr) => arr.indexOf(s) === i);
           sourcesUsed.push(...mcpSources);
@@ -668,6 +677,7 @@ export class ProductService {
         preferOnline: parsedQuery.preferOnline,
         isTravel: parsedQuery.isTravel,
         isProduct: parsedQuery.isProduct,
+        productType: parsedQuery.productType,
         // Pass flight-specific data for SerpAPI google_flights
         origin: parsedQuery.origin,
         destination: parsedQuery.destination,

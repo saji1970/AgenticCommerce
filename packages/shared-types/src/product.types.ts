@@ -97,6 +97,7 @@ export interface AISearchRequest {
     // Travel / flight filters
     isTravel?: boolean;
     isProduct?: boolean;
+    productType?: string; // 'flight' | 'hotel' | etc.
     origin?: string;
     destination?: string;
     startDate?: string;
