@@ -416,6 +416,30 @@ export class ProductService {
           } as CreateProductDTO;
         }).filter(p => p.name && p.name.trim()); // Filter out products without names
       } else {
+        // Hotel searches: skip URL extraction — major sites (Hotels.com, Booking.com, Marriott, etc.)
+        // block fetches with 403/429. Use SerpAPI results directly with price from title/snippet.
+        const isHotelSearch = productType === 'hotel';
+        if (isHotelSearch && shoppableResults.length > 0) {
+          console.log(`🏨 Hotel search: using SerpAPI results directly (sites block URL fetches)`);
+          extractedProducts = shoppableResults.slice(0, 8).map((result: any) => {
+            const url = result.url || result.link;
+            const titleAndSnippet = `${result.title || ''} ${result.snippet || ''}`;
+            const priceFromText = extractPriceFromText(titleAndSnippet, 'USD');
+            return {
+              userId,
+              name: result.title || 'Hotel',
+              description: result.snippet || '',
+              price: priceFromText?.value ?? undefined,
+              currency: priceFromText?.currency || 'USD',
+              imageUrl: result.image || undefined,
+              productUrl: url,
+              source: `google_search:${result.displayUrl || 'fallback'}`,
+              rawData: { fallback: true, hotelDirect: true },
+              aiExtracted: false,
+              searchQueryId: searchQuery.id,
+            } as CreateProductDTO;
+          }).filter((p: CreateProductDTO) => p.name && p.name.trim());
+        } else {
         // For non-shopping results, extract using AI
         console.log(`📦 Extracting ${isTravel ? 'travel' : 'product'} data from ${shoppableResults.length} URLs...`);
         const extractionPromises = shoppableResults.slice(0, 10).map(async (result) => {
@@ -523,6 +547,7 @@ export class ProductService {
             })
             .filter((p: CreateProductDTO) => p.name && p.name.trim());
           extractedProducts = [...extractedProducts, ...fallbackProducts];
+        }
         }
       }
 
