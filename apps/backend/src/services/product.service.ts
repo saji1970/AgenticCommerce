@@ -502,9 +502,11 @@ export class ProductService {
             })
             .map((result: any) => {
               const url = result.url || result.link;
-              const priceFromSnippet = extractPriceFromText(result.snippet || '', 'USD');
-              const price = priceFromSnippet?.value ?? undefined;
-              const currency = priceFromSnippet?.currency || 'USD';
+              // Try title first (e.g. "10 Best Miami Hotels (From $109)"), then snippet
+              const titleAndSnippet = `${result.title || ''} ${result.snippet || ''}`;
+              const priceFromText = extractPriceFromText(titleAndSnippet, 'USD');
+              const price = priceFromText?.value ?? undefined;
+              const currency = priceFromText?.currency || 'USD';
               return {
                 userId,
                 name: result.title || 'Hotel',

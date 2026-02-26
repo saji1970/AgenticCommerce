@@ -1,22 +1,48 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { AppStackParamList } from '../types/navigation';
 import { AIChatScreen } from '../screens/chat';
 import { ProductsNavigator } from './ProductsNavigator';
 import { CartNavigator } from './CartNavigator';
 import { ProfileNavigator } from './ProfileNavigator';
 import { IntentsScreen } from '../screens/intents';
+import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator<AppStackParamList>();
+
+const TabIcon = ({
+  name,
+  focused,
+  outlineName,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  focused: boolean;
+  outlineName?: keyof typeof Ionicons.glyphMap;
+}) => (
+  <View style={styles.iconWrapper}>
+    <Ionicons
+      name={focused ? name : (outlineName || name)}
+      size={22}
+      color={focused ? colors.action : colors.textMuted}
+    />
+    {focused && <View style={styles.activeBar} />}
+  </View>
+);
 
 export const AppNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2563EB',
-        tabBarInactiveTintColor: '#6B7280',
+        tabBarActiveTintColor: colors.action,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
       }}
     >
       <Tab.Screen
@@ -26,7 +52,9 @@ export const AppNavigator = () => {
           headerShown: true,
           title: 'AI Assistant',
           tabBarLabel: 'Chat',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>💬</Text>,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="chatbubble" outlineName="chatbubble-outline" focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
@@ -34,7 +62,9 @@ export const AppNavigator = () => {
         component={ProductsNavigator}
         options={{
           title: 'Products',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🛍️</Text>,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="bag" outlineName="bag-outline" focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
@@ -43,7 +73,9 @@ export const AppNavigator = () => {
         options={{
           headerShown: true,
           title: 'My Intents',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>⭐</Text>,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="heart" outlineName="heart-outline" focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
@@ -51,7 +83,9 @@ export const AppNavigator = () => {
         component={CartNavigator}
         options={{
           title: 'Cart',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🛒</Text>,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="cart" outlineName="cart-outline" focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
@@ -59,9 +93,26 @@ export const AppNavigator = () => {
         component={ProfileNavigator}
         options={{
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text>,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="person" outlineName="person-outline" focused={focused} />
+          ),
         }}
       />
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  iconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeBar: {
+    position: 'absolute',
+    bottom: -8,
+    width: 24,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.action,
+  },
+});

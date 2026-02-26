@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ChatMessage } from '../../types/chat';
+import { colors } from '../../theme/colors';
 
 interface Props {
   message: ChatMessage;
@@ -32,10 +33,10 @@ export const AITextBubble: React.FC<Props> = ({ message, onCopy }) => {
                 {parsedQuery.origin} → {parsedQuery.destination}
               </Text>
             )}
-            {parsedQuery.departureDate && (
+            {(parsedQuery.departureDate || parsedQuery.startDate) && (
               <Text style={styles.travelDetail}>
-                Depart: {parsedQuery.departureDate}
-                {parsedQuery.returnDate ? `  |  Return: ${parsedQuery.returnDate}` : ''}
+                Depart: {parsedQuery.departureDate || parsedQuery.startDate}
+                {(parsedQuery.returnDate || parsedQuery.endDate) ? `  |  Return: ${parsedQuery.returnDate || parsedQuery.endDate}` : ''}
               </Text>
             )}
             {parsedQuery.passengers && (
@@ -57,27 +58,30 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   bubble: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundAlt,
     borderRadius: 18,
     borderBottomLeftRadius: 4,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     maxWidth: '85%',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   text: {
-    color: '#1F2937',
+    color: colors.textPrimary,
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   travelInfo: {
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   travelDetail: {
     fontSize: 13,
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginTop: 2,
   },
 });

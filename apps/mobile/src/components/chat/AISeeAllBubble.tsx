@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ChatMessage } from '../../types/chat';
+import { colors } from '../../theme/colors';
 
 interface Props {
   message: ChatMessage;
@@ -21,7 +22,7 @@ export const AISeeAllBubble: React.FC<Props> = ({ message }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.button} onPress={handlePress} activeOpacity={0.7}>
-        <Text style={styles.buttonText}>See all {count} results</Text>
+        <Text style={styles.buttonText}>Compare all {count} options</Text>
       </TouchableOpacity>
     </View>
   );
@@ -34,10 +35,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   button: {
-    backgroundColor: '#2563EB',
-    borderRadius: 20,
+    backgroundColor: colors.action,
+    borderRadius: 12,
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   buttonText: {
     color: '#fff',

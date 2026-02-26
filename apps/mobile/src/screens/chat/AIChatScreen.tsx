@@ -107,24 +107,29 @@ export const AIChatScreen = () => {
         const products = searchResponse.products || [];
         const totalResults = searchResponse.metadata?.totalResults || products.length;
 
-        // Build summary text
+        // Build conversational summary text
+        const productType = (parsedQuery as any)?.productType || parsedQuery?.type || 'product';
         let summaryText = '';
-        if (parsedQuery?.type && parsedQuery.type !== 'product') {
-          const origin = parsedQuery.origin || '';
-          const destination = parsedQuery.destination || '';
-          if (origin && destination) {
-            summaryText = `Found ${totalResults} ${parsedQuery.type} option${totalResults !== 1 ? 's' : ''} from ${origin} to ${destination}`;
-          } else {
-            summaryText = `Found ${totalResults} ${parsedQuery.type} result${totalResults !== 1 ? 's' : ''}`;
-          }
-          if (parsedQuery.departureDate) {
-            summaryText += ` for ${parsedQuery.departureDate}`;
-            if (parsedQuery.returnDate) {
-              summaryText += ` – ${parsedQuery.returnDate}`;
-            }
-          }
+        if (productType === 'flight' && parsedQuery?.origin && parsedQuery?.destination) {
+          const depDate = (parsedQuery as any).departureDate ?? (parsedQuery as any).startDate;
+          const retDate = (parsedQuery as any).returnDate ?? (parsedQuery as any).endDate;
+          const dateSuffix = depDate ? ` for ${depDate}${retDate ? ` – ${retDate}` : ''}` : '';
+          summaryText =
+            totalResults === 1
+              ? `I found a great option for ${parsedQuery.origin} → ${parsedQuery.destination}${dateSuffix}! Does this timing work for you?`
+              : `I found ${totalResults} flight options from ${parsedQuery.origin} to ${parsedQuery.destination}${dateSuffix}. Here are the best matches:`;
+        } else if (productType === 'hotel') {
+          summaryText =
+            totalResults === 1
+              ? `I found a solid option for your stay. Check it out below.`
+              : `I found ${totalResults} hotel options for you. Here are my top picks:`;
+        } else if (productType !== 'product') {
+          summaryText = `I found ${totalResults} ${productType} option${totalResults !== 1 ? 's' : ''}. Here are the best matches:`;
         } else {
-          summaryText = `Found ${totalResults} product${totalResults !== 1 ? 's' : ''} for "${text}"`;
+          summaryText =
+            totalResults === 1
+              ? `I found a great match for "${text}". Take a look!`
+              : `I found ${totalResults} products for "${text}". Here are my top picks:`;
         }
 
         const responseMsgs: ChatMessage[] = [];
@@ -149,12 +154,25 @@ export const AIChatScreen = () => {
           timestamp: new Date(),
         });
 
-        // Top 3 product cards
+        // Top 3 product cards (with parsedQuery for dynamic card layout)
         if (products.length > 0) {
           responseMsgs.push({
             id: generateId(),
             type: 'ai_products',
             products: products.slice(0, 3),
+            parsedQuery: parsedQuery
+              ? {
+                  type: (parsedQuery as any).type,
+                  productType: (parsedQuery as any).productType,
+                  origin: parsedQuery.origin,
+                  destination: parsedQuery.destination,
+                  departureDate: parsedQuery.departureDate,
+                  returnDate: parsedQuery.returnDate,
+                  passengers: parsedQuery.passengers,
+                  category: parsedQuery.category,
+                  query: parsedQuery.query,
+                }
+              : undefined,
             timestamp: new Date(),
           });
         }

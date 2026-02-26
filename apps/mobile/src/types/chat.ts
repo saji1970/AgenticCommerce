@@ -11,10 +11,13 @@ export type ChatMessageType =
 
 export interface ParsedQuerySummary {
   type?: string;
+  productType?: string;
   origin?: string;
   destination?: string;
   departureDate?: string;
   returnDate?: string;
+  startDate?: string;
+  endDate?: string;
   passengers?: number;
   category?: string;
   query?: string;
