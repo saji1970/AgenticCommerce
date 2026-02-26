@@ -16,7 +16,11 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.agentic.commerce"
+      "bundleIdentifier": "com.agentic.commerce",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to let you search for products by voice.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone to transcribe your voice into text for shopping queries."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,14 +33,22 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
+        "USE_FINGERPRINT",
+        "RECORD_AUDIO"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use the microphone for voice search.",
+          "speechRecognitionPermission": "Allow $(PRODUCT_NAME) to use speech recognition for voice search."
+        }
+      ]
     ],
     "scheme": "agenticcommerce",
     "extra": {

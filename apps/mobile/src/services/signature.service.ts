@@ -4,9 +4,8 @@ import secureElementService from './secure-element.service';
 import publicKeyService from './public-key.service';
 
 // Mandate Service API Configuration
-const MANDATE_SERVICE_URL = __DEV__
-  ? 'http://10.0.2.2:3001/api' // Local mandate-service
-  : 'https://pure-wonder-production.up.railway.app/api'; // Railway mandate-service
+// Always use production URL — 10.0.2.2 only works on Android emulator, not physical devices
+const MANDATE_SERVICE_URL = 'https://pure-wonder-production.up.railway.app/api';
 
 export interface CreateSignatureRequest {
   mandateId: string;

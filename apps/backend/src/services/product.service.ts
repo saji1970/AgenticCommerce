@@ -233,16 +233,17 @@ export class ProductService {
         const allTravelProducts = [...serpApiFlightProducts, ...mcpWithIds, ...rapidApiProducts];
         const seen = new Set<string>();
         const uniqueTravelProducts = allTravelProducts.filter(p => {
-          // For products with a real URL, deduplicate by URL
-          if (p.productUrl && p.productUrl.trim()) {
-            if (seen.has(p.productUrl)) return false;
-            seen.add(p.productUrl);
+          // SerpAPI flights all share the same Google Flights URL — deduplicate by name (airline + flight no + route)
+          const isGenericFlightsUrl = p.productUrl?.includes('google.com/travel/flights') ?? false;
+          if (isGenericFlightsUrl || !p.productUrl?.trim()) {
+            const key = `name:${p.name}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
             return true;
           }
-          // For products without URL (MCP travel), deduplicate by name
-          const key = `name:${p.name}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
+          // For products with a unique URL, deduplicate by URL
+          if (seen.has(p.productUrl!)) return false;
+          seen.add(p.productUrl!);
           return true;
         });
 
