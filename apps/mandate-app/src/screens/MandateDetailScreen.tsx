@@ -435,6 +435,65 @@ export const MandateDetailScreen: React.FC = () => {
   // Use in-memory signature (current session) or stored signature from DB for display
   const effectiveSignatureData = signatureData || storedSignature?.signatureImageUrl || null;
 
+  /** Parse signature for display: supports JSON paths or data URL */
+  const renderSignaturePreview = (data: string | null | undefined, showChangeButton = true) => {
+    if (!data || typeof data !== 'string') return null;
+    const trimmed = data.trim();
+    if (!trimmed) return null;
+    // Data URL (base64 image) - render with Image
+    if (trimmed.startsWith('data:image') || trimmed.startsWith('data:application')) {
+      return (
+        <View style={styles.signaturePreview}>
+          <Text style={styles.signaturePreviewLabel}>Your Signature</Text>
+          <View style={styles.signaturePreviewBox}>
+            <Image source={{ uri: trimmed }} style={styles.signatureImage} resizeMode="contain" />
+            {showChangeButton && (
+              <TouchableOpacity style={styles.signatureChangeButton} onPress={() => setShowSignaturePad(true)}>
+                <Text style={styles.signatureChangeText}>Change signature</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    }
+    // JSON with SVG paths
+    let sigData: { paths?: string[]; width?: number; height?: number } | null = null;
+    try {
+      sigData = JSON.parse(trimmed);
+      if (typeof sigData === 'string') sigData = JSON.parse(sigData);
+    } catch {
+      return null;
+    }
+    const paths = sigData?.paths;
+    if (Array.isArray(paths) && paths.some((p) => p && String(p).trim().length > 0)) {
+      const previewWidth = Dimensions.get('window').width - 96;
+      const sigWidth = sigData?.width || previewWidth;
+      const sigHeight = sigData?.height || 120;
+      const scale = Math.min(previewWidth / sigWidth, 120 / sigHeight);
+      const previewHeight = Math.min(sigHeight * scale, 120);
+      return (
+        <View style={styles.signaturePreview}>
+          <Text style={styles.signaturePreviewLabel}>Your Signature</Text>
+          <View style={styles.signaturePreviewBox}>
+            <Svg width={previewWidth} height={previewHeight} viewBox={`0 0 ${sigWidth} ${sigHeight}`} preserveAspectRatio="xMidYMid meet">
+              {paths
+                .filter((p) => p && String(p).trim().length > 0)
+                .map((pathD: string, i: number) => (
+                  <SvgPath key={i} d={pathD} stroke="#1F2937" strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                ))}
+            </Svg>
+            {showChangeButton && (
+              <TouchableOpacity style={styles.signatureChangeButton} onPress={() => setShowSignaturePad(true)}>
+                <Text style={styles.signatureChangeText}>Change signature</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    }
+    return null;
+  };
+
   if (loading || !mandate) {
     return (
       <View style={styles.centerContainer}>
@@ -692,64 +751,17 @@ export const MandateDetailScreen: React.FC = () => {
                 <View style={styles.signatureAdded}>
                   <Text style={styles.signatureAddedText}>✓ Signature Added</Text>
                 </View>
-                {(() => {
-                  try {
-                    const sigData = JSON.parse(effectiveSignatureData);
-                    if (sigData.paths && sigData.paths.length > 0) {
-                      const previewWidth = Dimensions.get('window').width - 96;
-                      const sigWidth = sigData.width || previewWidth;
-                      const sigHeight = sigData.height || 120;
-                      const scale = Math.min(previewWidth / sigWidth, 120 / sigHeight);
-                      const previewHeight = Math.min(sigHeight * scale, 120);
-                      return (
-                        <View style={styles.signaturePreview}>
-                          <Text style={styles.signaturePreviewLabel}>Your Signature</Text>
-                          <View style={styles.signaturePreviewBox}>
-                            <Svg
-                              width={previewWidth}
-                              height={previewHeight}
-                              viewBox={`0 0 ${sigWidth} ${sigHeight}`}
-                              preserveAspectRatio="xMidYMid meet"
-                            >
-                              {sigData.paths
-                                .filter((p: string) => p && p.trim().length > 0)
-                                .map((pathD: string, i: number) => (
-                                  <SvgPath
-                                    key={i}
-                                    d={pathD}
-                                    stroke="#1F2937"
-                                    strokeWidth={3}
-                                    fill="none"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                ))}
-                            </Svg>
-                            <TouchableOpacity
-                              style={styles.signatureChangeButton}
-                              onPress={() => setShowSignaturePad(true)}
-                            >
-                              <Text style={styles.signatureChangeText}>Change signature</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      );
-                    }
-                  } catch {
-                    /* parse error - show fallback */
-                  }
-                  return (
-                    <View style={styles.signaturePreview}>
-                      <Text style={styles.signaturePreviewLabel}>Your Signature</Text>
-                      <View style={[styles.signaturePreviewBox, styles.signatureCapturedFallback]}>
-                        <Text style={styles.signatureCapturedText}>✓ Signature captured</Text>
-                        <TouchableOpacity onPress={() => setShowSignaturePad(true)}>
-                          <Text style={styles.signatureChangeText}>Change signature</Text>
-                        </TouchableOpacity>
-                      </View>
+                {renderSignaturePreview(effectiveSignatureData) ?? (
+                  <View style={styles.signaturePreview}>
+                    <Text style={styles.signaturePreviewLabel}>Your Signature</Text>
+                    <View style={[styles.signaturePreviewBox, styles.signatureCapturedFallback]}>
+                      <Text style={styles.signatureCapturedText}>✓ Signature captured</Text>
+                      <TouchableOpacity onPress={() => setShowSignaturePad(true)}>
+                        <Text style={styles.signatureChangeText}>Change signature</Text>
+                      </TouchableOpacity>
                     </View>
-                  );
-                })()}
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -781,54 +793,13 @@ export const MandateDetailScreen: React.FC = () => {
           {effectiveSignatureData && (
             <View style={[styles.stepContainer, { marginBottom: 20 }]}>
               <Text style={styles.stepTitle}>Your Signature (signed evidence)</Text>
-              {(() => {
-                try {
-                  const sigData = JSON.parse(effectiveSignatureData);
-                  if (sigData.paths && sigData.paths.length > 0) {
-                    const previewWidth = Dimensions.get('window').width - 96;
-                    const sigWidth = sigData.width || previewWidth;
-                    const sigHeight = sigData.height || 120;
-                    const scale = Math.min(previewWidth / sigWidth, 120 / sigHeight);
-                    const previewHeight = Math.min(sigHeight * scale, 120);
-                    return (
-                      <View style={styles.signaturePreview}>
-                        <View style={styles.signaturePreviewBox}>
-                          <Svg
-                            width={previewWidth}
-                            height={previewHeight}
-                            viewBox={`0 0 ${sigWidth} ${sigHeight}`}
-                            preserveAspectRatio="xMidYMid meet"
-                          >
-                            {sigData.paths
-                              .filter((p: string) => p && p.trim().length > 0)
-                              .map((pathD: string, i: number) => (
-                                <SvgPath
-                                  key={i}
-                                  d={pathD}
-                                  stroke="#1F2937"
-                                  strokeWidth={3}
-                                  fill="none"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              ))}
-                            </Svg>
-                          </View>
-                        </View>
-                      );
-                    );
-                  }
-                } catch {
-                  /* parse error */
-                }
-                return (
-                  <View style={styles.signaturePreview}>
-                    <View style={[styles.signaturePreviewBox, styles.signatureCapturedFallback]}>
-                      <Text style={styles.signatureCapturedText}>✓ Signature on file</Text>
-                    </View>
+              {renderSignaturePreview(effectiveSignatureData, false) ?? (
+                <View style={styles.signaturePreview}>
+                  <View style={[styles.signaturePreviewBox, styles.signatureCapturedFallback]}>
+                    <Text style={styles.signatureCapturedText}>✓ Signature on file</Text>
                   </View>
-                );
-              })()}
+                </View>
+              )}
             </View>
           )}
           {/* When opened from Shopping app with cart/intent data, show Confirm button */}
@@ -1261,6 +1232,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
     alignItems: 'center',
+    minHeight: 80,
+  },
+  signatureImage: {
+    width: '100%',
+    height: 120,
     minHeight: 80,
   },
   signatureCapturedFallback: {
