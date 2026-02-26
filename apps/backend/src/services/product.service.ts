@@ -490,13 +490,18 @@ export class ProductService {
 
         // Fallback: when URL extraction fails (403/429 from TripAdvisor, Hotels.com, etc.),
         // use SerpAPI results as lightweight products with price parsed from snippet
-        if (extractedProducts.length < 2 && shoppableResults.length > 0 && isTravel) {
-          console.log(`⚠️  Few products extracted (${extractedProducts.length}) — using SerpAPI results as fallback`);
+        const isTravelOrHotel = isTravel || productType === 'hotel';
+        if (extractedProducts.length < 2 && shoppableResults.length > 0 && isTravelOrHotel) {
+          console.log(`⚠️  Few products extracted (${extractedProducts.length}) — using SerpAPI results as fallback (${shoppableResults.length} shoppable)`);
           const extractedUrls = new Set(extractedProducts.map(p => p.productUrl).filter(Boolean));
           const fallbackProducts = shoppableResults
             .slice(0, 8)
-            .filter((r: any) => r.url && !extractedUrls.has(r.url))
+            .filter((r: any) => {
+              const url = r.url || r.link;
+              return url && !extractedUrls.has(url);
+            })
             .map((result: any) => {
+              const url = result.url || result.link;
               const priceFromSnippet = extractPriceFromText(result.snippet || '', 'USD');
               const price = priceFromSnippet?.value ?? undefined;
               const currency = priceFromSnippet?.currency || 'USD';
@@ -507,7 +512,7 @@ export class ProductService {
                 price,
                 currency,
                 imageUrl: result.image || undefined,
-                productUrl: result.url,
+                productUrl: url,
                 source: `google_search:${result.displayUrl || 'fallback'}`,
                 rawData: { fallback: true, originalSnippet: result.snippet },
                 aiExtracted: false,
