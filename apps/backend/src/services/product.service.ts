@@ -17,7 +17,7 @@ import { MCPService, TravelSearchParams } from './mcp.service';
 import { NLPService, ParsedSearchQuery } from './nlp.service';
 import { AppError } from '../middleware/errorHandler';
 import { isDemoUserById } from '../utils/demo-users';
-import { extractPriceFromGoogleShoppingResult, parsePrice } from '../utils/price-extractor';
+import { extractPriceFromGoogleShoppingResult, extractPriceFromText, parsePrice } from '../utils/price-extractor';
 import { extractOriginDestinationFromQuery } from '../utils/travel-query-extractor';
 
 export class ProductService {
@@ -60,7 +60,7 @@ export class ProductService {
       console.log(`🔄 No demo products matched, falling back to Google search for: "${request.query}"`);
       // Fall through to Google search below
     } else if (isDemoUser && skipDemoForTravel) {
-      console.log(`✈️  Demo user: skipping demo for flight search, using real SerpAPI for: "${request.query}"`);
+      console.log(`✈️  Demo user: skipping demo for travel search (flight/hotel), using real APIs for: "${request.query}"`);
     }
 
     // Create search query record
@@ -487,6 +487,36 @@ export class ProductService {
         extractedProducts = (await Promise.all(extractionPromises)).filter(
           (p): p is CreateProductDTO => p !== null
         );
+
+        // Fallback: when URL extraction fails (403/429 from TripAdvisor, Hotels.com, etc.),
+        // use SerpAPI results as lightweight products with price parsed from snippet
+        if (extractedProducts.length < 2 && shoppableResults.length > 0 && isTravel) {
+          console.log(`⚠️  Few products extracted (${extractedProducts.length}) — using SerpAPI results as fallback`);
+          const extractedUrls = new Set(extractedProducts.map(p => p.productUrl).filter(Boolean));
+          const fallbackProducts = shoppableResults
+            .slice(0, 8)
+            .filter((r: any) => r.url && !extractedUrls.has(r.url))
+            .map((result: any) => {
+              const priceFromSnippet = extractPriceFromText(result.snippet || '', 'USD');
+              const price = priceFromSnippet?.value ?? undefined;
+              const currency = priceFromSnippet?.currency || 'USD';
+              return {
+                userId,
+                name: result.title || 'Hotel',
+                description: result.snippet || '',
+                price,
+                currency,
+                imageUrl: result.image || undefined,
+                productUrl: result.url,
+                source: `google_search:${result.displayUrl || 'fallback'}`,
+                rawData: { fallback: true, originalSnippet: result.snippet },
+                aiExtracted: false,
+                searchQueryId: searchQuery.id,
+              } as CreateProductDTO;
+            })
+            .filter((p: CreateProductDTO) => p.name && p.name.trim());
+          extractedProducts = [...extractedProducts, ...fallbackProducts];
+        }
       }
 
       console.log(`✅ Successfully extracted ${extractedProducts.length} products`);
