@@ -315,24 +315,32 @@ export const VrpConsentScreen: React.FC = () => {
                 <Text style={styles.addPaymentText}>+ Add Payment Method</Text>
               </TouchableOpacity>
             ) : (
-              paymentMethods.map(pm => (
+              <>
+                {paymentMethods.map(pm => (
+                  <TouchableOpacity
+                    key={pm.id}
+                    style={[
+                      styles.paymentMethodOption,
+                      selectedPaymentMethod?.id === pm.id && styles.paymentMethodSelected,
+                    ]}
+                    onPress={() => setSelectedPaymentMethod(pm)}
+                  >
+                    <Text style={styles.paymentMethodIcon}>
+                      {pm.type === 'card' ? '💳' : pm.type === 'paypal' ? '🅿️' : '🏦'}
+                    </Text>
+                    <Text style={styles.paymentMethodLabel}>{pm.label}</Text>
+                    {selectedPaymentMethod?.id === pm.id && (
+                      <Text style={styles.checkIcon}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
                 <TouchableOpacity
-                  key={pm.id}
-                  style={[
-                    styles.paymentMethodOption,
-                    selectedPaymentMethod?.id === pm.id && styles.paymentMethodSelected,
-                  ]}
-                  onPress={() => setSelectedPaymentMethod(pm)}
+                  style={styles.configurePaymentButton}
+                  onPress={() => navigation.navigate('PaymentMethods')}
                 >
-                  <Text style={styles.paymentMethodIcon}>
-                    {pm.type === 'card' ? '💳' : pm.type === 'paypal' ? '🅿️' : '🏦'}
-                  </Text>
-                  <Text style={styles.paymentMethodLabel}>{pm.label}</Text>
-                  {selectedPaymentMethod?.id === pm.id && (
-                    <Text style={styles.checkIcon}>✓</Text>
-                  )}
+                  <Text style={styles.configurePaymentText}>+ Add or manage payment methods</Text>
                 </TouchableOpacity>
-              ))
+              </>
             )}
           </View>
 
@@ -566,6 +574,21 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontSize: 16,
     fontWeight: '600',
+  },
+  configurePaymentButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    backgroundColor: '#F9FAFB',
+  },
+  configurePaymentText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
   paymentMethodOption: {
     flexDirection: 'row',

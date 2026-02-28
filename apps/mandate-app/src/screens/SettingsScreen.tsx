@@ -605,7 +605,7 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.paymentMethodsText}>
             <Text style={styles.paymentMethodsLabel}>Recurring Payment Consent</Text>
             <Text style={styles.paymentMethodsCount}>
-              Set up VRP consent for AI agents
+              Configure payment options and set up VRP consent for AI agents
             </Text>
           </View>
           <Text style={styles.paymentMethodsChevron}>›</Text>
