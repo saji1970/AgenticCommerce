@@ -16,7 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
 import { SignaturePad } from '../components/SignaturePad';
 import secureElementService from '../services/secure-element.service';
-import { paymentGatewayClient, VrpConsent } from '../services/payment-gateway.client';
+import { paymentGatewayClient, VrpConsent, VrpTransaction } from '../services/payment-gateway.client';
 import { mandateServiceClient } from '../services/mandate-service.client';
 
 interface PaymentMethod {
@@ -63,6 +63,10 @@ export const VrpConsentScreen: React.FC = () => {
   // UI
   const [refreshing, setRefreshing] = useState(false);
   const [createdConsentId, setCreatedConsentId] = useState<string | null>(null);
+  const [detailConsent, setDetailConsent] = useState<VrpConsent | null>(null);
+  const [detailToken, setDetailToken] = useState<string | null>(null);
+  const [detailTransactions, setDetailTransactions] = useState<VrpTransaction[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
     loadBiometricType();
@@ -244,6 +248,28 @@ export const VrpConsentScreen: React.FC = () => {
     setAppMandateId(null);
   };
 
+  const openConsentDetail = async (consent: VrpConsent) => {
+    setDetailConsent(consent);
+    setDetailToken(null);
+    setDetailTransactions([]);
+    setLoadingDetail(true);
+    try {
+      const [storedTokens, txResult] = await Promise.all([
+        AsyncStorage.getItem('vrp_consent_tokens'),
+        paymentGatewayClient.getTransactions(consent.id),
+      ]);
+      const tokens = storedTokens ? JSON.parse(storedTokens) : {};
+      const stored = tokens[consent.id];
+      const tokenVal = typeof stored === 'string' ? stored : stored?.token;
+      setDetailToken(tokenVal || consent.consentToken || null);
+      setDetailTransactions(txResult.transactions);
+    } catch (e) {
+      console.error('Failed to load consent detail:', e);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return '#059669';
@@ -291,6 +317,14 @@ export const VrpConsentScreen: React.FC = () => {
                   APP Mandate: {consent.appMandateId.slice(0, 8)}...
                 </Text>
               )}
+              <TouchableOpacity
+                style={styles.viewTokenButton}
+                onPress={() => openConsentDetail(consent)}
+              >
+                <Text style={styles.viewTokenButtonText}>
+                  {consent.status === 'active' ? '🔑 View Payment Token & Transactions' : '📋 View Details & Transactions'}
+                </Text>
+              </TouchableOpacity>
               {consent.status === 'active' && (
                 <TouchableOpacity
                   style={styles.revokeButton}
@@ -307,7 +341,7 @@ export const VrpConsentScreen: React.FC = () => {
       {/* Configure Section */}
       {step === 'configure' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>New Recurring Payment Consent</Text>
+          <Text style={styles.sectionTitle}>New Checkout Payment Mandate</Text>
 
           {/* Agent Info */}
           <View style={styles.inputGroup}>
@@ -548,6 +582,80 @@ export const VrpConsentScreen: React.FC = () => {
         </View>
       </Modal>
 
+      {/* Consent Detail Modal - Payment Token & Transactions */}
+      <Modal
+        visible={!!detailConsent}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDetailConsent(null)}
+      >
+        <TouchableOpacity style={styles.detailModalOverlay} activeOpacity={1} onPress={() => setDetailConsent(null)}>
+          <TouchableOpacity style={styles.detailModalContent} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            {detailConsent && (
+              <>
+                <View style={styles.detailModalHeader}>
+                  <Text style={styles.detailModalTitle}>Payment Token & Details</Text>
+                  <TouchableOpacity onPress={() => setDetailConsent(null)}>
+                    <Text style={styles.detailModalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.detailModalBody} showsVerticalScrollIndicator={false}>
+                  <Text style={styles.detailLabel}>Agent</Text>
+                  <Text style={styles.detailValue}>{detailConsent.agentName}</Text>
+
+                  <Text style={styles.detailLabel}>Payment Token</Text>
+                  {loadingDetail ? (
+                    <ActivityIndicator size="small" color="#2563EB" />
+                  ) : detailToken ? (
+                    <View style={styles.tokenBox}>
+                      <Text style={styles.tokenText} selectable>
+                        {detailToken.length > 40 ? `${detailToken.slice(0, 20)}...${detailToken.slice(-16)}` : detailToken}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.detailMuted}>No token stored</Text>
+                  )}
+
+                  <Text style={styles.detailLabel}>Limits</Text>
+                  <Text style={styles.detailValue}>
+                    Per: ${detailConsent.maxAmountPerPayment.toFixed(2)} | Daily: ${detailConsent.dailyLimit?.toFixed(2) || 'N/A'} | Monthly: ${detailConsent.monthlyLimit?.toFixed(2) || 'N/A'}
+                  </Text>
+
+                  <Text style={styles.detailLabel}>Usage</Text>
+                  <Text style={styles.detailValue}>
+                    Today: ${detailConsent.amountUsedToday.toFixed(2)} | Month: ${detailConsent.amountUsedMonth.toFixed(2)}
+                  </Text>
+
+                  <Text style={[styles.detailLabel, { marginTop: 16 }]}>Transactions ({detailTransactions.length})</Text>
+                  {detailTransactions.length === 0 ? (
+                    <Text style={styles.detailMuted}>No transactions yet</Text>
+                  ) : (
+                    detailTransactions.map((tx) => (
+                      <View key={tx.id} style={styles.txRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.txAmount}>${tx.amount.toFixed(2)} {tx.currency}</Text>
+                          <Text style={styles.txMeta}>
+                            {tx.description || 'Payment'} • {new Date(tx.createdAt).toLocaleString()}
+                          </Text>
+                          {tx.transactionId && (
+                            <Text style={styles.txId}>ID: {tx.transactionId}</Text>
+                          )}
+                        </View>
+                        <View style={[styles.txStatusBadge, { backgroundColor: tx.status === 'completed' ? '#D1FAE5' : '#FEF3C7' }]}>
+                          <Text style={[styles.txStatusText, { color: tx.status === 'completed' ? '#065F46' : '#92400E' }]}>
+                            {tx.status}
+                          </Text>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </ScrollView>
+              </>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <View style={styles.bottomPadding} />
     </ScrollView>
   );
@@ -694,6 +802,20 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginBottom: 4,
   },
+  viewTokenButton: {
+    marginTop: 8,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 6,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  viewTokenButtonText: {
+    color: '#2563EB',
+    fontWeight: '600',
+    fontSize: 14,
+  },
   revokeButton: {
     marginTop: 8,
     backgroundColor: '#FEE2E2',
@@ -705,6 +827,107 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: '600',
     fontSize: 14,
+  },
+  detailModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  detailModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+  },
+  detailModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  detailModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  detailModalClose: {
+    fontSize: 24,
+    color: '#6B7280',
+    padding: 4,
+  },
+  detailModalBody: {
+    padding: 16,
+    maxHeight: 400,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 8,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  detailValue: {
+    fontSize: 15,
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  detailMuted: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  tokenBox: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  tokenText: {
+    fontSize: 13,
+    fontFamily: 'monospace',
+    color: '#374151',
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  txAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  txMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  txId: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+    fontFamily: 'monospace',
+  },
+  txStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  txStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   // Summary
   summaryCard: {

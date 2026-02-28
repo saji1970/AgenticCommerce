@@ -44,6 +44,11 @@ router.all('*', async (req: Request, res: Response) => {
       timeout: 30000,
     });
 
+    // If payment gateway returns 401 "Invalid or expired token", JWT_SECRET likely doesn't match backend
+    if (response.status === 401 && typeof response.data?.error === 'string' && response.data.error.includes('token')) {
+      console.warn('[VRP Proxy] Payment gateway rejected token. Ensure PAYMENT_GATEWAY JWT_SECRET equals BACKEND JWT_SECRET in Railway.');
+    }
+
     res.status(response.status).json(response.data);
   } catch (err: any) {
     console.error('[VRP Proxy] Error forwarding to payment gateway:', err.message);

@@ -57,7 +57,7 @@ export const ProfileScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.profileCard}>
         <Text style={styles.label}>Name</Text>
         <Text style={styles.value}>
@@ -87,7 +87,7 @@ export const ProfileScreen = () => {
         style={styles.menuItem}
         onPress={() => navigation.navigate('PaymentMandates')}
       >
-        <Text style={styles.menuItemText}>Recurring Payment Consent (VRP)</Text>
+        <Text style={styles.menuItemText}>Checkout Payment Mandate (VRP)</Text>
         <Text style={styles.menuItemSubtext}>Authorize AI agents for variable recurring payments</Text>
       </TouchableOpacity>
 

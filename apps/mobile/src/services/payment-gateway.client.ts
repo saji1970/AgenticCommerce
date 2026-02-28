@@ -105,6 +105,35 @@ class PaymentGatewayClient {
     const response = await this.client.get<{ success: boolean; data: VrpUsage }>(`/vrp/consents/${id}/usage`);
     return response.data.data;
   }
+
+  async getTransactions(consentId: string, limit = 50, offset = 0): Promise<{ transactions: VrpTransaction[]; total: number }> {
+    const response = await this.client.get<{ success: boolean; data: VrpTransaction[]; total: number }>(
+      `/vrp/consents/${consentId}/transactions`,
+      { params: { limit, offset } }
+    );
+    return { transactions: response.data.data || [], total: response.data.total || 0 };
+  }
+}
+
+export interface VrpTransaction {
+  id: string;
+  consentId: string;
+  userId: string;
+  agentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  transactionId?: string;
+  description?: string;
+  metadata?: Record<string, any>;
+  mandateId?: string;
+  appMandateId?: string;
+  cartId?: string;
+  intentId?: string;
+  merchantId?: string;
+  productInfo?: Record<string, any>;
+  createdAt: string;
+  processedAt?: string;
 }
 
 export const paymentGatewayClient = new PaymentGatewayClient();

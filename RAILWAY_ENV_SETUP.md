@@ -67,11 +67,11 @@ This document lists all environment variables required for each service when dep
 | `PORT` | Yes (Railway sets) | Use Railway's `PORT` – defaults to 3002 |
 | `DATABASE_URL` | Yes | PostgreSQL (can share with backend/mandate-service) |
 | `NODE_ENV` | No | `production` |
-| `JWT_SECRET` | Yes | For user/agent tokens |
+| `JWT_SECRET` | Yes | **Must equal backend `JWT_SECRET`** – users log in via backend; VRP requests use that token |
 | `ADMIN_JWT_SECRET` | Yes | For admin tokens – **must equal mandate-service `JWT_SECRET`** so admin login token works |
 | `JWT_EXPIRES_IN` | No | Default `7d` |
 
-**Important:** `ADMIN_JWT_SECRET` must match mandate-service `JWT_SECRET` so the admin dashboard token works for VRP admin endpoints.
+**Critical:** `JWT_SECRET` must match backend `JWT_SECRET`. Otherwise VRP create/approve returns "Invalid or expired token". `ADMIN_JWT_SECRET` must match mandate-service for admin VRP endpoints.
 
 ---
 

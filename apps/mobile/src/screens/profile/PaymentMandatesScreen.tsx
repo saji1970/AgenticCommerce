@@ -20,6 +20,7 @@ import {
   paymentGatewayClient,
   VrpConsent,
   CreateVrpConsentRequest,
+  VrpTransaction,
 } from '../../services/payment-gateway.client';
 
 const VRP_CONSENT_TOKENS_KEY = 'vrp_consent_tokens';
@@ -51,6 +52,10 @@ export const PaymentMandatesScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [detailConsent, setDetailConsent] = useState<VrpConsent | null>(null);
+  const [detailToken, setDetailToken] = useState<string | null>(null);
+  const [detailTransactions, setDetailTransactions] = useState<VrpTransaction[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Form state
   const [agentId, setAgentId] = useState(AppConfig.getDefaultAgent().id);
@@ -182,6 +187,26 @@ export const PaymentMandatesScreen: React.FC = () => {
     }
   };
 
+  const openConsentDetail = async (consent: VrpConsent) => {
+    setDetailConsent(consent);
+    setDetailToken(null);
+    setDetailTransactions([]);
+    setLoadingDetail(true);
+    try {
+      const [storedTokens, txResult] = await Promise.all([
+        AsyncStorage.getItem(VRP_CONSENT_TOKENS_KEY),
+        paymentGatewayClient.getTransactions(consent.id),
+      ]);
+      const tokens = storedTokens ? JSON.parse(storedTokens) : {};
+      setDetailToken(tokens[consent.id] || consent.consentToken || null);
+      setDetailTransactions(txResult.transactions);
+    } catch (e) {
+      console.error('Failed to load consent detail:', e);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
   const handleRevoke = (consent: VrpConsent) => {
     Alert.alert(
       'Revoke Payment Mandate',
@@ -228,7 +253,7 @@ export const PaymentMandatesScreen: React.FC = () => {
     >
       {/* Section A: Active VRP Consents */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Active Recurring Payment Consents</Text>
+        <Text style={styles.sectionTitle}>Active Checkout Payment Mandates</Text>
         {consents.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>🔄</Text>
@@ -284,6 +309,15 @@ export const PaymentMandatesScreen: React.FC = () => {
                   </Text>
                 )}
 
+                <TouchableOpacity
+                  style={styles.tokenButton}
+                  onPress={() => openConsentDetail(consent)}
+                >
+                  <Text style={styles.tokenButtonText}>
+                    {consent.status === 'active' ? '🔑 View Payment Token & Transactions' : '📋 View Details & Transactions'}
+                  </Text>
+                </TouchableOpacity>
+
                 {consent.status === 'active' && (
                   <TouchableOpacity
                     style={styles.revokeButton}
@@ -300,7 +334,7 @@ export const PaymentMandatesScreen: React.FC = () => {
 
       {/* Section B: Create VRP Consent */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Create Recurring Payment Consent</Text>
+        <Text style={styles.sectionTitle}>Create Checkout Payment Mandate</Text>
         <View style={styles.formCard}>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Agent ID</Text>
@@ -418,13 +452,87 @@ export const PaymentMandatesScreen: React.FC = () => {
             {creating ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.createButtonText}>Create Recurring Payment Consent</Text>
+              <Text style={styles.createButtonText}>Create Checkout Payment Mandate</Text>
             )}
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={{ height: 40 }} />
+
+      {/* Consent Detail Modal */}
+      <Modal
+        visible={!!detailConsent}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDetailConsent(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setDetailConsent(null)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            {detailConsent && (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Payment Token & Details</Text>
+                  <TouchableOpacity onPress={() => setDetailConsent(null)}>
+                    <Text style={styles.modalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                  <Text style={styles.detailLabel}>Agent</Text>
+                  <Text style={styles.detailValue}>{detailConsent.agentName}</Text>
+
+                  <Text style={styles.detailLabel}>Payment Token</Text>
+                  {loadingDetail ? (
+                    <ActivityIndicator size="small" color="#4F46E5" />
+                  ) : detailToken ? (
+                    <View style={styles.tokenBox}>
+                      <Text style={styles.tokenText} selectable>
+                        {detailToken.length > 40 ? `${detailToken.slice(0, 20)}...${detailToken.slice(-16)}` : detailToken}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.detailMuted}>No token stored</Text>
+                  )}
+
+                  <Text style={styles.detailLabel}>Limits</Text>
+                  <Text style={styles.detailValue}>
+                    Per: {formatCurrency(detailConsent.maxAmountPerPayment)} | Daily: {formatCurrency(detailConsent.dailyLimit)} | Monthly: {formatCurrency(detailConsent.monthlyLimit)}
+                  </Text>
+
+                  <Text style={styles.detailLabel}>Usage</Text>
+                  <Text style={styles.detailValue}>
+                    Today: {formatCurrency(detailConsent.amountUsedToday)} | Month: {formatCurrency(detailConsent.amountUsedMonth)}
+                  </Text>
+
+                  <Text style={[styles.detailLabel, { marginTop: 16 }]}>Transactions ({detailTransactions.length})</Text>
+                  {detailTransactions.length === 0 ? (
+                    <Text style={styles.detailMuted}>No transactions yet</Text>
+                  ) : (
+                    detailTransactions.map((tx) => (
+                      <View key={tx.id} style={styles.txRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.txAmount}>{formatCurrency(tx.amount)} {tx.currency}</Text>
+                          <Text style={styles.txMeta}>
+                            {tx.description || 'Payment'} • {new Date(tx.createdAt).toLocaleString()}
+                          </Text>
+                          {tx.transactionId && (
+                            <Text style={styles.txId}>ID: {tx.transactionId}</Text>
+                          )}
+                        </View>
+                        <View style={[styles.txStatusBadge, { backgroundColor: tx.status === 'completed' ? '#D1FAE5' : '#FEF3C7' }]}>
+                          <Text style={[styles.txStatusText, { color: tx.status === 'completed' ? '#065F46' : '#92400E' }]}>
+                            {tx.status}
+                          </Text>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </ScrollView>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 };
@@ -650,6 +758,121 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  tokenButton: {
+    marginTop: 10,
+    backgroundColor: '#EEF2FF',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  tokenButtonText: {
+    color: '#4F46E5',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  modalClose: {
+    fontSize: 24,
+    color: '#6B7280',
+    padding: 4,
+  },
+  modalBody: {
+    padding: 16,
+    maxHeight: 400,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 8,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  detailValue: {
+    fontSize: 15,
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  detailMuted: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  tokenBox: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  tokenText: {
+    fontSize: 13,
+    fontFamily: 'monospace',
+    color: '#374151',
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  txAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  txMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  txId: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+    fontFamily: 'monospace',
+  },
+  txStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  txStatusText: {
+    fontSize: 11,
     fontWeight: '600',
   },
 });

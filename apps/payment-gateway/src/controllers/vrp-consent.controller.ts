@@ -88,6 +88,25 @@ export const vrpConsentController = {
     }
   },
 
+  async getConsentTransactions(req: Request, res: Response) {
+    try {
+      const consentId = req.params.id;
+      const userId = req.caller?.id;
+      if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+      const consent = await vrpConsentService.getConsentById(consentId);
+      if (!consent) return res.status(404).json({ success: false, error: 'Consent not found' });
+      if (consent.userId !== userId) return res.status(403).json({ success: false, error: 'Not authorized to view this consent' });
+
+      const limit = parseInt((req.query.limit as string) || '50', 10);
+      const offset = parseInt((req.query.offset as string) || '0', 10);
+      const result = await vrpConsentService.getTransactionsByConsent(consentId, limit, offset);
+      res.json({ success: true, data: result.transactions, total: result.total });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+
   async executePayment(req: Request, res: Response) {
     try {
       const { consentId, amount, currency, description, metadata, mandateId, appMandateId, cartId, intentId, merchantId, productInfo } = req.body;
