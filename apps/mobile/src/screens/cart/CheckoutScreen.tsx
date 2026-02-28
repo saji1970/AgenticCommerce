@@ -13,11 +13,12 @@ import { useCart } from '../../contexts/CartContext';
 import { paymentService } from '../../services/payment.service';
 import { PaymentMethod } from '@agentic-commerce/shared-types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { CartStackParamList } from '../../navigation/types';
+import { CartStackParamList } from '../../types/navigation';
 import { AppConfig } from '../../config/app.config';
 import { storageService } from '../../services/storage.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { paymentGatewayClient } from '../../services/payment-gateway.client';
+import { cartService, isCartDemoMode } from '../../services/cart.service';
 
 const VRP_CONSENT_TOKENS_KEY = 'vrp_consent_tokens';
 
@@ -97,6 +98,11 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
     try {
       setLoading(true);
 
+      // When DEMO_MODE, sync local cart to backend before payment
+      if (isCartDemoMode()) {
+        await cartService.syncDemoCartToBackend();
+      }
+
       const result = await paymentService.processPayment(
         {
           cartId: cart.id,
@@ -110,22 +116,29 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
         undefined
       );
 
+      const txnId = result?.payment?.transactionId ?? 'N/A';
       Alert.alert(
         'Payment Successful!',
-        `Your order has been confirmed. Transaction ID: ${result.payment.transactionId}`,
+        `Your order has been confirmed. Transaction ID: ${txnId}`,
         [
           {
             text: 'OK',
             onPress: () => {
-              clearCart();
-              navigation.navigate('OrderHistory');
+              try {
+                clearCart();
+                navigation.navigate('OrderHistory');
+              } catch (navErr) {
+                console.error('Post-payment navigation error:', navErr);
+              }
             },
           },
         ]
       );
     } catch (err: any) {
       console.error('Payment error:', err);
-      const msg = err.response?.data?.error || err.message || 'Failed to process payment.';
+      const msg = typeof err?.response?.data?.error === 'string'
+        ? err.response.data.error
+        : err?.message || 'Failed to process payment.';
       Alert.alert('Payment Failed', msg);
     } finally {
       setLoading(false);

@@ -174,4 +174,42 @@ export const cartService = {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
+
+  /**
+   * Sync demo cart items to backend before payment.
+   * When DEMO_MODE is true, cart is stored locally but backend needs items for payment.
+   */
+  async syncDemoCartToBackend(): Promise<void> {
+    if (!DEMO_MODE) return;
+
+    const items = await getDemoCartItems();
+    if (items.length === 0) return;
+
+    const token = await storageService.getToken();
+    if (!token) throw new Error('Login required to sync cart');
+
+    const defaultAgent = AppConfig.getDefaultAgent();
+
+    // Clear backend cart first
+    await axios.post(`${API_URL}/cart/clear`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // Add each demo item to backend
+    for (const item of items) {
+      await axios.post(
+        `${API_URL}/cart`,
+        {
+          productId: item.productId,
+          productName: item.productName,
+          productImage: item.productImage,
+          quantity: item.quantity,
+          price: item.price,
+          agentId: defaultAgent.id,
+          agentName: defaultAgent.name,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    }
+  },
 };

@@ -11,7 +11,7 @@ import {
 import { useCart } from '../../contexts/CartContext';
 import { CartItemCard } from '../../components/cart/CartItemCard';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { CartStackParamList } from '../../navigation/types';
+import { CartStackParamList } from '../../types/navigation';
 
 type CartScreenNavigationProp = NativeStackNavigationProp<CartStackParamList, 'Cart'>;
 

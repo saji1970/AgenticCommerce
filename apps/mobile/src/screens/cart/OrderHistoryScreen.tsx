@@ -11,7 +11,7 @@ import {
 import { paymentService } from '../../services/payment.service';
 import { Order } from '@agentic-commerce/shared-types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { CartStackParamList } from '../../navigation/types';
+import { CartStackParamList } from '../../types/navigation';
 
 type OrderHistoryScreenNavigationProp = NativeStackNavigationProp<CartStackParamList, 'OrderHistory'>;
 

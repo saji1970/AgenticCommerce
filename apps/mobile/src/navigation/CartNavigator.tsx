@@ -4,8 +4,15 @@ import { CartStackParamList } from '../types/navigation';
 import { CartScreen } from '../screens/cart/CartScreen';
 import { CheckoutScreen } from '../screens/cart/CheckoutScreen';
 import { OrderHistoryScreen } from '../screens/cart/OrderHistoryScreen';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const Stack = createStackNavigator<CartStackParamList>();
+
+const CheckoutWithErrorBoundary = (props: any) => (
+  <ErrorBoundary>
+    <CheckoutScreen {...props} />
+  </ErrorBoundary>
+);
 
 export const CartNavigator = () => {
   return (
@@ -17,7 +24,7 @@ export const CartNavigator = () => {
       />
       <Stack.Screen
         name="Checkout"
-        component={CheckoutScreen}
+        component={CheckoutWithErrorBoundary}
         options={{ title: 'Checkout' }}
       />
       <Stack.Screen

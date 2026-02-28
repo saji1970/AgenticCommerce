@@ -45,7 +45,11 @@ export const paymentService = {
     const response = await axios.post(`${API_URL}/payments`, paymentPayload, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    return response.data.data;
+    const data = response?.data?.data;
+    if (!data) {
+      throw new Error('Invalid payment response from server');
+    }
+    return data;
   },
 
   async getOrderHistory(page: number = 1, limit: number = 10): Promise<OrderHistoryResponse> {
