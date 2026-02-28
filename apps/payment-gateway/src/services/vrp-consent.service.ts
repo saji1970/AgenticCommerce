@@ -14,6 +14,8 @@ export const vrpConsentService = {
     monthlyLimit?: number;
     expiryDate?: string;
     constraints?: Record<string, any>;
+    appMandateId?: string;
+    merchantId?: string;
   }): Promise<VrpConsent> {
     return vrpConsentRepository.create(data);
   },
@@ -70,6 +72,12 @@ export const vrpConsentService = {
     currency?: string;
     description?: string;
     metadata?: Record<string, any>;
+    mandateId?: string;
+    appMandateId?: string;
+    cartId?: string;
+    intentId?: string;
+    merchantId?: string;
+    productInfo?: Record<string, any>;
   }): Promise<{ transaction: VrpTransaction; gatewayResult: any }> {
     const consent = await vrpConsentRepository.getById(data.consentId);
     if (!consent) throw new Error('Consent not found');
@@ -121,6 +129,12 @@ export const vrpConsentService = {
       currency: data.currency,
       description: data.description,
       metadata: data.metadata,
+      mandateId: data.mandateId,
+      appMandateId: data.appMandateId || consent.appMandateId || undefined,
+      cartId: data.cartId,
+      intentId: data.intentId,
+      merchantId: data.merchantId || consent.merchantId || undefined,
+      productInfo: data.productInfo,
     });
 
     // Process payment (mock gateway - always approves)
@@ -194,7 +208,7 @@ export const vrpConsentService = {
     return vrpConsentRepository.getByUserId(userId, status);
   },
 
-  async getAllConsents(filters?: { status?: string; agentId?: string; limit?: number; offset?: number }): Promise<{ consents: VrpConsent[]; total: number }> {
+  async getAllConsents(filters?: { status?: string; agentId?: string; merchantId?: string; userId?: string; limit?: number; offset?: number }): Promise<{ consents: VrpConsent[]; total: number }> {
     return vrpConsentRepository.getAll(filters);
   },
 
@@ -202,7 +216,7 @@ export const vrpConsentService = {
     return vrpTransactionRepository.getByConsentId(consentId, limit, offset);
   },
 
-  async getAllTransactions(filters?: { status?: string; userId?: string; agentId?: string; limit?: number; offset?: number }): Promise<{ transactions: VrpTransaction[]; total: number }> {
+  async getAllTransactions(filters?: { status?: string; userId?: string; agentId?: string; mandateId?: string; merchantId?: string; limit?: number; offset?: number }): Promise<{ transactions: VrpTransaction[]; total: number }> {
     return vrpTransactionRepository.getAll(filters);
   },
 

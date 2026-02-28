@@ -157,6 +157,18 @@ async function initDatabase() {
         processed_at TIMESTAMP WITH TIME ZONE
       )
     `);
+    // Add mandate traceability columns to vrp_consents (safe for existing tables)
+    await query(`ALTER TABLE vrp_consents ADD COLUMN IF NOT EXISTS app_mandate_id VARCHAR(255)`);
+    await query(`ALTER TABLE vrp_consents ADD COLUMN IF NOT EXISTS merchant_id VARCHAR(255)`);
+
+    // Add mandate traceability columns to vrp_transactions
+    await query(`ALTER TABLE vrp_transactions ADD COLUMN IF NOT EXISTS mandate_id VARCHAR(255)`);
+    await query(`ALTER TABLE vrp_transactions ADD COLUMN IF NOT EXISTS app_mandate_id VARCHAR(255)`);
+    await query(`ALTER TABLE vrp_transactions ADD COLUMN IF NOT EXISTS cart_id VARCHAR(255)`);
+    await query(`ALTER TABLE vrp_transactions ADD COLUMN IF NOT EXISTS intent_id VARCHAR(255)`);
+    await query(`ALTER TABLE vrp_transactions ADD COLUMN IF NOT EXISTS merchant_id VARCHAR(255)`);
+    await query(`ALTER TABLE vrp_transactions ADD COLUMN IF NOT EXISTS product_info JSONB DEFAULT '{}'`);
+
     // Create indexes (safe with IF NOT EXISTS)
     await query(`CREATE INDEX IF NOT EXISTS idx_vrp_consents_user_id ON vrp_consents(user_id)`);
     await query(`CREATE INDEX IF NOT EXISTS idx_vrp_consents_agent_id ON vrp_consents(agent_id)`);
@@ -164,6 +176,8 @@ async function initDatabase() {
     await query(`CREATE INDEX IF NOT EXISTS idx_vrp_transactions_consent_id ON vrp_transactions(consent_id)`);
     await query(`CREATE INDEX IF NOT EXISTS idx_vrp_transactions_user_id ON vrp_transactions(user_id)`);
     await query(`CREATE INDEX IF NOT EXISTS idx_vrp_transactions_status ON vrp_transactions(status)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_vrp_transactions_mandate_id ON vrp_transactions(mandate_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_vrp_transactions_app_mandate_id ON vrp_transactions(app_mandate_id)`);
 
     console.log('Database tables initialized');
   } catch (error) {

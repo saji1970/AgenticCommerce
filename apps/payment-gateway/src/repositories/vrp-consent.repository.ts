@@ -18,6 +18,8 @@ export interface VrpConsent {
   lastMonthlyReset: string | null;
   consentToken: string | null;
   constraints: Record<string, any>;
+  appMandateId: string | null;
+  merchantId: string | null;
   createdAt: string;
   updatedAt: string;
   revokedAt: string | null;
@@ -43,6 +45,8 @@ function mapRowToConsent(row: any): VrpConsent {
     lastMonthlyReset: row.last_monthly_reset ?? null,
     consentToken: row.consent_token ?? null,
     constraints: row.constraints || {},
+    appMandateId: row.app_mandate_id ?? null,
+    merchantId: row.merchant_id ?? null,
     createdAt: row.created_at?.toISOString(),
     updatedAt: row.updated_at?.toISOString(),
     revokedAt: row.revoked_at?.toISOString() ?? null,
@@ -61,10 +65,12 @@ export const vrpConsentRepository = {
     monthlyLimit?: number;
     expiryDate?: string;
     constraints?: Record<string, any>;
+    appMandateId?: string;
+    merchantId?: string;
   }): Promise<VrpConsent> {
     const result = await query(
-      `INSERT INTO vrp_consents (user_id, agent_id, agent_name, payment_method, max_amount_per_payment, daily_limit, monthly_limit, expiry_date, constraints)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO vrp_consents (user_id, agent_id, agent_name, payment_method, max_amount_per_payment, daily_limit, monthly_limit, expiry_date, constraints, app_mandate_id, merchant_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         data.userId,
@@ -76,6 +82,8 @@ export const vrpConsentRepository = {
         data.monthlyLimit ?? null,
         data.expiryDate ?? null,
         JSON.stringify(data.constraints || {}),
+        data.appMandateId ?? null,
+        data.merchantId ?? null,
       ]
     );
     return mapRowToConsent(result.rows[0]);
@@ -98,7 +106,7 @@ export const vrpConsentRepository = {
     return result.rows.map(mapRowToConsent);
   },
 
-  async getAll(filters?: { status?: string; agentId?: string; limit?: number; offset?: number }): Promise<{ consents: VrpConsent[]; total: number }> {
+  async getAll(filters?: { status?: string; agentId?: string; merchantId?: string; userId?: string; limit?: number; offset?: number }): Promise<{ consents: VrpConsent[]; total: number }> {
     let countSql = 'SELECT COUNT(*) FROM vrp_consents WHERE 1=1';
     let sql = 'SELECT * FROM vrp_consents WHERE 1=1';
     const params: any[] = [];
@@ -115,6 +123,18 @@ export const vrpConsentRepository = {
       countSql += clause;
       sql += clause;
       params.push(filters.agentId);
+    }
+    if (filters?.merchantId) {
+      const clause = ` AND merchant_id = $${paramIdx++}`;
+      countSql += clause;
+      sql += clause;
+      params.push(filters.merchantId);
+    }
+    if (filters?.userId) {
+      const clause = ` AND user_id = $${paramIdx++}`;
+      countSql += clause;
+      sql += clause;
+      params.push(filters.userId);
     }
 
     const countResult = await query(countSql, params);

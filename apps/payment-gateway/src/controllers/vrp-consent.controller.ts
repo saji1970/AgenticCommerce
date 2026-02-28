@@ -4,7 +4,7 @@ import { vrpConsentService } from '../services/vrp-consent.service';
 export const vrpConsentController = {
   async createConsent(req: Request, res: Response) {
     try {
-      const { userId, agentId, agentName, paymentMethod, maxAmountPerPayment, dailyLimit, monthlyLimit, expiryDate, constraints } = req.body;
+      const { userId, agentId, agentName, paymentMethod, maxAmountPerPayment, dailyLimit, monthlyLimit, expiryDate, constraints, appMandateId, merchantId } = req.body;
 
       if (!userId || !agentId || !agentName || !paymentMethod || !maxAmountPerPayment) {
         return res.status(400).json({ success: false, error: 'Missing required fields: userId, agentId, agentName, paymentMethod, maxAmountPerPayment' });
@@ -20,6 +20,8 @@ export const vrpConsentController = {
         monthlyLimit: monthlyLimit ? parseFloat(monthlyLimit) : undefined,
         expiryDate,
         constraints,
+        appMandateId,
+        merchantId,
       });
 
       res.status(201).json({ success: true, data: consent });
@@ -88,7 +90,7 @@ export const vrpConsentController = {
 
   async executePayment(req: Request, res: Response) {
     try {
-      const { consentId, amount, currency, description, metadata } = req.body;
+      const { consentId, amount, currency, description, metadata, mandateId, appMandateId, cartId, intentId, merchantId, productInfo } = req.body;
 
       if (!consentId || !amount) {
         return res.status(400).json({ success: false, error: 'consentId and amount are required' });
@@ -104,6 +106,12 @@ export const vrpConsentController = {
         currency,
         description,
         metadata,
+        mandateId,
+        appMandateId,
+        cartId,
+        intentId,
+        merchantId,
+        productInfo,
       });
 
       res.json({ success: true, data: result });

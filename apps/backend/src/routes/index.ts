@@ -11,8 +11,12 @@ import acpRoutes from './agentic-commerce.routes';
 import merchantRoutes from './merchant.routes';
 import ap2GatewayRoutes from './ap2-gateway.routes';
 import adminRoutes from './admin.routes';
+import vrpProxyRoutes from './vrp-proxy.routes';
 
 const router: RouterType = Router();
+
+// VRP proxy - forwards to payment gateway (avoids 404 when apps use backend URL)
+router.use('/vrp', vrpProxyRoutes);
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);

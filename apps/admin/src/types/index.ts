@@ -138,6 +138,8 @@ export interface VrpConsent {
   lastMonthlyReset: string | null;
   consentToken: string | null;
   constraints: Record<string, unknown>;
+  appMandateId: string | null;
+  merchantId: string | null;
   createdAt: string;
   updatedAt: string;
   revokedAt: string | null;
@@ -155,6 +157,12 @@ export interface VrpTransaction {
   transactionId: string | null;
   description: string | null;
   metadata: Record<string, unknown>;
+  mandateId: string | null;
+  appMandateId: string | null;
+  cartId: string | null;
+  intentId: string | null;
+  merchantId: string | null;
+  productInfo: Record<string, unknown>;
   createdAt: string;
   processedAt: string | null;
 }

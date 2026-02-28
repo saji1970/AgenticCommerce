@@ -312,7 +312,7 @@ vrpApiClient.interceptors.response.use(
 );
 
 export const vrpConsentsApi = {
-  getAll: async (params?: { status?: string; agentId?: string; limit?: number; offset?: number }) => {
+  getAll: async (params?: { status?: string; agentId?: string; merchantId?: string; userId?: string; limit?: number; offset?: number }) => {
     const response = await vrpApiClient.get('/vrp-consents', { params });
     return response.data;
   },

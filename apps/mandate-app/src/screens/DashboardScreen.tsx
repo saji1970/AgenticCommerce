@@ -182,6 +182,16 @@ export const DashboardScreen: React.FC = () => {
               Review all authorizations
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => (navigation as any).navigate('Settings', { screen: 'VrpConsent' })}
+          >
+            <Text style={styles.actionIcon}>🔄</Text>
+            <Text style={styles.actionLabel}>Recurring Payment Consent</Text>
+            <Text style={styles.actionDescription}>
+              Set up VRP for AI agents
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 

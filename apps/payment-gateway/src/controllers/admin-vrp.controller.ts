@@ -4,10 +4,12 @@ import { vrpConsentService } from '../services/vrp-consent.service';
 export const adminVrpController = {
   async listConsents(req: Request, res: Response) {
     try {
-      const { status, agentId, limit, offset } = req.query;
+      const { status, agentId, merchantId, userId, limit, offset } = req.query;
       const result = await vrpConsentService.getAllConsents({
         status: status as string,
         agentId: agentId as string,
+        merchantId: merchantId as string,
+        userId: userId as string,
         limit: limit ? parseInt(limit as string, 10) : undefined,
         offset: offset ? parseInt(offset as string, 10) : undefined,
       });
@@ -47,11 +49,13 @@ export const adminVrpController = {
 
   async listAllTransactions(req: Request, res: Response) {
     try {
-      const { status, userId, agentId, limit, offset } = req.query;
+      const { status, userId, agentId, mandateId, merchantId, limit, offset } = req.query;
       const result = await vrpConsentService.getAllTransactions({
         status: status as string,
         userId: userId as string,
         agentId: agentId as string,
+        mandateId: mandateId as string,
+        merchantId: merchantId as string,
         limit: limit ? parseInt(limit as string, 10) : undefined,
         offset: offset ? parseInt(offset as string, 10) : undefined,
       });

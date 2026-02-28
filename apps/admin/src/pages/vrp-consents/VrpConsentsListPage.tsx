@@ -157,6 +157,7 @@ export function VrpConsentsListPage() {
                   <TableHead>User ID</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Limits</TableHead>
+                  <TableHead>APP Mandate</TableHead>
                   <TableHead>Usage</TableHead>
                   <TableHead>Created</TableHead>
                   {canManage && <TableHead>Actions</TableHead>}
@@ -181,6 +182,13 @@ export function VrpConsentsListPage() {
                       ${consent.maxAmountPerPayment?.toFixed(2)}/tx
                       {consent.dailyLimit != null && ` · $${consent.dailyLimit}/day`}
                       {consent.monthlyLimit != null && ` · $${consent.monthlyLimit}/mo`}
+                    </TableCell>
+                    <TableCell>
+                      {consent.appMandateId ? (
+                        <span className="font-mono text-xs text-blue-600">{consent.appMandateId.slice(0, 8)}...</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm">
                       ${consent.amountUsedToday?.toFixed(2) ?? 0} today · ${consent.amountUsedMonth?.toFixed(2) ?? 0} month

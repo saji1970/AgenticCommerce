@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS vrp_consents (
   consent_token TEXT,
   -- Metadata
   constraints JSONB DEFAULT '{}',
+  -- Mandate traceability
+  app_mandate_id VARCHAR(255),
+  merchant_id VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   revoked_at TIMESTAMP WITH TIME ZONE,
@@ -45,6 +48,13 @@ CREATE TABLE IF NOT EXISTS vrp_transactions (
   transaction_id VARCHAR(255),
   description TEXT,
   metadata JSONB DEFAULT '{}',
+  -- Mandate traceability
+  mandate_id VARCHAR(255),
+  app_mandate_id VARCHAR(255),
+  cart_id VARCHAR(255),
+  intent_id VARCHAR(255),
+  merchant_id VARCHAR(255),
+  product_info JSONB DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   processed_at TIMESTAMP WITH TIME ZONE
 );
@@ -52,3 +62,5 @@ CREATE TABLE IF NOT EXISTS vrp_transactions (
 CREATE INDEX IF NOT EXISTS idx_vrp_transactions_consent_id ON vrp_transactions(consent_id);
 CREATE INDEX IF NOT EXISTS idx_vrp_transactions_user_id ON vrp_transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_vrp_transactions_status ON vrp_transactions(status);
+CREATE INDEX IF NOT EXISTS idx_vrp_transactions_mandate_id ON vrp_transactions(mandate_id);
+CREATE INDEX IF NOT EXISTS idx_vrp_transactions_app_mandate_id ON vrp_transactions(app_mandate_id);

@@ -27,6 +27,7 @@ This document lists all environment variables required for each service when dep
 | `CORS_ORIGIN` | Yes | Comma-separated frontend URLs (e.g. `https://yourapp.com`) |
 | `API_URL` | No | Backend base URL (e.g. `https://backend.railway.app`) |
 | `MANDATE_SERVICE_URL` | Yes | Mandate service URL (e.g. `https://mandate-service.railway.app/api`) |
+| `PAYMENT_GATEWAY_URL` | Yes (for VRP) | Payment gateway URL (e.g. `https://payment-gateway-production.up.railway.app`) – backend proxies `/api/vrp` to this |
 | `MANDATE_SERVICE_ADMIN_TOKEN` | No | Admin token for mandate-service API calls |
 | `ANTHROPIC_API_KEY` | Yes (for AI) | Claude API key |
 | `ANTHROPIC_MODEL` | No | Default `claude-sonnet-4-20250514` |

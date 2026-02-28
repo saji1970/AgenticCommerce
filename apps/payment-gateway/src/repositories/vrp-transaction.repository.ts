@@ -11,6 +11,12 @@ export interface VrpTransaction {
   transactionId: string | null;
   description: string | null;
   metadata: Record<string, any>;
+  mandateId: string | null;
+  appMandateId: string | null;
+  cartId: string | null;
+  intentId: string | null;
+  merchantId: string | null;
+  productInfo: Record<string, any>;
   createdAt: string;
   processedAt: string | null;
 }
@@ -27,6 +33,12 @@ function mapRowToTransaction(row: any): VrpTransaction {
     transactionId: row.transaction_id ?? null,
     description: row.description ?? null,
     metadata: row.metadata || {},
+    mandateId: row.mandate_id ?? null,
+    appMandateId: row.app_mandate_id ?? null,
+    cartId: row.cart_id ?? null,
+    intentId: row.intent_id ?? null,
+    merchantId: row.merchant_id ?? null,
+    productInfo: row.product_info || {},
     createdAt: row.created_at?.toISOString(),
     processedAt: row.processed_at?.toISOString() ?? null,
   };
@@ -41,10 +53,16 @@ export const vrpTransactionRepository = {
     currency?: string;
     description?: string;
     metadata?: Record<string, any>;
+    mandateId?: string;
+    appMandateId?: string;
+    cartId?: string;
+    intentId?: string;
+    merchantId?: string;
+    productInfo?: Record<string, any>;
   }): Promise<VrpTransaction> {
     const result = await query(
-      `INSERT INTO vrp_transactions (consent_id, user_id, agent_id, amount, currency, description, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO vrp_transactions (consent_id, user_id, agent_id, amount, currency, description, metadata, mandate_id, app_mandate_id, cart_id, intent_id, merchant_id, product_info)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         data.consentId,
@@ -54,6 +72,12 @@ export const vrpTransactionRepository = {
         data.currency || 'USD',
         data.description || null,
         JSON.stringify(data.metadata || {}),
+        data.mandateId || null,
+        data.appMandateId || null,
+        data.cartId || null,
+        data.intentId || null,
+        data.merchantId || null,
+        JSON.stringify(data.productInfo || {}),
       ]
     );
     return mapRowToTransaction(result.rows[0]);
@@ -83,7 +107,7 @@ export const vrpTransactionRepository = {
     return { transactions: result.rows.map(mapRowToTransaction), total };
   },
 
-  async getAll(filters?: { status?: string; userId?: string; agentId?: string; limit?: number; offset?: number }): Promise<{ transactions: VrpTransaction[]; total: number }> {
+  async getAll(filters?: { status?: string; userId?: string; agentId?: string; mandateId?: string; merchantId?: string; limit?: number; offset?: number }): Promise<{ transactions: VrpTransaction[]; total: number }> {
     let countSql = 'SELECT COUNT(*) FROM vrp_transactions WHERE 1=1';
     let sql = 'SELECT * FROM vrp_transactions WHERE 1=1';
     const params: any[] = [];
@@ -106,6 +130,18 @@ export const vrpTransactionRepository = {
       countSql += clause;
       sql += clause;
       params.push(filters.agentId);
+    }
+    if (filters?.mandateId) {
+      const clause = ` AND mandate_id = $${paramIdx++}`;
+      countSql += clause;
+      sql += clause;
+      params.push(filters.mandateId);
+    }
+    if (filters?.merchantId) {
+      const clause = ` AND merchant_id = $${paramIdx++}`;
+      countSql += clause;
+      sql += clause;
+      params.push(filters.merchantId);
     }
 
     const countResult = await query(countSql, params);

@@ -114,6 +114,29 @@ export function VrpConsentDetailModal({
             )}
           </div>
 
+          {/* Mandate Traceability */}
+          {(consent.appMandateId || consent.merchantId) && (
+            <div className="bg-blue-50 rounded-lg p-4 space-y-2 border border-blue-200">
+              <h3 className="font-semibold text-sm text-blue-700 uppercase tracking-wide">
+                Mandate Traceability
+              </h3>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                {consent.appMandateId && (
+                  <div>
+                    <span className="text-blue-600">APP Mandate:</span>{' '}
+                    <code className="text-xs bg-white px-1 py-0.5 rounded">{consent.appMandateId}</code>
+                  </div>
+                )}
+                {consent.merchantId && (
+                  <div>
+                    <span className="text-blue-600">Merchant ID:</span>{' '}
+                    <code className="text-xs bg-white px-1 py-0.5 rounded">{consent.merchantId}</code>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Limits & Usage */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-lg p-4">
@@ -202,12 +225,16 @@ export function VrpConsentDetailModal({
               <p className="text-sm text-gray-500">No transactions yet</p>
             ) : (
               <div className="border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium text-gray-600">ID</th>
                       <th className="text-right px-3 py-2 font-medium text-gray-600">Amount</th>
                       <th className="text-left px-3 py-2 font-medium text-gray-600">Status</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Mandate</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Cart / Intent</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Product</th>
                       <th className="text-left px-3 py-2 font-medium text-gray-600">Date</th>
                     </tr>
                   </thead>
@@ -223,6 +250,27 @@ export function VrpConsentDetailModal({
                         <td className="px-3 py-2">
                           <Badge variant={statusVariant(tx.status)}>{tx.status}</Badge>
                         </td>
+                        <td className="px-3 py-2">
+                          {tx.mandateId ? (
+                            <code className="text-xs text-blue-600">{tx.mandateId.slice(0, 8)}...</code>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-xs">
+                          {tx.cartId && <div>Cart: {tx.cartId.slice(0, 8)}...</div>}
+                          {tx.intentId && <div>Intent: {tx.intentId.slice(0, 8)}...</div>}
+                          {!tx.cartId && !tx.intentId && <span className="text-gray-400">-</span>}
+                        </td>
+                        <td className="px-3 py-2 text-xs">
+                          {tx.productInfo && Object.keys(tx.productInfo).length > 0 ? (
+                            <span title={JSON.stringify(tx.productInfo)}>
+                              {(tx.productInfo as any).name || (tx.productInfo as any).sku || 'View'}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-gray-500">
                           {formatDate(tx.createdAt)}
                         </td>
@@ -230,6 +278,7 @@ export function VrpConsentDetailModal({
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </div>

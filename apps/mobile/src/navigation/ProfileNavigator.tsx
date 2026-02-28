@@ -3,6 +3,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { ProfileStackParamList } from '../types/navigation';
 import { ProfileScreen } from '../screens/profile';
 import { PaymentMethodsScreen } from '../screens/profile/PaymentMethodsScreen';
+import { PaymentMandatesScreen } from '../screens/profile/PaymentMandatesScreen';
 import { MandateManagementScreen } from '../screens/mandate/MandateManagementScreen';
 
 const Stack = createStackNavigator<ProfileStackParamList>();
@@ -23,6 +24,11 @@ export const ProfileNavigator = () => {
         name="PaymentMethods"
         component={PaymentMethodsScreen}
         options={{ title: 'Payment Methods' }}
+      />
+      <Stack.Screen
+        name="PaymentMandates"
+        component={PaymentMandatesScreen}
+        options={{ title: 'Recurring Payment Consent' }}
       />
       <Stack.Screen
         name="MandateManagement"

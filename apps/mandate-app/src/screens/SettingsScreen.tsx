@@ -328,6 +328,26 @@ export const SettingsScreen: React.FC = () => {
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
+      {/* Recurring Payment Consent - Prominent at top */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recurring Payments</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.paymentMethodsCard, styles.vrpHighlightCard]}
+          onPress={() => navigation.navigate('VrpConsent')}
+        >
+          <Text style={styles.paymentMethodsIcon}>🔄</Text>
+          <View style={styles.paymentMethodsText}>
+            <Text style={styles.paymentMethodsLabel}>Recurring Payment Consent (VRP)</Text>
+            <Text style={styles.paymentMethodsCount}>
+              Configure payment options and authorize AI agents for variable recurring payments
+            </Text>
+          </View>
+          <Text style={styles.paymentMethodsChevron}>›</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Demo Mode Toggle */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -586,26 +606,6 @@ export const SettingsScreen: React.FC = () => {
               {paymentMethodCount === 0
                 ? 'No methods saved'
                 : `${paymentMethodCount} method${paymentMethodCount !== 1 ? 's' : ''} saved`}
-            </Text>
-          </View>
-          <Text style={styles.paymentMethodsChevron}>›</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Recurring Payment Consent */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recurring Payments</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.paymentMethodsCard}
-          onPress={() => navigation.navigate('VrpConsent')}
-        >
-          <Text style={styles.paymentMethodsIcon}>🔄</Text>
-          <View style={styles.paymentMethodsText}>
-            <Text style={styles.paymentMethodsLabel}>Recurring Payment Consent</Text>
-            <Text style={styles.paymentMethodsCount}>
-              Configure payment options and set up VRP consent for AI agents
             </Text>
           </View>
           <Text style={styles.paymentMethodsChevron}>›</Text>
@@ -899,6 +899,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+  },
+  vrpHighlightCard: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
   },
   paymentMethodsIcon: {
     fontSize: 28,

@@ -1,10 +1,11 @@
 import axios, { AxiosInstance } from 'axios';
+import { storageService } from './storage.service';
 
 // Payment Gateway API Configuration
 // Dev: direct to local payment-gateway. Prod: use backend proxy (avoids 404 if payment-gateway URL differs)
 const PAYMENT_GATEWAY_URL = __DEV__
-  ? 'http://10.0.2.2:3002/api' // Local payment-gateway
-  : 'https://agenticcommerce-production.up.railway.app/api'; // Backend proxies /api/vrp to payment-gateway
+  ? 'http://10.0.2.2:3002/api'
+  : 'https://agenticcommerce-production.up.railway.app/api';
 
 export interface VrpConsent {
   id: string;
@@ -61,10 +62,15 @@ class PaymentGatewayClient {
       baseURL: PAYMENT_GATEWAY_URL,
       headers: { 'Content-Type': 'application/json' },
     });
-  }
 
-  setAuthToken(token: string) {
-    this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    // Add auth token interceptor
+    this.client.interceptors.request.use(async (config) => {
+      const token = await storageService.getToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
   }
 
   async createConsent(data: CreateVrpConsentRequest): Promise<VrpConsent> {
@@ -76,11 +82,6 @@ class PaymentGatewayClient {
     const params: any = {};
     if (status) params.status = status;
     const response = await this.client.get<{ success: boolean; data: VrpConsent[] }>(`/vrp/consents/user/${userId}`, { params });
-    return response.data.data;
-  }
-
-  async getConsent(id: string): Promise<VrpConsent> {
-    const response = await this.client.get<{ success: boolean; data: VrpConsent }>(`/vrp/consents/${id}`);
     return response.data.data;
   }
 
@@ -102,11 +103,6 @@ class PaymentGatewayClient {
 
   async getUsage(id: string): Promise<VrpUsage> {
     const response = await this.client.get<{ success: boolean; data: VrpUsage }>(`/vrp/consents/${id}/usage`);
-    return response.data.data;
-  }
-
-  async validateToken(token: string): Promise<{ valid: boolean; consent?: VrpConsent; error?: string }> {
-    const response = await this.client.post<{ success: boolean; data: any }>('/vrp/validate-token', { token });
     return response.data.data;
   }
 }

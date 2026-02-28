@@ -17,6 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { SignaturePad } from '../components/SignaturePad';
 import secureElementService from '../services/secure-element.service';
 import { paymentGatewayClient, VrpConsent } from '../services/payment-gateway.client';
+import { mandateServiceClient } from '../services/mandate-service.client';
 
 interface PaymentMethod {
   id: string;
@@ -55,6 +56,9 @@ export const VrpConsentScreen: React.FC = () => {
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [approving, setApproving] = useState(false);
+
+  // Mandate linkage
+  const [appMandateId, setAppMandateId] = useState<string | null>(null);
 
   // UI
   const [refreshing, setRefreshing] = useState(false);
@@ -108,7 +112,7 @@ export const VrpConsentScreen: React.FC = () => {
     setRefreshing(false);
   };
 
-  const handleProceedToApprove = () => {
+  const handleProceedToApprove = async () => {
     if (!selectedPaymentMethod) {
       Alert.alert('Error', 'Please select a payment method');
       return;
@@ -121,6 +125,22 @@ export const VrpConsentScreen: React.FC = () => {
       Alert.alert('Error', 'Please enter a valid max payment amount');
       return;
     }
+
+    // Auto-lookup active APP mandate for this agent
+    if (user?.id) {
+      try {
+        const appMandates = await mandateServiceClient.getUserMandates(user.id, 'active', 'app');
+        const match = appMandates.find(m => m.agentId === agentId);
+        if (match) {
+          setAppMandateId(match.id);
+        } else {
+          setAppMandateId(null);
+        }
+      } catch {
+        setAppMandateId(null);
+      }
+    }
+
     setStep('approve');
   };
 
@@ -158,6 +178,7 @@ export const VrpConsentScreen: React.FC = () => {
         dailyLimit: dailyLimit ? parseFloat(dailyLimit) : undefined,
         monthlyLimit: monthlyLimit ? parseFloat(monthlyLimit) : undefined,
         expiryDate: expiryDate || undefined,
+        appMandateId: appMandateId || undefined,
       });
 
       // Step 2: Approve consent
@@ -220,6 +241,7 @@ export const VrpConsentScreen: React.FC = () => {
     setCreatedConsentId(null);
     setAgentId('');
     setAgentName('');
+    setAppMandateId(null);
   };
 
   const getStatusColor = (status: string) => {
@@ -264,6 +286,11 @@ export const VrpConsentScreen: React.FC = () => {
               <Text style={styles.consentDetail}>
                 Payment: {consent.paymentMethod?.label || 'N/A'}
               </Text>
+              {consent.appMandateId && (
+                <Text style={styles.consentDetail}>
+                  APP Mandate: {consent.appMandateId.slice(0, 8)}...
+                </Text>
+              )}
               {consent.status === 'active' && (
                 <TouchableOpacity
                   style={styles.revokeButton}
@@ -411,6 +438,9 @@ export const VrpConsentScreen: React.FC = () => {
             {dailyLimit && <Text style={styles.summaryRow}>Daily limit: ${dailyLimit}</Text>}
             {monthlyLimit && <Text style={styles.summaryRow}>Monthly limit: ${monthlyLimit}</Text>}
             {expiryDate && <Text style={styles.summaryRow}>Expires: {expiryDate}</Text>}
+            {appMandateId && (
+              <Text style={styles.summaryRow}>Linked APP Mandate: {appMandateId.slice(0, 8)}...</Text>
+            )}
           </View>
 
           {/* Agreement */}

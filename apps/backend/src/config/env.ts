@@ -95,4 +95,8 @@ export const config = {
     // Optional: Admin token for mandate-service if it requires auth
     adminToken: process.env.MANDATE_SERVICE_ADMIN_TOKEN || '',
   },
+
+  paymentGateway: {
+    url: process.env.PAYMENT_GATEWAY_URL || 'http://localhost:3002',
+  },
 };

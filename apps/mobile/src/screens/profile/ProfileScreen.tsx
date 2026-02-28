@@ -3,6 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
@@ -84,6 +85,14 @@ export const ProfileScreen = () => {
 
       <TouchableOpacity
         style={styles.menuItem}
+        onPress={() => navigation.navigate('PaymentMandates')}
+      >
+        <Text style={styles.menuItemText}>Recurring Payment Consent (VRP)</Text>
+        <Text style={styles.menuItemSubtext}>Authorize AI agents for variable recurring payments</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.menuItem}
         onPress={() => navigation.navigate('MandateManagement')}
       >
         <Text style={styles.menuItemText}>Manage Agent Mandates</Text>
@@ -91,15 +100,18 @@ export const ProfileScreen = () => {
       </TouchableOpacity>
 
       <Button title="Logout" onPress={handleLogout} variant="secondary" />
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
     backgroundColor: '#f5f5f5',
+  },
+  contentContainer: {
+    padding: 24,
+    paddingBottom: 40,
   },
   loadingContainer: {
     flex: 1,
