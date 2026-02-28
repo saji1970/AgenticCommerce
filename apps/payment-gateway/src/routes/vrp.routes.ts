@@ -16,6 +16,9 @@ router.get('/consents/:id/transactions', authenticateJWT, vrpConsentController.g
 // Agent endpoint (API key auth)
 router.post('/execute-payment', authenticateApiKey, vrpConsentController.executePayment);
 
+// User checkout: execute payment with consent token (JWT auth)
+router.post('/execute-with-token', authenticateJWT, vrpConsentController.executeWithToken);
+
 // Token validation (any auth or none)
 router.post('/validate-token', vrpConsentController.validateToken);
 

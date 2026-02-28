@@ -102,9 +102,10 @@ export const VrpConsentScreen: React.FC = () => {
     setLoadingConsents(true);
     try {
       const userConsents = await paymentGatewayClient.getUserConsents(user.id);
-      setConsents(userConsents);
+      setConsents(Array.isArray(userConsents) ? userConsents : []);
     } catch (error) {
       console.log('Could not load consents:', error);
+      setConsents([]);
     } finally {
       setLoadingConsents(false);
     }
@@ -249,6 +250,7 @@ export const VrpConsentScreen: React.FC = () => {
   };
 
   const openConsentDetail = async (consent: VrpConsent) => {
+    if (!consent?.id) return;
     setDetailConsent(consent);
     setDetailToken(null);
     setDetailTransactions([]);
@@ -256,15 +258,16 @@ export const VrpConsentScreen: React.FC = () => {
     try {
       const [storedTokens, txResult] = await Promise.all([
         AsyncStorage.getItem('vrp_consent_tokens'),
-        paymentGatewayClient.getTransactions(consent.id),
+        paymentGatewayClient.getTransactions(consent.id).catch(() => ({ transactions: [], total: 0 })),
       ]);
       const tokens = storedTokens ? JSON.parse(storedTokens) : {};
       const stored = tokens[consent.id];
       const tokenVal = typeof stored === 'string' ? stored : stored?.token;
       setDetailToken(tokenVal || consent.consentToken || null);
-      setDetailTransactions(txResult.transactions);
+      setDetailTransactions(txResult?.transactions ?? []);
     } catch (e) {
       console.error('Failed to load consent detail:', e);
+      setDetailTransactions([]);
     } finally {
       setLoadingDetail(false);
     }
@@ -287,10 +290,10 @@ export const VrpConsentScreen: React.FC = () => {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
     >
       {/* Existing Consents */}
-      {consents.length > 0 && (
+      {(consents ?? []).length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Active Consents</Text>
-          {consents.map(consent => (
+          {(consents ?? []).map(consent => (
             <View key={consent.id} style={styles.consentCard}>
               <View style={styles.consentHeader}>
                 <Text style={styles.consentAgent}>{consent.agentName}</Text>
@@ -301,13 +304,13 @@ export const VrpConsentScreen: React.FC = () => {
                 </View>
               </View>
               <Text style={styles.consentDetail}>
-                Max per payment: ${consent.maxAmountPerPayment.toFixed(2)}
+                Max per payment: ${(consent.maxAmountPerPayment ?? 0).toFixed(2)}
               </Text>
-              {consent.dailyLimit && (
-                <Text style={styles.consentDetail}>Daily limit: ${consent.dailyLimit.toFixed(2)}</Text>
+              {consent.dailyLimit != null && (
+                <Text style={styles.consentDetail}>Daily limit: ${Number(consent.dailyLimit).toFixed(2)}</Text>
               )}
-              {consent.monthlyLimit && (
-                <Text style={styles.consentDetail}>Monthly limit: ${consent.monthlyLimit.toFixed(2)}</Text>
+              {consent.monthlyLimit != null && (
+                <Text style={styles.consentDetail}>Monthly limit: ${Number(consent.monthlyLimit).toFixed(2)}</Text>
               )}
               <Text style={styles.consentDetail}>
                 Payment: {consent.paymentMethod?.label || 'N/A'}
@@ -618,12 +621,12 @@ export const VrpConsentScreen: React.FC = () => {
 
                   <Text style={styles.detailLabel}>Limits</Text>
                   <Text style={styles.detailValue}>
-                    Per: ${detailConsent.maxAmountPerPayment.toFixed(2)} | Daily: ${detailConsent.dailyLimit?.toFixed(2) || 'N/A'} | Monthly: ${detailConsent.monthlyLimit?.toFixed(2) || 'N/A'}
+                    Per: ${(detailConsent.maxAmountPerPayment ?? 0).toFixed(2)} | Daily: {detailConsent.dailyLimit != null ? `$${Number(detailConsent.dailyLimit).toFixed(2)}` : 'N/A'} | Monthly: {detailConsent.monthlyLimit != null ? `$${Number(detailConsent.monthlyLimit).toFixed(2)}` : 'N/A'}
                   </Text>
 
                   <Text style={styles.detailLabel}>Usage</Text>
                   <Text style={styles.detailValue}>
-                    Today: ${detailConsent.amountUsedToday.toFixed(2)} | Month: ${detailConsent.amountUsedMonth.toFixed(2)}
+                    Today: ${(detailConsent.amountUsedToday ?? 0).toFixed(2)} | Month: ${(detailConsent.amountUsedMonth ?? 0).toFixed(2)}
                   </Text>
 
                   <Text style={[styles.detailLabel, { marginTop: 16 }]}>Transactions ({detailTransactions.length})</Text>
@@ -633,7 +636,7 @@ export const VrpConsentScreen: React.FC = () => {
                     detailTransactions.map((tx) => (
                       <View key={tx.id} style={styles.txRow}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.txAmount}>${tx.amount.toFixed(2)} {tx.currency}</Text>
+                          <Text style={styles.txAmount}>${(tx.amount ?? 0).toFixed(2)} {tx.currency || 'USD'}</Text>
                           <Text style={styles.txMeta}>
                             {tx.description || 'Payment'} • {new Date(tx.createdAt).toLocaleString()}
                           </Text>
@@ -890,7 +893,6 @@ const styles = StyleSheet.create({
   },
   tokenText: {
     fontSize: 13,
-    fontFamily: 'monospace',
     color: '#374151',
   },
   txRow: {
@@ -917,7 +919,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9CA3AF',
     marginTop: 2,
-    fontFamily: 'monospace',
   },
   txStatusBadge: {
     paddingHorizontal: 8,

@@ -12,8 +12,9 @@ export class PaymentController {
     try {
       const userId = req.user!.userId;
       const paymentRequest = req.body;
+      const authHeader = req.headers.authorization;
 
-      const result = await this.paymentService.processPayment(userId, paymentRequest);
+      const result = await this.paymentService.processPayment(userId, paymentRequest, authHeader);
 
       res.status(201).json({
         success: true,

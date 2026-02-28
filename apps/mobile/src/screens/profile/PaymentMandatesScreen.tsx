@@ -10,6 +10,8 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -89,20 +91,22 @@ export const PaymentMandatesScreen: React.FC = () => {
     if (!user?.id) return;
     try {
       const data = await paymentGatewayClient.getUserConsents(user.id);
-      setConsents(data);
+      setConsents(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Failed to load consents:', err);
+      setConsents([]);
     }
   };
 
   const loadPaymentMethods = async () => {
     try {
       const data = await AsyncStorage.getItem(PAYMENT_METHODS_KEY);
-      if (data) {
-        setPaymentMethods(JSON.parse(data));
-      }
+      const methods: PaymentMethod[] = data ? JSON.parse(data) : [];
+      setPaymentMethods(methods);
+      setSelectedMethodIndex((i) => (i >= methods.length ? 0 : i));
     } catch {
       setPaymentMethods([]);
+      setSelectedMethodIndex(0);
     }
   };
 
@@ -113,12 +117,12 @@ export const PaymentMandatesScreen: React.FC = () => {
   }, [user?.id]);
 
   const findAppMandateForAgent = (aid: string): string | undefined => {
-    // Look for an active APP mandate matching the agent ID
-    if (activeMandates.app && (activeMandates.app as any).agentId === aid) {
-      return activeMandates.app.id;
+    const am = activeMandates ?? {};
+    const mList = mandates ?? [];
+    if (am.app && (am.app as any).agentId === aid) {
+      return am.app.id;
     }
-    // Fallback: search all mandates
-    const appMandate = mandates.find(
+    const appMandate = mList.find(
       (m) => m.type === 'app' && (m as any).agentId === aid && m.status === 'active'
     );
     return appMandate?.id;
@@ -180,14 +184,16 @@ export const PaymentMandatesScreen: React.FC = () => {
       Alert.alert('Success', 'Payment mandate created and activated');
       await loadConsents();
     } catch (err: any) {
-      const msg = err.response?.data?.error || err.message || 'Failed to create payment mandate';
-      Alert.alert('Error', typeof msg === 'string' ? msg : JSON.stringify(msg));
+      const serverError = err.response?.data?.error;
+      const msg = typeof serverError === 'string' ? serverError : err.message || 'Failed to create payment mandate';
+      Alert.alert('Error', msg);
     } finally {
       setCreating(false);
     }
   };
 
   const openConsentDetail = async (consent: VrpConsent) => {
+    if (!consent?.id) return;
     setDetailConsent(consent);
     setDetailToken(null);
     setDetailTransactions([]);
@@ -195,13 +201,15 @@ export const PaymentMandatesScreen: React.FC = () => {
     try {
       const [storedTokens, txResult] = await Promise.all([
         AsyncStorage.getItem(VRP_CONSENT_TOKENS_KEY),
-        paymentGatewayClient.getTransactions(consent.id),
+        paymentGatewayClient.getTransactions(consent.id).catch(() => ({ transactions: [], total: 0 })),
       ]);
       const tokens = storedTokens ? JSON.parse(storedTokens) : {};
-      setDetailToken(tokens[consent.id] || consent.consentToken || null);
-      setDetailTransactions(txResult.transactions);
+      const tokenVal = tokens[consent.id];
+      setDetailToken(typeof tokenVal === 'string' ? tokenVal : tokenVal?.token ?? consent.consentToken ?? null);
+      setDetailTransactions(txResult?.transactions ?? []);
     } catch (e) {
       console.error('Failed to load consent detail:', e);
+      setDetailTransactions([]);
     } finally {
       setLoadingDetail(false);
     }
@@ -233,8 +241,8 @@ export const PaymentMandatesScreen: React.FC = () => {
     return STATUS_COLORS[status] || STATUS_COLORS.expired;
   };
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return 'N/A';
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount == null || typeof amount !== 'number' || isNaN(amount)) return 'N/A';
     return `$${amount.toFixed(2)}`;
   };
 
@@ -254,14 +262,14 @@ export const PaymentMandatesScreen: React.FC = () => {
       {/* Section A: Active VRP Consents */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Active Checkout Payment Mandates</Text>
-        {consents.length === 0 ? (
+        {(consents ?? []).length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>🔄</Text>
             <Text style={styles.emptyText}>No recurring payment consents</Text>
             <Text style={styles.emptySubtext}>Create a VRP consent to authorize AI agents for recurring payments</Text>
           </View>
         ) : (
-          consents.map((consent) => {
+          (consents ?? []).map((consent) => {
             const statusStyle = getStatusStyle(consent.status);
             return (
               <View key={consent.id} style={styles.consentCard}>
@@ -511,7 +519,7 @@ export const PaymentMandatesScreen: React.FC = () => {
                     detailTransactions.map((tx) => (
                       <View key={tx.id} style={styles.txRow}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.txAmount}>{formatCurrency(tx.amount)} {tx.currency}</Text>
+                          <Text style={styles.txAmount}>{formatCurrency(tx?.amount)} {tx?.currency || 'USD'}</Text>
                           <Text style={styles.txMeta}>
                             {tx.description || 'Payment'} • {new Date(tx.createdAt).toLocaleString()}
                           </Text>
@@ -836,7 +844,6 @@ const styles = StyleSheet.create({
   },
   tokenText: {
     fontSize: 13,
-    fontFamily: 'monospace',
     color: '#374151',
   },
   txRow: {
@@ -863,7 +870,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9CA3AF',
     marginTop: 2,
-    fontFamily: 'monospace',
   },
   txStatusBadge: {
     paddingHorizontal: 8,

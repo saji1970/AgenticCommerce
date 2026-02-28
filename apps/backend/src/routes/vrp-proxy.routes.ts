@@ -48,6 +48,9 @@ router.all('*', async (req: Request, res: Response) => {
     if (response.status === 401 && typeof response.data?.error === 'string' && response.data.error.includes('token')) {
       console.warn('[VRP Proxy] Payment gateway rejected token. Ensure PAYMENT_GATEWAY JWT_SECRET equals BACKEND JWT_SECRET in Railway.');
     }
+    if (response.status >= 500) {
+      console.error('[VRP Proxy] Payment gateway error:', response.status, response.data?.error || response.data);
+    }
 
     res.status(response.status).json(response.data);
   } catch (err: any) {

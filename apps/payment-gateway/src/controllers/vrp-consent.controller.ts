@@ -27,7 +27,16 @@ export const vrpConsentController = {
       res.status(201).json({ success: true, data: consent });
     } catch (error: any) {
       console.error('Error creating VRP consent:', error);
-      res.status(500).json({ success: false, error: error.message });
+      let msg = error.message || 'Failed to create consent';
+      let status = 500;
+      if (msg.includes('invalid input syntax for type uuid') || msg.includes('invalid UUID')) {
+        msg = 'Invalid user session. Please log out and log in again via the main app.';
+        status = 400;
+      } else if (msg.includes('relation') || msg.includes('does not exist') || msg.includes('connection') || msg.includes('ECONNREFUSED')) {
+        msg = 'Payment service temporarily unavailable. Please try again later.';
+        status = 503;
+      }
+      res.status(status).json({ success: false, error: msg });
     }
   },
 
@@ -152,6 +161,49 @@ export const vrpConsentController = {
       res.json({ success: true, data: result });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
+    }
+  },
+
+  /**
+   * Execute payment using consent token (user-initiated checkout).
+   * User must be authenticated via JWT and token must belong to their consent.
+   */
+  async executeWithToken(req: Request, res: Response) {
+    try {
+      const { consentToken, amount, currency, description, metadata, cartId, intentId, productInfo } = req.body;
+      const userId = req.caller?.id;
+      if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      if (!consentToken || !amount) {
+        return res.status(400).json({ success: false, error: 'consentToken and amount are required' });
+      }
+
+      const validation = await vrpConsentService.validateToken(consentToken);
+      if (!validation.valid || !validation.consent) {
+        return res.status(400).json({ success: false, error: validation.error || 'Invalid or expired consent token' });
+      }
+      if (validation.consent.userId !== userId) {
+        return res.status(403).json({ success: false, error: 'Not authorized to use this consent' });
+      }
+
+      const result = await vrpConsentService.validateAndExecutePayment({
+        consentId: validation.consent.id,
+        agentId: validation.consent.agentId,
+        amount: parseFloat(amount),
+        currency: currency || 'USD',
+        description: description || 'Checkout payment',
+        metadata,
+        cartId,
+        intentId,
+        productInfo,
+      });
+
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      const status = error.message.includes('not found') ? 404
+        : error.message.includes('not authorized') ? 403
+        : error.message.includes('exceeds') || error.message.includes('expired') || error.message.includes('not active') ? 400
+        : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   },
 };

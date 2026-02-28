@@ -73,6 +73,13 @@ This document lists all environment variables required for each service when dep
 
 **Critical:** `JWT_SECRET` must match backend `JWT_SECRET`. Otherwise VRP create/approve returns "Invalid or expired token". `ADMIN_JWT_SECRET` must match mandate-service for admin VRP endpoints.
 
+### Troubleshooting 500 on Create Checkout Payment Mandate
+
+1. **DATABASE_URL** – Payment gateway must have `DATABASE_URL` pointing to a PostgreSQL instance. Use the same DB as backend for simplicity.
+2. **Tables** – On startup, the payment gateway creates `vrp_consents` and `vrp_transactions`. Check Railway logs for "Database tables initialized" or "Database initialization error".
+3. **PAYMENT_GATEWAY_URL** – Backend must have this set to the payment gateway's public URL (e.g. `https://payment-gateway-xxx.up.railway.app`).
+4. **User ID** – User must be logged in via the main app (backend auth). The `userId` must be a valid UUID from the backend `users` table.
+
 ---
 
 ## 4. Admin (`apps/admin`)

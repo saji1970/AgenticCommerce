@@ -1,6 +1,7 @@
 export enum PaymentMethod {
   CARD = 'card',
   PAYPAL = 'paypal',
+  VRP_MANDATE = 'vrp_mandate',
 }
 
 export enum PaymentStatus {
@@ -34,6 +35,7 @@ export interface PaymentRequest {
   paymentMethod: PaymentMethod;
   cardDetails?: CardDetails;
   paypalDetails?: PayPalDetails;
+  vrpConsentToken?: string;
   billingAddress?: {
     street: string;
     city: string;

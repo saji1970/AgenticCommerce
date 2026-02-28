@@ -113,6 +113,22 @@ class PaymentGatewayClient {
     );
     return { transactions: response.data.data || [], total: response.data.total || 0 };
   }
+
+  async executeWithToken(params: {
+    consentToken: string;
+    amount: number;
+    currency?: string;
+    description?: string;
+    cartId?: string;
+    intentId?: string;
+    productInfo?: Record<string, any>;
+  }): Promise<{ transaction: VrpTransaction; gatewayResult: any }> {
+    const response = await this.client.post<{ success: boolean; data: { transaction: VrpTransaction; gatewayResult: any } }>(
+      '/vrp/execute-with-token',
+      params
+    );
+    return response.data.data;
+  }
 }
 
 export interface VrpTransaction {

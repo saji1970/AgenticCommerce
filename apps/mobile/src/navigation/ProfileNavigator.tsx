@@ -5,8 +5,15 @@ import { ProfileScreen } from '../screens/profile';
 import { PaymentMethodsScreen } from '../screens/profile/PaymentMethodsScreen';
 import { PaymentMandatesScreen } from '../screens/profile/PaymentMandatesScreen';
 import { MandateManagementScreen } from '../screens/mandate/MandateManagementScreen';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const Stack = createStackNavigator<ProfileStackParamList>();
+
+const PaymentMandatesWithBoundary = () => (
+  <ErrorBoundary>
+    <PaymentMandatesScreen />
+  </ErrorBoundary>
+);
 
 export const ProfileNavigator = () => {
   return (
@@ -27,8 +34,8 @@ export const ProfileNavigator = () => {
       />
       <Stack.Screen
         name="PaymentMandates"
-        component={PaymentMandatesScreen}
-        options={{ title: 'Recurring Payment Consent' }}
+        component={PaymentMandatesWithBoundary}
+        options={{ title: 'Checkout Payment Mandate' }}
       />
       <Stack.Screen
         name="MandateManagement"

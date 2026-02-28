@@ -21,13 +21,17 @@ const billingAddressSchema = z.object({
 });
 
 export const paymentRequestSchema = z.object({
-  cartId: z.string().uuid(),
-  paymentMethod: z.enum(['card', 'paypal']),
+  cartId: z.string().min(1),
+  paymentMethod: z.enum(['card', 'paypal', 'vrp_mandate']),
   cardDetails: cardDetailsSchema.optional(),
   paypalDetails: paypalDetailsSchema.optional(),
   billingAddress: billingAddressSchema.optional(),
+  vrpConsentToken: z.string().optional(),
 }).refine(
   (data) => {
+    if (data.paymentMethod === 'vrp_mandate') {
+      return !!data.vrpConsentToken;
+    }
     if (data.paymentMethod === 'card') {
       return !!data.cardDetails;
     }
@@ -37,6 +41,6 @@ export const paymentRequestSchema = z.object({
     return false;
   },
   {
-    message: 'Payment details must match the selected payment method',
+    message: 'Payment details must match the selected payment method (vrp_mandate requires vrpConsentToken)',
   }
 );

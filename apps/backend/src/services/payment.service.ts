@@ -3,11 +3,13 @@ import { OrderRepository } from '../repositories/order.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { PaymentGatewayService } from './payment-gateway.service';
 import { mandateServiceClient } from '../clients/mandate-service.client';
+import { executeWithToken as vrpExecuteWithToken } from '../clients/payment-gateway.client';
 import {
   PaymentRequest,
   PaymentResponse,
   PaymentStatus,
   OrderHistoryResponse,
+  PaymentMethod,
 } from '@agentic-commerce/shared-types';
 
 export class PaymentService {
@@ -23,7 +25,7 @@ export class PaymentService {
     this.paymentGateway = new PaymentGatewayService();
   }
 
-  async processPayment(userId: string, paymentRequest: PaymentRequest & { mandateToken?: string }): Promise<PaymentResponse> {
+  async processPayment(userId: string, paymentRequest: PaymentRequest & { mandateToken?: string }, authHeader?: string): Promise<PaymentResponse> {
     // Get cart items
     const cartItems = await this.cartRepository.getUserCart(userId);
 
@@ -143,13 +145,34 @@ export class PaymentService {
       // Update payment status to processing
       await this.paymentRepository.updatePaymentStatus(payment.id, PaymentStatus.PROCESSING);
 
-      // Process payment through gateway
-      const paymentResult = await this.paymentGateway.processPayment(
-        order.total,
-        paymentRequest.paymentMethod,
-        paymentRequest.cardDetails,
-        paymentRequest.paypalDetails
-      );
+      let paymentResult: { success: boolean; transactionId?: string; errorMessage?: string };
+
+      // VRP mandate flow: use consent token via payment gateway
+      if (paymentRequest.paymentMethod === PaymentMethod.VRP_MANDATE && paymentRequest.vrpConsentToken && authHeader) {
+        const vrpResult = await vrpExecuteWithToken(
+          {
+            consentToken: paymentRequest.vrpConsentToken,
+            amount: order.total,
+            currency: 'USD',
+            description: `Order ${order.id}`,
+            cartId: order.id,
+            productInfo: { orderId: order.id, itemCount: orderItems.length },
+          },
+          authHeader
+        );
+        paymentResult = {
+          success: true,
+          transactionId: vrpResult.gatewayResult?.transactionId || vrpResult.transaction?.transactionId,
+        };
+      } else {
+        // Legacy: card or PayPal via mock gateway
+        paymentResult = await this.paymentGateway.processPayment(
+          order.total,
+          paymentRequest.paymentMethod,
+          paymentRequest.cardDetails,
+          paymentRequest.paypalDetails
+        );
+      }
 
       if (paymentResult.success) {
         // Update payment status to succeeded

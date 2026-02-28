@@ -13,8 +13,15 @@ import { DefaultLimitsScreen } from '../screens/DefaultLimitsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { PaymentMethodsScreen } from '../screens/PaymentMethodsScreen';
 import { VrpConsentScreen } from '../screens/VrpConsentScreen';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const Tab = createBottomTabNavigator();
+
+const VrpConsentWithBoundary = () => (
+  <ErrorBoundary>
+    <VrpConsentScreen />
+  </ErrorBoundary>
+);
 const Stack = createStackNavigator();
 
 const MandatesStack = () => (
@@ -61,8 +68,8 @@ const SettingsStack = () => (
     />
     <Stack.Screen
       name="VrpConsent"
-      component={VrpConsentScreen}
-      options={{ title: 'Recurring Payment Consent' }}
+      component={VrpConsentWithBoundary}
+      options={{ title: 'Checkout Payment Mandate' }}
     />
   </Stack.Navigator>
 );
