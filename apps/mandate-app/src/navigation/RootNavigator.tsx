@@ -12,6 +12,7 @@ import { AIAppsScreen } from '../screens/AIAppsScreen';
 import { DefaultLimitsScreen } from '../screens/DefaultLimitsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { PaymentMethodsScreen } from '../screens/PaymentMethodsScreen';
+import { VrpConsentScreen } from '../screens/VrpConsentScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -57,6 +58,11 @@ const SettingsStack = () => (
       name="PaymentMethods"
       component={PaymentMethodsScreen}
       options={{ title: 'Payment Methods' }}
+    />
+    <Stack.Screen
+      name="VrpConsent"
+      component={VrpConsentScreen}
+      options={{ title: 'Recurring Payment Consent' }}
     />
   </Stack.Navigator>
 );

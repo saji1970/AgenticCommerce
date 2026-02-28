@@ -592,6 +592,26 @@ export const SettingsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Recurring Payment Consent */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recurring Payments</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.paymentMethodsCard}
+          onPress={() => navigation.navigate('VrpConsent')}
+        >
+          <Text style={styles.paymentMethodsIcon}>🔄</Text>
+          <View style={styles.paymentMethodsText}>
+            <Text style={styles.paymentMethodsLabel}>Recurring Payment Consent</Text>
+            <Text style={styles.paymentMethodsCount}>
+              Set up VRP consent for AI agents
+            </Text>
+          </View>
+          <Text style={styles.paymentMethodsChevron}>›</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Clear Configuration */}
       <View style={styles.section}>
         <TouchableOpacity

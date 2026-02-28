@@ -9,6 +9,7 @@ import {
   FileText,
   Settings,
   CreditCard,
+  RefreshCw,
 } from 'lucide-react';
 
 interface NavItem {
@@ -30,6 +31,7 @@ export function Sidebar() {
     navigation.push({ name: 'Admin Users', href: '/admin-users', icon: UserCog });
     navigation.push({ name: 'End Users', href: '/users', icon: Users });
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
+    navigation.push({ name: 'VRP Consents', href: '/vrp-consents', icon: RefreshCw });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
     navigation.push({ name: 'Certificates', href: '/certificates', icon: Shield });
     navigation.push({ name: 'Audit Logs', href: '/audit-logs', icon: FileText });
@@ -38,9 +40,11 @@ export function Sidebar() {
     navigation.push({ name: 'My Merchant', href: user?.merchantId ? `/merchants/${user.merchantId}` : '/merchants', icon: Building2 });
     navigation.push({ name: 'Team Members', href: '/admin-users', icon: UserCog });
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
+    navigation.push({ name: 'VRP Consents', href: '/vrp-consents', icon: RefreshCw });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
   } else if (isMerchantOperator) {
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
+    navigation.push({ name: 'VRP Consents', href: '/vrp-consents', icon: RefreshCw });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
   }
 

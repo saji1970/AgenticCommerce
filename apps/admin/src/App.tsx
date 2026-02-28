@@ -13,6 +13,7 @@ import { AuditLogsPage } from './pages/audit/AuditLogsPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { AdminUsersPage } from './pages/admin-users/AdminUsersPage';
 import { MandatesListPage } from './pages/mandates/MandatesListPage';
+import { VrpConsentsListPage } from './pages/vrp-consents/VrpConsentsListPage';
 import { TransactionsListPage } from './pages/transactions/TransactionsListPage';
 import { LoadingPage } from './components/common';
 
@@ -119,6 +120,16 @@ function App() {
         element={
           <ProtectedRoute>
             <MandatesListPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* VRP Consents - all roles */}
+      <Route
+        path="/vrp-consents"
+        element={
+          <ProtectedRoute>
+            <VrpConsentsListPage />
           </ProtectedRoute>
         }
       />

@@ -2,6 +2,9 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config/env';
+import { query } from './config/database';
+import vrpRoutes from './routes/vrp.routes';
+import adminRoutes from './routes/admin.routes';
 
 const app: Application = express();
 
@@ -15,8 +18,8 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
-    service: 'Mock Payment Gateway',
-    version: '1.0.0',
+    service: 'Payment Gateway',
+    version: '2.0.0',
     timestamp: new Date().toISOString(),
   });
 });
@@ -25,11 +28,13 @@ app.get('/health', (req: Request, res: Response) => {
 app.get('/', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
-    service: 'Mock Payment Gateway',
-    version: '1.0.0',
+    service: 'Payment Gateway',
+    version: '2.0.0',
     endpoints: {
       health: '/health',
       processPayment: 'POST /process',
+      vrp: '/api/vrp/*',
+      admin: '/api/admin/*',
     },
   });
 });
@@ -76,7 +81,7 @@ app.post('/process', async (req: Request, res: Response) => {
       gateway: 'Mock Payment Gateway',
     };
 
-    console.log(`✅ Payment approved: ${transactionId} for $${paymentRequest.amount}`);
+    console.log(`Payment approved: ${transactionId} for $${paymentRequest.amount}`);
 
     res.status(200).json(paymentResponse);
   } catch (error: any) {
@@ -88,6 +93,12 @@ app.post('/process', async (req: Request, res: Response) => {
   }
 });
 
+// VRP routes
+app.use('/api/vrp', vrpRoutes);
+
+// Admin routes
+app.use('/api/admin', adminRoutes);
+
 // Error handling
 app.use((err: any, req: Request, res: Response, next: any) => {
   console.error('Unhandled error:', err);
@@ -97,34 +108,101 @@ app.use((err: any, req: Request, res: Response, next: any) => {
   });
 });
 
+// Initialize database tables
+async function initDatabase() {
+  if (!config.databaseUrl) {
+    console.log('No DATABASE_URL set, skipping database initialization');
+    return;
+  }
+  try {
+    // Run migration inline (creates tables if they don't exist)
+    await query(`
+      CREATE TABLE IF NOT EXISTS vrp_consents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        agent_id VARCHAR(255) NOT NULL,
+        agent_name VARCHAR(255) NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending','active','suspended','revoked','expired')),
+        payment_method JSONB NOT NULL,
+        max_amount_per_payment NUMERIC(12,2) NOT NULL,
+        daily_limit NUMERIC(12,2),
+        monthly_limit NUMERIC(12,2),
+        expiry_date TIMESTAMP WITH TIME ZONE,
+        amount_used_today NUMERIC(12,2) DEFAULT 0,
+        amount_used_month NUMERIC(12,2) DEFAULT 0,
+        transactions_today INT DEFAULT 0,
+        last_daily_reset DATE,
+        last_monthly_reset DATE,
+        consent_token TEXT,
+        constraints JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        revoked_at TIMESTAMP WITH TIME ZONE,
+        revoked_reason TEXT
+      )
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS vrp_transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        consent_id UUID NOT NULL REFERENCES vrp_consents(id),
+        user_id UUID NOT NULL,
+        agent_id VARCHAR(255) NOT NULL,
+        amount NUMERIC(12,2) NOT NULL,
+        currency VARCHAR(3) DEFAULT 'USD',
+        status VARCHAR(50) DEFAULT 'pending',
+        transaction_id VARCHAR(255),
+        description TEXT,
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        processed_at TIMESTAMP WITH TIME ZONE
+      )
+    `);
+    // Create indexes (safe with IF NOT EXISTS)
+    await query(`CREATE INDEX IF NOT EXISTS idx_vrp_consents_user_id ON vrp_consents(user_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_vrp_consents_agent_id ON vrp_consents(agent_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_vrp_consents_status ON vrp_consents(status)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_vrp_transactions_consent_id ON vrp_transactions(consent_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_vrp_transactions_user_id ON vrp_transactions(user_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_vrp_transactions_status ON vrp_transactions(status)`);
+
+    console.log('Database tables initialized');
+  } catch (error) {
+    console.error('Database initialization error:', error);
+  }
+}
+
 // Start server
 const port = parseInt(process.env.PORT || '3002', 10);
 const host = process.env.HOST || '0.0.0.0';
 
-const server = app.listen(port, host, () => {
-  console.log(`🚀 Mock Payment Gateway v1.0.0`);
-  console.log(`🌐 Server running on ${host}:${port}`);
-  console.log(`📦 Environment: ${config.env}`);
-  console.log(`✨ Health check: http://${host}:${port}/health`);
-  console.log(`✨ Process payment: POST http://${host}:${port}/process`);
-});
+initDatabase().then(() => {
+  const server = app.listen(port, host, () => {
+    console.log(`Payment Gateway v2.0.0`);
+    console.log(`Server running on ${host}:${port}`);
+    console.log(`Environment: ${config.env}`);
+    console.log(`Database: ${config.databaseUrl ? 'connected' : 'not configured'}`);
+    console.log(`Health check: http://${host}:${port}/health`);
+    console.log(`VRP API: http://${host}:${port}/api/vrp`);
+    console.log(`Admin API: http://${host}:${port}/api/admin`);
+  });
 
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+  // Handle graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully...');
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
   });
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
+  console.error('Uncaught Exception:', error);
   setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise);
+  console.error('Unhandled Rejection at:', promise);
   console.error('Reason:', reason);
   setTimeout(() => process.exit(1), 1000);
 });

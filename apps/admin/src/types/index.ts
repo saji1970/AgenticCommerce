@@ -120,6 +120,45 @@ export interface Certificate {
   updatedAt: string;
 }
 
+export interface VrpConsent {
+  id: string;
+  userId: string;
+  agentId: string;
+  agentName: string;
+  status: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
+  paymentMethod: Record<string, unknown>;
+  maxAmountPerPayment: number;
+  dailyLimit: number | null;
+  monthlyLimit: number | null;
+  expiryDate: string | null;
+  amountUsedToday: number;
+  amountUsedMonth: number;
+  transactionsToday: number;
+  lastDailyReset: string | null;
+  lastMonthlyReset: string | null;
+  consentToken: string | null;
+  constraints: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  revokedAt: string | null;
+  revokedReason: string | null;
+}
+
+export interface VrpTransaction {
+  id: string;
+  consentId: string;
+  userId: string;
+  agentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  transactionId: string | null;
+  description: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  processedAt: string | null;
+}
+
 export interface Mandate {
   id: string;
   userId: string;

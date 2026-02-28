@@ -287,6 +287,53 @@ export const usersApi = {
   },
 };
 
+// VRP Consents API (payment-gateway admin - uses /api/admin prefix)
+const vrpApiClient = axios.create({
+  baseURL: '/api/admin',
+  headers: { 'Content-Type': 'application/json' },
+});
+vrpApiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = localStorage.getItem('adminToken');
+    if (token && config.headers) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  },
+  (e) => Promise.reject(e)
+);
+vrpApiClient.interceptors.response.use(
+  (r) => r,
+  (e: AxiosError) => {
+    if (e.response?.status === 401) {
+      localStorage.removeItem('adminToken');
+      window.location.href = '/login';
+    }
+    return Promise.reject(e);
+  }
+);
+
+export const vrpConsentsApi = {
+  getAll: async (params?: { status?: string; agentId?: string; limit?: number; offset?: number }) => {
+    const response = await vrpApiClient.get('/vrp-consents', { params });
+    return response.data;
+  },
+  getById: async (id: string) => {
+    const response = await vrpApiClient.get(`/vrp-consents/${id}`);
+    return response.data;
+  },
+  getTransactions: async (id: string, params?: { limit?: number; offset?: number }) => {
+    const response = await vrpApiClient.get(`/vrp-consents/${id}/transactions`, { params });
+    return response.data;
+  },
+  suspend: async (id: string) => {
+    const response = await vrpApiClient.post(`/vrp-consents/${id}/suspend`);
+    return response.data;
+  },
+  revoke: async (id: string, reason?: string) => {
+    const response = await vrpApiClient.post(`/vrp-consents/${id}/revoke`, { reason });
+    return response.data;
+  },
+};
+
 // Settings API (kept for compatibility)
 export const settingsApi = {
   getAll: async () => {
