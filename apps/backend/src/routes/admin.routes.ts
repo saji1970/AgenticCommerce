@@ -1,11 +1,15 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
+import axios from 'axios';
 import { AdminController } from '../controllers/admin.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { requireAdmin } from '../middleware/admin.middleware';
+import { config } from '../config/env';
 
 const router: RouterType = Router();
 const adminController = new AdminController();
+
+const PAYMENT_GATEWAY_URL = config.paymentGateway.url.replace(/\/$/, '');
 
 // All admin routes require authentication and admin role
 router.use(authenticateToken);
@@ -74,5 +78,41 @@ router.get('/ap2/transactions/:id', adminController.getAP2TransactionById);
 
 // Seed Demo Data
 router.post('/seed-demo', adminController.seedDemoData);
+
+// VRP Consents & Transactions - proxy to payment gateway admin API
+router.all('/vrp-consents*', vrpAdminProxy);
+router.all('/vrp-transactions*', vrpAdminProxy);
+
+async function vrpAdminProxy(req: Request, res: Response) {
+  const path = req.path; // e.g. /vrp-consents or /vrp-consents/:id/transactions
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  const targetUrl = `${PAYMENT_GATEWAY_URL}/api/admin${path}${query}`;
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': req.headers['content-type'] || 'application/json',
+    };
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization;
+    }
+
+    const response = await axios({
+      method: req.method,
+      url: targetUrl,
+      data: req.body,
+      headers,
+      validateStatus: () => true,
+      timeout: 15000,
+    });
+
+    res.status(response.status).json(response.data);
+  } catch (err: any) {
+    console.error('[Admin VRP Proxy] Error forwarding to payment gateway:', err.message);
+    res.status(502).json({
+      success: false,
+      error: err.response?.data?.error || 'Payment gateway unavailable',
+    });
+  }
+}
 
 export default router;
