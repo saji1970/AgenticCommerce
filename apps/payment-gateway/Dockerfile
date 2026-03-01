@@ -2,16 +2,16 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Copy package files and install dependencies (skip postinstall build - we compile after copying source)
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm install --ignore-scripts
 
-# Copy source code
+# Copy source code and config
 COPY tsconfig.json ./
 COPY src/ ./src/
 
-# Clean old build artifacts and compile fresh
-RUN rm -rf dist && npx tsc
+# Compile TypeScript from source
+RUN npx tsc
 
 EXPOSE 3003
 
