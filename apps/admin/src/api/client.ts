@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = '/api/admin';
+const API_BASE_URL = '/api/v1/admin';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -35,10 +35,10 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Auth API - uses /api/auth (not /api/admin) since auth routes are separate
+// Auth API (mandate-service admin auth at /api/v1/admin)
 export const authApi = {
   login: async (email: string, password: string) => {
-    const response = await axios.post('/api/auth/login', { email, password });
+    const response = await apiClient.post('/auth/login', { email, password });
     return response.data;
   },
   logout: () => {
@@ -287,49 +287,26 @@ export const usersApi = {
   },
 };
 
-// VRP Consents API (payment-gateway admin - uses /api/admin prefix)
-const vrpApiClient = axios.create({
-  baseURL: '/api/admin',
-  headers: { 'Content-Type': 'application/json' },
-});
-vrpApiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('adminToken');
-    if (token && config.headers) config.headers.Authorization = `Bearer ${token}`;
-    return config;
-  },
-  (e) => Promise.reject(e)
-);
-vrpApiClient.interceptors.response.use(
-  (r) => r,
-  (e: AxiosError) => {
-    if (e.response?.status === 401) {
-      localStorage.removeItem('adminToken');
-      window.location.href = '/login';
-    }
-    return Promise.reject(e);
-  }
-);
-
+// VRP Consents API (proxied through mandate-service admin routes to payment gateway)
 export const vrpConsentsApi = {
   getAll: async (params?: { status?: string; agentId?: string; merchantId?: string; userId?: string; limit?: number; offset?: number }) => {
-    const response = await vrpApiClient.get('/vrp-consents', { params });
+    const response = await apiClient.get('/vrp-consents', { params });
     return response.data;
   },
   getById: async (id: string) => {
-    const response = await vrpApiClient.get(`/vrp-consents/${id}`);
+    const response = await apiClient.get(`/vrp-consents/${id}`);
     return response.data;
   },
   getTransactions: async (id: string, params?: { limit?: number; offset?: number }) => {
-    const response = await vrpApiClient.get(`/vrp-consents/${id}/transactions`, { params });
+    const response = await apiClient.get(`/vrp-consents/${id}/transactions`, { params });
     return response.data;
   },
   suspend: async (id: string) => {
-    const response = await vrpApiClient.post(`/vrp-consents/${id}/suspend`);
+    const response = await apiClient.post(`/vrp-consents/${id}/suspend`);
     return response.data;
   },
   revoke: async (id: string, reason?: string) => {
-    const response = await vrpApiClient.post(`/vrp-consents/${id}/revoke`, { reason });
+    const response = await apiClient.post(`/vrp-consents/${id}/revoke`, { reason });
     return response.data;
   },
 };

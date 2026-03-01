@@ -3,7 +3,9 @@
  * All endpoints under /api/v1/admin
  */
 
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
+import axios from 'axios';
+import { config } from '../config/env';
 import { authenticateAdmin, requireAdminRole } from '../middleware/admin-auth';
 import { validate } from '../middleware/validate';
 import { LoginSchema, CreateAdminUserSchema, UpdateAdminUserSchema } from '../schemas/admin-user.schema';
@@ -224,5 +226,45 @@ router.get('/audit-logs',
     }
   },
 );
+
+// ============================================================================
+// VRP Consents & Transactions - proxy to payment gateway admin API
+// ============================================================================
+const PAYMENT_GATEWAY_URL = config.paymentGateway.url.replace(/\/$/, '');
+
+router.all('/vrp-consents*', authenticateAdmin, vrpAdminProxy);
+router.all('/vrp-transactions*', authenticateAdmin, vrpAdminProxy);
+
+async function vrpAdminProxy(req: Request, res: Response) {
+  const path = req.path;
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  const targetUrl = `${PAYMENT_GATEWAY_URL}/api/admin${path}${qs}`;
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': req.headers['content-type'] || 'application/json',
+    };
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization;
+    }
+
+    const response = await axios({
+      method: req.method,
+      url: targetUrl,
+      data: req.body,
+      headers,
+      validateStatus: () => true,
+      timeout: 15000,
+    });
+
+    res.status(response.status).json(response.data);
+  } catch (err: any) {
+    console.error('[Admin VRP Proxy] Error forwarding to payment gateway:', err.message);
+    res.status(502).json({
+      success: false,
+      error: err.response?.data?.error || 'Payment gateway unavailable',
+    });
+  }
+}
 
 export default router;
