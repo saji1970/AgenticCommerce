@@ -30,7 +30,7 @@ export const createApp = (): Application => {
   app.get('/health', (req, res) => {
     res.json({
       status: 'ok',
-      service: 'AgenticCommerce Backend API',
+      service: 'AgenticCommerce Backend API v1.1',
       timestamp: new Date().toISOString()
     });
   });
