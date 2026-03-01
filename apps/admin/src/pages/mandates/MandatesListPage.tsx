@@ -108,6 +108,7 @@ export function MandatesListPage() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
       active: 'success',
+      completed: 'info',
       pending: 'warning',
       suspended: 'warning',
       revoked: 'error',
@@ -143,6 +144,7 @@ export function MandatesListPage() {
                   { value: '', label: 'All Statuses' },
                   { value: 'pending', label: 'Pending' },
                   { value: 'active', label: 'Active' },
+                  { value: 'completed', label: 'Completed' },
                   { value: 'suspended', label: 'Suspended' },
                   { value: 'revoked', label: 'Revoked' },
                   { value: 'expired', label: 'Expired' },

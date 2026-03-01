@@ -282,6 +282,17 @@ export class MandateService {
     return await this.mandateRepository.getUserMandates(userId, undefined, 'app');
   }
 
+  async completeMandatesAfterPayment(mandateIds: string[]) {
+    if (!mandateIds || mandateIds.length === 0) {
+      return { completed: [] };
+    }
+
+    const completed = await this.mandateRepository.completeChildMandatesByIds(mandateIds);
+    console.log(`[MandateService] Completed ${completed.length} mandates after payment:`, completed.map(m => m.id));
+
+    return { completed };
+  }
+
   async getAppMandateWithChildren(mandateId: string) {
     const mandate = await this.mandateRepository.getById(mandateId);
     if (!mandate) {

@@ -17,7 +17,7 @@ export interface AgentMandate {
   agentId: string;
   agentName: string;
   type: 'cart' | 'intent' | 'payment' | 'app';
-  status: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
+  status: 'pending' | 'active' | 'completed' | 'suspended' | 'revoked' | 'expired';
   constraints: Record<string, any>;
   parentMandateId?: string;
   paymentMethods?: any[];

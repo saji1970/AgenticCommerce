@@ -189,6 +189,22 @@ export class PaymentService {
         // Clear cart
         await this.cartRepository.clearUserCart(userId);
 
+        // Mark child mandates as completed after successful payment
+        if (mandateTokens.length > 0) {
+          try {
+            const mandateIds = mandateTokens
+              .map(t => t.mandateId)
+              .filter(id => id && id !== 'payment-mandate');
+            if (mandateIds.length > 0) {
+              await mandateServiceClient.completeMandates(mandateIds);
+              console.log('[PaymentService] Mandates marked as completed:', mandateIds);
+            }
+          } catch (completeError) {
+            // Non-blocking: payment still succeeds even if mandate-service is down
+            console.warn('[PaymentService] Failed to complete mandates (non-blocking):', completeError);
+          }
+        }
+
         return {
           payment: updatedPayment,
           order: await this.orderRepository.getOrderById(order.id) as any,

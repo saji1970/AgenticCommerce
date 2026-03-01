@@ -7,7 +7,7 @@ export interface AgentMandate {
   agentId: string;
   agentName: string;
   type: 'cart' | 'intent' | 'payment' | 'app';
-  status: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
+  status: 'pending' | 'active' | 'completed' | 'suspended' | 'revoked' | 'expired';
   constraints: Record<string, any>;
   parentMandateId?: string;
   paymentMethods?: any[];
@@ -173,6 +173,13 @@ class MandateServiceClient {
       throw error;
     }
   }
+  /**
+   * Complete mandates after successful payment (marks child mandates as completed)
+   */
+  async completeMandates(mandateIds: string[]): Promise<void> {
+    await this.client.post('/mandates/complete', { mandateIds });
+  }
+
   /**
    * Get user's app mandates
    */

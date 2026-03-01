@@ -819,6 +819,16 @@ export const MandateDetailScreen: React.FC = () => {
         </View>
       )}
 
+      {mandate.status === 'completed' && (
+        <View style={styles.actions}>
+          <View style={[styles.infoBox, { backgroundColor: '#EFF6FF' }]}>
+            <Text style={[styles.infoText, { color: '#3B82F6' }]}>
+              This mandate has been completed. The associated purchase was processed successfully.
+            </Text>
+          </View>
+        </View>
+      )}
+
       {(mandate.status === 'revoked' || mandate.status === 'expired') && (
         <View style={styles.actions}>
           <View style={styles.infoBox}>
@@ -862,6 +872,7 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'pending': return '#F59E0B';
     case 'active': return '#10B981';
+    case 'completed': return '#3B82F6';
     case 'revoked': return '#EF4444';
     case 'suspended': return '#6B7280';
     default: return '#6B7280';

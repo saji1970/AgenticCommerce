@@ -256,6 +256,33 @@ export class MandateController {
     }
   };
 
+  // Complete mandates after successful payment
+  completeMandatesAfterPayment = async (req: Request, res: Response) => {
+    try {
+      const { mandateIds } = req.body;
+
+      if (!mandateIds || !Array.isArray(mandateIds) || mandateIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'mandateIds array is required',
+        });
+      }
+
+      const result = await this.mandateService.completeMandatesAfterPayment(mandateIds);
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error('Error completing mandates:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to complete mandates',
+      });
+    }
+  };
+
   // Validate mandate for transaction (called by agents before transactions)
   validateMandate = async (req: Request, res: Response) => {
     try {

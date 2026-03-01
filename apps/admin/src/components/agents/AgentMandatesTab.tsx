@@ -25,6 +25,7 @@ const statusOptions = [
   { value: '', label: 'All Statuses' },
   { value: 'pending', label: 'Pending' },
   { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
   { value: 'suspended', label: 'Suspended' },
   { value: 'revoked', label: 'Revoked' },
   { value: 'expired', label: 'Expired' },
@@ -69,8 +70,9 @@ export function AgentMandatesTab({ agentId }: AgentMandatesTabProps) {
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
   const getStatusBadge = (mandateStatus: string) => {
-    const variants: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
+    const variants: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
       active: 'success',
+      completed: 'info',
       pending: 'warning',
       suspended: 'error',
       revoked: 'error',

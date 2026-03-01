@@ -10,7 +10,7 @@
 
 import { auditLogService } from './audit-log.service';
 
-export type MandateState = 'draft' | 'awaiting_consent' | 'active' | 'consumed' | 'revoked' | 'expired';
+export type MandateState = 'draft' | 'awaiting_consent' | 'active' | 'completed' | 'consumed' | 'revoked' | 'expired';
 
 /**
  * Valid transitions: key = current state, value = allowed next states.
@@ -18,7 +18,8 @@ export type MandateState = 'draft' | 'awaiting_consent' | 'active' | 'consumed' 
 const VALID_TRANSITIONS: Record<MandateState, MandateState[]> = {
   draft:              ['awaiting_consent'],
   awaiting_consent:   ['active', 'revoked'],  // user can reject (revoke) during consent
-  active:             ['consumed', 'revoked', 'expired'],
+  active:             ['completed', 'consumed', 'revoked', 'expired'],
+  completed:          [],                      // terminal
   consumed:           [],                      // terminal
   revoked:            [],                      // terminal
   expired:            [],                      // terminal
@@ -27,7 +28,7 @@ const VALID_TRANSITIONS: Record<MandateState, MandateState[]> = {
 /**
  * Terminal states — no further transitions allowed.
  */
-const TERMINAL_STATES: Set<MandateState> = new Set(['consumed', 'revoked', 'expired']);
+const TERMINAL_STATES: Set<MandateState> = new Set(['completed', 'consumed', 'revoked', 'expired']);
 
 export interface TransitionResult {
   allowed: boolean;

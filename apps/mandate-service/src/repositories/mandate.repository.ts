@@ -6,7 +6,7 @@ export interface AgentMandate {
   agentId: string;
   agentName: string;
   type: 'cart' | 'intent' | 'payment' | 'app';
-  status: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
+  status: 'pending' | 'active' | 'completed' | 'suspended' | 'revoked' | 'expired';
   constraints: Record<string, any>;
   parentMandateId?: string;
   paymentMethods?: any[];
@@ -30,7 +30,7 @@ export interface CreateMandateRequest {
 }
 
 export interface UpdateMandateRequest {
-  status?: 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
+  status?: 'pending' | 'active' | 'completed' | 'suspended' | 'revoked' | 'expired';
   constraints?: Record<string, any>;
   validUntil?: Date;
   revokedReason?: string;
@@ -343,6 +343,26 @@ export class MandateRepository {
        WHERE parent_mandate_id = $1
        ORDER BY created_at DESC`,
       [parentMandateId]
+    );
+
+    return result.rows.map(row => this.mapRowToMandate(row));
+  }
+
+  async completeChildMandatesByIds(mandateIds: string[]): Promise<AgentMandate[]> {
+    if (mandateIds.length === 0) return [];
+
+    // Build parameterized placeholders: $1, $2, ...
+    const placeholders = mandateIds.map((_, i) => `$${i + 1}`).join(', ');
+
+    const result = await query(
+      `UPDATE agent_mandates
+       SET status = 'completed',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id IN (${placeholders})
+         AND type != 'app'
+         AND status = 'active'
+       RETURNING *`,
+      mandateIds
     );
 
     return result.rows.map(row => this.mapRowToMandate(row));

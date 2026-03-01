@@ -24,6 +24,11 @@ describe('MandateLifecycleService', () => {
       expect(result.allowed).toBe(true);
     });
 
+    it('allows active → completed', () => {
+      const result = mandateLifecycleService.validateTransition('active', 'completed');
+      expect(result.allowed).toBe(true);
+    });
+
     it('allows active → consumed', () => {
       const result = mandateLifecycleService.validateTransition('active', 'consumed');
       expect(result.allowed).toBe(true);
@@ -64,8 +69,17 @@ describe('MandateLifecycleService', () => {
 
     // ---- Terminal States ----
 
+    it('rejects completed → any state', () => {
+      const targets: MandateState[] = ['draft', 'awaiting_consent', 'active', 'consumed', 'revoked', 'expired'];
+      for (const target of targets) {
+        const result = mandateLifecycleService.validateTransition('completed', target);
+        expect(result.allowed).toBe(false);
+        expect(result.error).toContain('terminal state');
+      }
+    });
+
     it('rejects consumed → any state', () => {
-      const targets: MandateState[] = ['draft', 'awaiting_consent', 'active', 'revoked', 'expired'];
+      const targets: MandateState[] = ['draft', 'awaiting_consent', 'active', 'completed', 'revoked', 'expired'];
       for (const target of targets) {
         const result = mandateLifecycleService.validateTransition('consumed', target);
         expect(result.allowed).toBe(false);
@@ -74,7 +88,7 @@ describe('MandateLifecycleService', () => {
     });
 
     it('rejects revoked → any state', () => {
-      const targets: MandateState[] = ['draft', 'awaiting_consent', 'active', 'consumed', 'expired'];
+      const targets: MandateState[] = ['draft', 'awaiting_consent', 'active', 'completed', 'consumed', 'expired'];
       for (const target of targets) {
         const result = mandateLifecycleService.validateTransition('revoked', target);
         expect(result.allowed).toBe(false);
@@ -83,7 +97,7 @@ describe('MandateLifecycleService', () => {
     });
 
     it('rejects expired → any state', () => {
-      const targets: MandateState[] = ['draft', 'awaiting_consent', 'active', 'consumed', 'revoked'];
+      const targets: MandateState[] = ['draft', 'awaiting_consent', 'active', 'completed', 'consumed', 'revoked'];
       for (const target of targets) {
         const result = mandateLifecycleService.validateTransition('expired', target);
         expect(result.allowed).toBe(false);
@@ -103,6 +117,7 @@ describe('MandateLifecycleService', () => {
       expect(mandateLifecycleService.isExecutable('active')).toBe(true);
       expect(mandateLifecycleService.isExecutable('draft')).toBe(false);
       expect(mandateLifecycleService.isExecutable('awaiting_consent')).toBe(false);
+      expect(mandateLifecycleService.isExecutable('completed')).toBe(false);
       expect(mandateLifecycleService.isExecutable('consumed')).toBe(false);
       expect(mandateLifecycleService.isExecutable('revoked')).toBe(false);
       expect(mandateLifecycleService.isExecutable('expired')).toBe(false);
@@ -111,6 +126,7 @@ describe('MandateLifecycleService', () => {
 
   describe('isTerminal', () => {
     it('identifies terminal states correctly', () => {
+      expect(mandateLifecycleService.isTerminal('completed')).toBe(true);
       expect(mandateLifecycleService.isTerminal('consumed')).toBe(true);
       expect(mandateLifecycleService.isTerminal('revoked')).toBe(true);
       expect(mandateLifecycleService.isTerminal('expired')).toBe(true);

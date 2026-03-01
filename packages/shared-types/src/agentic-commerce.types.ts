@@ -10,6 +10,7 @@ export enum MandateType {
 export enum MandateStatus {
   PENDING = 'pending',     // Awaiting user approval
   ACTIVE = 'active',       // Currently active
+  COMPLETED = 'completed', // Successfully used in a purchase
   SUSPENDED = 'suspended', // Temporarily disabled
   REVOKED = 'revoked',     // Permanently cancelled
   EXPIRED = 'expired',     // Time limit reached

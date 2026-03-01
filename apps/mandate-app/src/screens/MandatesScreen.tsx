@@ -15,7 +15,7 @@ import { AgentMandate } from '../services/mandate-service.client';
 export const MandatesScreen: React.FC = () => {
   const navigation = useNavigation();
   const { mandates, loading, refreshMandates, revokeMandate, approveMandate } = useMandates();
-  const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'revoked'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'completed' | 'revoked'>('all');
 
   useEffect(() => {
     refreshMandates();
@@ -29,6 +29,7 @@ export const MandatesScreen: React.FC = () => {
     switch (status) {
       case 'pending': return '#F59E0B';
       case 'active': return '#10B981';
+      case 'completed': return '#3B82F6';
       case 'revoked': return '#EF4444';
       case 'suspended': return '#6B7280';
       default: return '#6B7280';
@@ -120,6 +121,11 @@ export const MandatesScreen: React.FC = () => {
             <Text style={styles.revokeButtonText}>Revoke</Text>
           </TouchableOpacity>
         )}
+        {item.status === 'completed' && (
+          <View style={[styles.inactiveLabel, { backgroundColor: '#EFF6FF' }]}>
+            <Text style={[styles.inactiveLabelText, { color: '#3B82F6' }]}>Completed</Text>
+          </View>
+        )}
         {(item.status === 'revoked' || item.status === 'expired' || item.status === 'suspended') && (
           <View style={styles.inactiveLabel}>
             <Text style={styles.inactiveLabelText}>
@@ -134,7 +140,7 @@ export const MandatesScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.filterContainer}>
-        {(['all', 'pending', 'active', 'revoked'] as const).map((f) => (
+        {(['all', 'pending', 'active', 'completed', 'revoked'] as const).map((f) => (
           <TouchableOpacity
             key={f}
             style={[styles.filterButton, filter === f && styles.filterButtonActive]}

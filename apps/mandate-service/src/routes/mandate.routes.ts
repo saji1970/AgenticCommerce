@@ -14,6 +14,9 @@ router.post('/validate', mandateController.validateMandate);
 // Validate mandate token (called by backend during checkout)
 router.post('/validate-token', mandateController.validateMandateToken);
 
+// Complete mandates after payment (called by backend after successful payment)
+router.post('/complete', mandateController.completeMandatesAfterPayment);
+
 // Get user app mandates
 router.get('/app', mandateController.getUserAppMandates);
 
