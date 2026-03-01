@@ -106,7 +106,7 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
       const result = await paymentService.processPayment(
         {
           cartId: cart.id,
-          paymentMethod: PaymentMethod.VRP_MANDATE,
+          paymentMethod: 'vrp_mandate' as PaymentMethod,
           vrpConsentToken: consentToken,
         },
         defaultAgent.id,
@@ -136,9 +136,13 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
       );
     } catch (err: any) {
       console.error('Payment error:', err);
-      const msg = typeof err?.response?.data?.error === 'string'
-        ? err.response.data.error
-        : err?.message || 'Failed to process payment.';
+      const errData = err?.response?.data?.error;
+      const msg =
+        typeof errData === 'string'
+          ? errData
+          : typeof errData?.message === 'string'
+            ? errData.message
+            : err?.message || 'Failed to process payment.';
       Alert.alert('Payment Failed', msg);
     } finally {
       setLoading(false);

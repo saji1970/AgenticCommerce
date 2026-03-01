@@ -35,8 +35,11 @@ export const paymentService = {
     }
 
     // Include mandate token(s) in the payment request for backend validation
+    // Ensure paymentMethod is a string (enum may not serialize correctly in RN bundle)
+    const method = request.paymentMethod;
     const paymentPayload = {
       ...request,
+      paymentMethod: typeof method === 'string' ? method : 'vrp_mandate',
       ...(mandateToken && { mandateToken }),
       ...(mandateTokens && mandateTokens.length > 0 && { mandateTokens }),
     };

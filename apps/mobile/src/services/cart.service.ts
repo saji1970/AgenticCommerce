@@ -188,28 +188,25 @@ export const cartService = {
     const token = await storageService.getToken();
     if (!token) throw new Error('Login required to sync cart');
 
-    const defaultAgent = AppConfig.getDefaultAgent();
-
     // Clear backend cart first
     await axios.post(`${API_URL}/cart/clear`, {}, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    // Add each demo item to backend
+    // Add each demo item to backend (no agentId to avoid mandate validation during sync)
     for (const item of items) {
-      await axios.post(
-        `${API_URL}/cart`,
-        {
-          productId: item.productId,
-          productName: item.productName,
-          productImage: item.productImage,
-          quantity: item.quantity,
-          price: item.price,
-          agentId: defaultAgent.id,
-          agentName: defaultAgent.name,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const payload: Record<string, unknown> = {
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        price: item.price,
+      };
+      if (item.productImage && /^https?:\/\//.test(String(item.productImage))) {
+        payload.productImage = item.productImage;
+      }
+      await axios.post(`${API_URL}/cart`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
     }
   },
 };

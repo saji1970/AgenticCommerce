@@ -1,6 +1,7 @@
 import React from 'react';
 import { StatusBar } from 'react-native';
 import 'react-native-gesture-handler';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ProductProvider } from './src/contexts/ProductContext';
 import { CartProvider } from './src/contexts/CartContext';
@@ -10,6 +11,7 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <AuthProvider>
       <MandateProvider>
         <IntentProvider>
@@ -22,5 +24,6 @@ export default function App() {
         </IntentProvider>
       </MandateProvider>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
