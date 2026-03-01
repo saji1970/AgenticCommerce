@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = '/api/v1/admin';
+const API_BASE_URL = '/api/admin';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -35,10 +35,10 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Auth API (now points to mandate-service admin auth)
+// Auth API - uses /api/auth (not /api/admin) since auth routes are separate
 export const authApi = {
   login: async (email: string, password: string) => {
-    const response = await apiClient.post('/auth/login', { email, password });
+    const response = await axios.post('/api/auth/login', { email, password });
     return response.data;
   },
   logout: () => {
