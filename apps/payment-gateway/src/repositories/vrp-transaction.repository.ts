@@ -86,7 +86,7 @@ export const vrpTransactionRepository = {
   async updateStatus(id: string, status: string, transactionId?: string): Promise<VrpTransaction | null> {
     const result = await query(
       `UPDATE vrp_transactions
-       SET status = $1, transaction_id = COALESCE($2, transaction_id), processed_at = CASE WHEN $1 IN ('completed','failed') THEN CURRENT_TIMESTAMP ELSE processed_at END
+       SET status = $1, transaction_id = COALESCE($2, transaction_id), processed_at = CASE WHEN $1::text IN ('completed','failed') THEN CURRENT_TIMESTAMP ELSE processed_at END
        WHERE id = $3 RETURNING *`,
       [status, transactionId || null, id]
     );
