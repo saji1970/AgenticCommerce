@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import { adminVrpController } from '../controllers/admin-vrp.controller';
-import { authenticateAny } from '../middleware/auth';
 
 const router = Router();
 
-// Admin routes - accept regular JWT (forwarded by backend proxy) or API key
-router.use(authenticateAny);
+// Admin routes - auth is handled by the upstream proxy (backend or mandate-service)
+// These endpoints are not exposed publicly, only reached via internal proxy
 
 router.get('/vrp-consents', adminVrpController.listConsents);
 router.get('/vrp-consents/:id', adminVrpController.getConsentDetail);
