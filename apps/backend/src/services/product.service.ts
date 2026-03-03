@@ -312,6 +312,109 @@ export class ProductService {
         };
       }
 
+      // ── Hotel-specific search path (destination only, no origin) ──────
+      if (isHotelQuery && destination && travelParams) {
+        console.log(`🏨 Hotel search: ${destination} (${travelParams.checkin} → ${travelParams.checkout})`);
+
+        // Run MCP hotel search (RapidAPI travel) in parallel with SerpAPI web search
+        const mcpHotelPromise = (async () => {
+          try {
+            const activeServers = await this.mcpService.listAvailableServers();
+            if (activeServers.length === 0) return [] as CreateProductDTO[];
+            console.log(`🏨 MCP hotel search on ${activeServers.map(s => s.name).join(', ')}`);
+            return await this.mcpService.searchProducts(request.query, undefined, travelParams);
+          } catch (error) {
+            console.error('MCP hotel search error:', error);
+            return [] as CreateProductDTO[];
+          }
+        })();
+
+        // SerpAPI hotel search as fallback (returns articles, but better than nothing)
+        const serpApiHotelPromise = this.searchService.search(request.query, {
+          maxResults: 8,
+          useShopping: false,
+        }).catch(err => {
+          console.error('SerpAPI hotel search error:', err);
+          return [] as any[];
+        });
+
+        const [mcpHotelResults, serpApiResults] = await Promise.all([
+          mcpHotelPromise,
+          serpApiHotelPromise,
+        ]);
+
+        // MCP results are actual hotel listings — use them as primary source
+        const mcpHotelProducts = mcpHotelResults.map(p => ({
+          ...p,
+          userId,
+          searchQueryId: searchQuery.id,
+        }));
+
+        console.log(`🏨 MCP hotels: ${mcpHotelProducts.length}, SerpAPI fallback: ${serpApiResults.length}`);
+
+        let allHotelProducts: CreateProductDTO[] = [...mcpHotelProducts];
+
+        // Only use SerpAPI results if MCP returned too few hotels
+        if (mcpHotelProducts.length < 3 && serpApiResults.length > 0) {
+          console.log(`🏨 MCP returned few results, adding SerpAPI fallback`);
+          const serpApiFallback: CreateProductDTO[] = serpApiResults.slice(0, 6).map((result: any) => {
+            const titleAndSnippet = `${result.title || ''} ${result.snippet || ''}`;
+            const priceFromText = extractPriceFromText(titleAndSnippet, 'USD');
+            return {
+              userId,
+              name: result.title || 'Hotel',
+              description: result.snippet || '',
+              price: priceFromText?.value ?? undefined,
+              currency: priceFromText?.currency || 'USD',
+              imageUrl: result.image || undefined,
+              productUrl: result.url || result.link,
+              source: `google_search:${result.displayUrl || 'fallback'}`,
+              rawData: { fallback: true, hotelDirect: true },
+              aiExtracted: false,
+              searchQueryId: searchQuery.id,
+            } as CreateProductDTO;
+          }).filter((p: CreateProductDTO) => p.name && p.name.trim());
+          allHotelProducts = [...allHotelProducts, ...serpApiFallback];
+        }
+
+        // Apply price filter
+        if (request.filters?.priceRange?.max != null) {
+          allHotelProducts = allHotelProducts.filter(p =>
+            p.price == null || p.price <= request.filters!.priceRange!.max!
+          );
+        }
+
+        // Sort by price
+        allHotelProducts.sort((a, b) => {
+          const priceA = a.price ?? Infinity;
+          const priceB = b.price ?? Infinity;
+          return priceA - priceB;
+        });
+
+        const savedProducts = await this.productRepository.bulkCreate(allHotelProducts);
+        await this.searchQueryRepository.complete(searchQuery.id, savedProducts.length);
+
+        const processingTimeMs = Date.now() - startTime;
+        console.log(`✅ Hotel search complete: ${savedProducts.length} results in ${processingTimeMs}ms`);
+
+        const sourcesUsed = ['mcp:rapidapi-travel'];
+        if (allHotelProducts.some(p => p.source?.includes('google_search'))) {
+          sourcesUsed.push('google_search');
+        }
+
+        return {
+          searchQueryId: searchQuery.id,
+          products: savedProducts,
+          filters: [],
+          metadata: {
+            totalResults: savedProducts.length,
+            processingTimeMs,
+            aiTokensUsed: 0,
+            sourcesUsed,
+          },
+        };
+      }
+
       const useShopping = isProduct && !isTravel;
 
       console.log(`🔍 Searching ${useShopping ? 'Google Shopping' : 'web'} for: "${request.query}"`);

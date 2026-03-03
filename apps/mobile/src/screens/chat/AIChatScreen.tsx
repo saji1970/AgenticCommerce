@@ -119,10 +119,11 @@ export const AIChatScreen = () => {
               ? `I found a great option for ${parsedQuery.origin} → ${parsedQuery.destination}${dateSuffix}! Does this timing work for you?`
               : `I found ${totalResults} flight options from ${parsedQuery.origin} to ${parsedQuery.destination}${dateSuffix}. Here are the best matches:`;
         } else if (productType === 'hotel') {
+          const dest = parsedQuery?.destination || '';
           summaryText =
             totalResults === 1
-              ? `I found a solid option for your stay. Check it out below.`
-              : `I found ${totalResults} hotel options for you. Here are my top picks:`;
+              ? `I found a great hotel${dest ? ` in ${dest}` : ''} for your stay:`
+              : `I found ${totalResults} hotels${dest ? ` in ${dest}` : ''}. Here are the best options:`;
         } else if (productType !== 'product') {
           summaryText = `I found ${totalResults} ${productType} option${totalResults !== 1 ? 's' : ''}. Here are the best matches:`;
         } else {

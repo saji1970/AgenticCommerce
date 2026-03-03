@@ -25,8 +25,11 @@ function detectProductType(product: Product, productTypeHint?: string): ProductD
   const name = (product.name || '').toLowerCase();
   if (name.includes(' - ') && (name.includes(' to ') || name.includes('→'))) return 'flight';
   if (product.rawData?.flights || product.rawData?.total_duration != null) return 'flight';
+  // Hotel detection: MCP source, rawData indicators, specifications, or name keywords
+  if (source.includes('rapidapi-travel') && (product.rawData?.checkin || product.rawData?.rating != null)) return 'hotel';
   if (product.rawData?.specifications?.type === 'hotel') return 'hotel';
-  if (name.includes('hotel') || name.includes('resort')) return 'hotel';
+  if (product.rawData?.checkin && product.rawData?.checkout) return 'hotel';
+  if (name.includes('hotel') || name.includes('resort') || name.includes('inn') || name.includes('suites')) return 'hotel';
   return 'physical';
 }
 
@@ -164,7 +167,93 @@ export const UniversalProductCard: React.FC<UniversalProductCardProps> = ({
     );
   }
 
-  if (displayType === 'hotel' || displayType === 'service') {
+  if (displayType === 'hotel') {
+    const raw = product.rawData || {};
+    const hotelName = product.name || 'Hotel';
+    const starRating = raw.rating ?? raw.stars ?? raw.starRating;
+    const reviewScore = raw.reviewScore ?? raw.review_score;
+    const location = raw.location ?? raw.distance ?? raw.address;
+    const checkin = raw.checkin;
+    const checkout = raw.checkout;
+    const starsDisplay = starRating ? '★'.repeat(Math.min(Math.round(Number(starRating)), 5)) : null;
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={onPress}
+        style={[styles.card, compact && styles.cardCompact]}
+      >
+        <Animated.View style={animatedStyle}>
+        {/* Hotel image */}
+        {product.imageUrl ? (
+          <Image
+            source={{ uri: product.imageUrl }}
+            style={styles.hotelImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.hotelImagePlaceholder}>
+            <Text style={styles.hotelImagePlaceholderText}>🏨</Text>
+          </View>
+        )}
+
+        {isBestValue && (
+          <View style={[styles.bestValueBadge, styles.bestValueBadgeTopRight]}>
+            <Text style={styles.bestValueText}>Best Value</Text>
+          </View>
+        )}
+
+        {/* Hotel info */}
+        <View style={styles.hotelInfo}>
+          <Text style={styles.hotelName} numberOfLines={2}>{hotelName}</Text>
+
+          <View style={styles.hotelRatingRow}>
+            {starsDisplay && (
+              <Text style={styles.hotelStars}>{starsDisplay}</Text>
+            )}
+            {reviewScore != null && (
+              <View style={styles.hotelScoreBadge}>
+                <Text style={styles.hotelScoreText}>{Number(reviewScore).toFixed(1)}</Text>
+              </View>
+            )}
+          </View>
+
+          {location && (
+            <Text style={styles.hotelLocation} numberOfLines={1}>
+              📍 {typeof location === 'string' ? location : JSON.stringify(location)}
+            </Text>
+          )}
+
+          {checkin && checkout && (
+            <Text style={styles.hotelDates}>
+              {checkin} → {checkout}
+            </Text>
+          )}
+        </View>
+
+        {/* Footer with price and action */}
+        <View style={styles.hotelFooter}>
+          <View>
+            <Text style={styles.priceBold}>{priceStr || 'View price'}</Text>
+            <Text style={styles.hotelPriceLabel}>per night</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.trackButton}
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              onPress();
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.trackButtonText}>Book Hotel</Text>
+          </TouchableOpacity>
+        </View>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  }
+
+  if (displayType === 'service') {
     const features = product.description
       ? product.description.split(/[•·\-]/).filter((s) => s.trim()).slice(0, 4)
       : [];
@@ -422,7 +511,79 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  // Service / Hotel
+  // Hotel
+  hotelImage: {
+    width: '100%' as any,
+    height: 140,
+    borderRadius: 12,
+    backgroundColor: colors.backgroundAlt,
+    marginBottom: 12,
+  },
+  hotelImagePlaceholder: {
+    width: '100%' as any,
+    height: 140,
+    borderRadius: 12,
+    backgroundColor: colors.backgroundAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  hotelImagePlaceholderText: {
+    fontSize: 36,
+  },
+  hotelInfo: {
+    marginBottom: 12,
+  },
+  hotelName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 6,
+  },
+  hotelRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 8,
+  },
+  hotelStars: {
+    fontSize: 14,
+    color: '#F59E0B',
+  },
+  hotelScoreBadge: {
+    backgroundColor: colors.action,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  hotelScoreText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  hotelLocation: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  hotelDates: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  hotelFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  hotelPriceLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  // Service
   serviceLayout: {
     flexDirection: 'row',
   },
