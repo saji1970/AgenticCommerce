@@ -264,9 +264,32 @@ export function VrpConsentDetailModal({
                         </td>
                         <td className="px-3 py-2 text-xs">
                           {tx.productInfo && Object.keys(tx.productInfo).length > 0 ? (
-                            <span title={JSON.stringify(tx.productInfo)}>
-                              {(tx.productInfo as any).name || (tx.productInfo as any).sku || 'View'}
-                            </span>
+                            <div title={JSON.stringify(tx.productInfo, null, 2)}>
+                              {Array.isArray((tx.productInfo as any).items) && (tx.productInfo as any).items.length > 0 ? (
+                                <div>
+                                  {(tx.productInfo as any).items.slice(0, 2).map((item: any, i: number) => (
+                                    <div key={i} className="truncate max-w-[160px]">
+                                      {item.name}{item.quantity > 1 ? ` x${item.quantity}` : ''}
+                                    </div>
+                                  ))}
+                                  {(tx.productInfo as any).items.length > 2 && (
+                                    <div className="text-gray-400">+{(tx.productInfo as any).items.length - 2} more</div>
+                                  )}
+                                </div>
+                              ) : (tx.productInfo as any).orderId ? (
+                                <div>
+                                  <span className="text-gray-500">Order:</span>{' '}
+                                  <code className="text-blue-600">{String((tx.productInfo as any).orderId).slice(0, 8)}...</code>
+                                  {(tx.productInfo as any).itemCount != null && (
+                                    <div className="text-gray-500">{(tx.productInfo as any).itemCount} item(s)</div>
+                                  )}
+                                </div>
+                              ) : (tx.productInfo as any).name ? (
+                                <div className="font-medium">{(tx.productInfo as any).name}</div>
+                              ) : (
+                                <span className="text-gray-500 cursor-help" title="Hover for details">Info</span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}

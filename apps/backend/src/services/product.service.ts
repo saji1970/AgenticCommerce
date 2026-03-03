@@ -112,9 +112,24 @@ export class ProductService {
             destination,
             date: startDate,
             returnDate: endDate,
-            productType: origin && destination ? 'flight' : undefined,
+            checkin: startDate,
+            checkout: endDate,
+            productType: isHotelQuery ? 'hotel' : (origin && destination ? 'flight' : undefined),
           }
         : undefined;
+
+      // For hotel queries without dates, provide sensible defaults (tomorrow + 3 nights)
+      if (travelParams && isHotelQuery && !travelParams.checkin) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const checkout = new Date(tomorrow);
+        checkout.setDate(checkout.getDate() + 3);
+        travelParams.checkin = tomorrow.toISOString().split('T')[0];
+        travelParams.checkout = checkout.toISOString().split('T')[0];
+        travelParams.date = travelParams.checkin;
+        travelParams.returnDate = travelParams.checkout;
+        console.log(`🏨 Hotel search: no dates specified, using defaults: ${travelParams.checkin} → ${travelParams.checkout}`);
+      }
 
       // For travel with origin/destination, run SerpAPI + RapidAPI + MCP travel in parallel
       if (isTravel && origin && destination) {

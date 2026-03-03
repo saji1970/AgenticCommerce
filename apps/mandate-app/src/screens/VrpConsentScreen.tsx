@@ -130,6 +130,11 @@ export const VrpConsentScreen: React.FC = () => {
       Alert.alert('Error', 'Please enter a valid max payment amount');
       return;
     }
+    if (selectedPaymentMethod.type === 'apple_pay' || selectedPaymentMethod.type === 'google_pay') {
+      const walletName = selectedPaymentMethod.type === 'apple_pay' ? 'Apple Pay' : 'Google Pay';
+      Alert.alert('Coming Soon', `${walletName} functionality will be implemented later. Please select a card or PayPal.`);
+      return;
+    }
 
     // Auto-lookup active APP mandate for this agent
     if (user?.id) {
@@ -390,7 +395,7 @@ export const VrpConsentScreen: React.FC = () => {
                     onPress={() => setSelectedPaymentMethod(pm)}
                   >
                     <Text style={styles.paymentMethodIcon}>
-                      {pm.type === 'card' ? '💳' : pm.type === 'paypal' ? '🅿️' : '🏦'}
+                      {pm.type === 'card' ? '💳' : pm.type === 'paypal' ? '🅿️' : pm.type === 'apple_pay' ? '🍎' : pm.type === 'google_pay' ? '🔵' : '🏦'}
                     </Text>
                     <Text style={styles.paymentMethodLabel}>{pm.label}</Text>
                     {selectedPaymentMethod?.id === pm.id && (
@@ -633,24 +638,34 @@ export const VrpConsentScreen: React.FC = () => {
                   {detailTransactions.length === 0 ? (
                     <Text style={styles.detailMuted}>No transactions yet</Text>
                   ) : (
-                    detailTransactions.map((tx) => (
-                      <View key={tx.id} style={styles.txRow}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.txAmount}>${(tx.amount ?? 0).toFixed(2)} {tx.currency || 'USD'}</Text>
-                          <Text style={styles.txMeta}>
-                            {tx.description || 'Payment'} • {new Date(tx.createdAt).toLocaleString()}
-                          </Text>
-                          {tx.transactionId && (
-                            <Text style={styles.txId}>ID: {tx.transactionId}</Text>
-                          )}
+                    detailTransactions.map((tx) => {
+                      const productItems = Array.isArray((tx.productInfo as any)?.items) ? (tx.productInfo as any).items : [];
+                      return (
+                        <View key={tx.id} style={styles.txRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.txAmount}>${(tx.amount ?? 0).toFixed(2)} {tx.currency || 'USD'}</Text>
+                            {productItems.length > 0 ? (
+                              <Text style={styles.txMeta} numberOfLines={2}>
+                                {productItems.map((item: any) => item.name).join(', ')}
+                              </Text>
+                            ) : (
+                              <Text style={styles.txMeta}>
+                                {tx.description || 'Payment'}
+                              </Text>
+                            )}
+                            <Text style={styles.txId}>
+                              {new Date(tx.createdAt).toLocaleString()}
+                              {tx.transactionId ? ` • ${tx.transactionId}` : ''}
+                            </Text>
+                          </View>
+                          <View style={[styles.txStatusBadge, { backgroundColor: tx.status === 'completed' ? '#D1FAE5' : '#FEF3C7' }]}>
+                            <Text style={[styles.txStatusText, { color: tx.status === 'completed' ? '#065F46' : '#92400E' }]}>
+                              {tx.status}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={[styles.txStatusBadge, { backgroundColor: tx.status === 'completed' ? '#D1FAE5' : '#FEF3C7' }]}>
-                          <Text style={[styles.txStatusText, { color: tx.status === 'completed' ? '#065F46' : '#92400E' }]}>
-                            {tx.status}
-                          </Text>
-                        </View>
-                      </View>
-                    ))
+                      );
+                    })
                   )}
                 </ScrollView>
               </>

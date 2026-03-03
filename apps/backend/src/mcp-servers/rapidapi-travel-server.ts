@@ -33,7 +33,7 @@ async function autoSuggest(query: string): Promise<SkyEntity | null> {
     try {
       const { data } = await axios.get(
         `https://${RAPIDAPI_HOST}${path}`,
-        { headers, params: { query, locale: 'en-US' } }
+        { headers, params: { query, locale: 'en-US' }, timeout: 10000 }
       );
       const places = data?.data;
       if (Array.isArray(places) && places.length > 0) {
@@ -75,6 +75,7 @@ async function searchFlights(params: {
     `https://${RAPIDAPI_HOST}/api/v2/flights/searchFlightsWebComplete`,
     {
       headers,
+      timeout: 20000,
       params: {
         originSkyId: originEntity.skyId,
         destinationSkyId: destEntity.skyId,
@@ -127,7 +128,7 @@ async function hotelAutoSuggest(query: string): Promise<string | null> {
     try {
       const { data } = await axios.get(
         `https://${RAPIDAPI_HOST}${path}`,
-        { headers, params: { query, locale: 'en-US' } }
+        { headers, params: { query, locale: 'en-US' }, timeout: 10000 }
       );
       const places = data?.data;
       if (Array.isArray(places) && places.length > 0) {
@@ -143,8 +144,8 @@ async function hotelAutoSuggest(query: string): Promise<string | null> {
         }
       }
     } catch (err: any) {
-      if (err.response?.status === 404) continue;
-      console.error('hotelAutoSuggest error:', err.message);
+      if (err.response?.status === 404 || err.response?.status === 403) continue;
+      console.error(`hotelAutoSuggest error on ${path}:`, err.message);
     }
   }
 
@@ -174,6 +175,7 @@ async function searchHotels(params: {
     `https://${RAPIDAPI_HOST}/api/v1/hotels/searchHotels`,
     {
       headers,
+      timeout: 20000,
       params: {
         entityId,
         checkin: params.checkin,

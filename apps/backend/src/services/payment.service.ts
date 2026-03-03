@@ -156,7 +156,15 @@ export class PaymentService {
             currency: 'USD',
             description: `Order ${order.id}`,
             cartId: order.id,
-            productInfo: { orderId: order.id, itemCount: orderItems.length },
+            productInfo: {
+              orderId: order.id,
+              itemCount: orderItems.length,
+              items: orderItems.slice(0, 5).map((item: any) => ({
+                name: item.productName || item.name,
+                quantity: item.quantity,
+                price: item.price,
+              })),
+            },
           },
           authHeader
         );
