@@ -112,6 +112,48 @@ async function searchFlights(params: {
   });
 }
 
+/**
+ * Resolve a destination query to a hotel-specific entityId.
+ * Uses the hotel destination endpoint instead of the flight airport endpoint,
+ * so "Paris" resolves to the city (not CDG airport).
+ */
+async function hotelAutoSuggest(query: string): Promise<string | null> {
+  const hotelPaths = [
+    '/api/v1/hotels/searchDestinationOrHotel',
+    '/api/v1/hotels/searchDestination',
+  ];
+
+  for (const path of hotelPaths) {
+    try {
+      const { data } = await axios.get(
+        `https://${RAPIDAPI_HOST}${path}`,
+        { headers, params: { query, locale: 'en-US' } }
+      );
+      const places = data?.data;
+      if (Array.isArray(places) && places.length > 0) {
+        // Prefer city-level entity over hotel-level
+        const city = places.find((p: any) =>
+          p.type === 'PLACE_TYPE_CITY' || p.type === 'city' || p.hierarchy?.includes('City')
+        );
+        const chosen = city || places[0];
+        const entityId = chosen.entityId || chosen.destId || chosen.gaiaId;
+        if (entityId) {
+          console.log(`🏨 hotelAutoSuggest: "${query}" → entityId=${entityId} (${chosen.name || chosen.presentation?.title || query})`);
+          return entityId;
+        }
+      }
+    } catch (err: any) {
+      if (err.response?.status === 404) continue;
+      console.error('hotelAutoSuggest error:', err.message);
+    }
+  }
+
+  // Fallback: use flight autoSuggest (better than nothing)
+  console.warn(`🏨 hotelAutoSuggest: hotel endpoints failed for "${query}", falling back to flight autoSuggest`);
+  const entity = await autoSuggest(query);
+  return entity?.entityId ?? null;
+}
+
 async function searchHotels(params: {
   destination: string;
   checkin: string;
@@ -119,9 +161,9 @@ async function searchHotels(params: {
   adults?: number;
   currency?: string;
 }): Promise<any[]> {
-  // Resolve destination to an entityId
-  const entity = await autoSuggest(params.destination);
-  if (!entity) {
+  // Resolve destination using hotel-specific endpoint (not flight airports)
+  const entityId = await hotelAutoSuggest(params.destination);
+  if (!entityId) {
     return [{
       error: true,
       message: `Could not resolve destination: ${params.destination}`,
@@ -133,7 +175,7 @@ async function searchHotels(params: {
     {
       headers,
       params: {
-        entityId: entity.entityId,
+        entityId,
         checkin: params.checkin,
         checkout: params.checkout,
         adults: params.adults || 1,
@@ -145,19 +187,35 @@ async function searchHotels(params: {
   );
 
   const hotels = data?.data?.hotels ?? [];
-  return hotels.slice(0, 15).map((h: any) => ({
-    id: h.hotelId,
-    name: h.name,
-    price: h.price,
-    priceRaw: typeof h.price === 'string' ? parseFloat(h.price.replace(/[^0-9.]/g, '')) : h.price,
-    rating: h.stars ?? h.rating,
-    reviewScore: h.reviewScore,
-    location: h.distance ?? h.location,
-    imageUrl: h.heroImage ?? h.images?.[0],
-    destination: params.destination,
-    checkin: params.checkin,
-    checkout: params.checkout,
-  }));
+  return hotels.slice(0, 15).map((h: any) => {
+    // Price can be a string ("$150"), number, or object ({ amount: 150, ... })
+    let priceRaw: number | undefined;
+    if (typeof h.price === 'number') {
+      priceRaw = h.price;
+    } else if (typeof h.price === 'string') {
+      priceRaw = parseFloat(h.price.replace(/[^0-9.]/g, '')) || undefined;
+    } else if (h.price?.amount != null) {
+      priceRaw = h.price.amount;
+    } else if (h.price?.raw != null) {
+      priceRaw = h.price.raw;
+    } else if (h.rawPrice != null) {
+      priceRaw = h.rawPrice;
+    }
+
+    return {
+      id: h.hotelId || h.id,
+      name: h.name || h.hotelName || 'Hotel',
+      price: h.price?.formatted ?? h.price,
+      priceRaw,
+      rating: h.stars ?? h.rating ?? h.starRating,
+      reviewScore: h.reviewScore ?? h.reviewsSummary?.score,
+      location: h.distance ?? h.location ?? h.address,
+      imageUrl: h.heroImage ?? h.images?.[0]?.url ?? h.images?.[0],
+      destination: params.destination,
+      checkin: params.checkin,
+      checkout: params.checkout,
+    };
+  });
 }
 
 // ── MCP Server ────────────────────────────────────────────────────────
