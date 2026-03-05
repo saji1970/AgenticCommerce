@@ -366,6 +366,19 @@ export class SearchService {
       if (params.excludeConns) apiParams.exclude_conns = params.excludeConns;
       if (params.maxDuration != null) apiParams.max_duration = params.maxDuration;
 
+      // Validate that departure_id and arrival_id look like valid codes (2-4 uppercase letters or /m/ kgmid)
+      // Reject anything that looks like a raw query phrase
+      const isValidCode = (code?: string) =>
+        code && (/^[A-Z]{2,4}$/.test(code) || code.startsWith('/m/'));
+      if (apiParams.departure_id && !isValidCode(apiParams.departure_id)) {
+        console.warn(`⚠️  SerpAPI: invalid departure_id "${apiParams.departure_id}" — skipping flight search`);
+        return [];
+      }
+      if (apiParams.arrival_id && !isValidCode(apiParams.arrival_id)) {
+        console.warn(`⚠️  SerpAPI: invalid arrival_id "${apiParams.arrival_id}" — skipping flight search`);
+        return [];
+      }
+
       console.log(`✈️  SerpAPI Flights search:`, {
         from: apiParams.departure_id,
         to: apiParams.arrival_id,
@@ -427,6 +440,10 @@ export class SearchService {
         'X-RapidAPI-Host': rapidHost,
       };
 
+      // Clean origin/destination: use resolveAirportCode to extract city name from phrases
+      const cleanOrigin = this.resolveAirportCode(params.origin!);
+      const cleanDestination = this.resolveAirportCode(params.destination!);
+
       // Resolve origin - try multiple endpoint paths for different sky-scrapper versions
       const searchAirportPaths = [
         '/api/v1/flights/searchAirport',
@@ -439,7 +456,7 @@ export class SearchService {
         try {
           const res = await axios.get(
             `https://${rapidHost}${path}`,
-            { headers, params: { query: params.origin, locale: 'en-US' }, timeout: 10000 }
+            { headers, params: { query: cleanOrigin, locale: 'en-US' }, timeout: 10000 }
           );
           const places = res.data?.data;
           if (Array.isArray(places) && places.length > 0) {
@@ -463,7 +480,7 @@ export class SearchService {
         try {
           const res = await axios.get(
             `https://${rapidHost}${path}`,
-            { headers, params: { query: params.destination, locale: 'en-US' }, timeout: 10000 }
+            { headers, params: { query: cleanDestination, locale: 'en-US' }, timeout: 10000 }
           );
           const places = res.data?.data;
           if (Array.isArray(places) && places.length > 0) {
@@ -749,9 +766,23 @@ export class SearchService {
       return resolved;
     }
 
-    // If the input is longer than 4 chars and not in our map, it's likely a city name
-    // that SerpAPI won't recognize. Log a warning.
+    // Fuzzy match: scan input for known city names (handles phrases like "round trip flights Atlanta")
+    // Sort by key length descending so "new york" matches before "york", "salt lake city" before "lake"
     if (cityOrCode.length > 4) {
+      const inputLower = cityOrCode.toLowerCase();
+      const sortedEntries = Object.entries(cityMap).sort((a, b) => b[0].length - a[0].length);
+      for (const [city, code] of sortedEntries) {
+        // Match as a whole word using word boundary check
+        const idx = inputLower.indexOf(city);
+        if (idx !== -1) {
+          const before = idx === 0 ? ' ' : inputLower[idx - 1];
+          const after = idx + city.length >= inputLower.length ? ' ' : inputLower[idx + city.length];
+          if (/\W/.test(before) && /\W/.test(after)) {
+            console.log(`✈️  Fuzzy airport resolve: "${cityOrCode}" → ${code} (matched "${city}")`);
+            return code;
+          }
+        }
+      }
       console.warn(`⚠️  Unknown city "${cityOrCode}" not in airport code map - passing as-is (may fail)`);
     }
 

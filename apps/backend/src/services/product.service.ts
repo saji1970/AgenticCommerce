@@ -99,6 +99,10 @@ export class ProductService {
               console.log(`✈️  Using query-extracted route: ${origin} → ${destination} (overrode NLP: ${prevOrigin || '?'} → ${prevDest || '?'})`);
             }
           }
+        } else if (extracted.destination && !destination) {
+          // Single-destination query (e.g. "round trip flights Atlanta") — fill in destination
+          destination = extracted.destination;
+          console.log(`✈️  Extracted single destination from query: ${destination}`);
         }
       }
 
