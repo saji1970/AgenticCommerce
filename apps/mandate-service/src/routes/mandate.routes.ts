@@ -14,6 +14,12 @@ router.post('/validate', mandateController.validateMandate);
 // Validate mandate token (called by backend during checkout)
 router.post('/validate-token', mandateController.validateMandateToken);
 
+// Card-on-File: Register mandate with CIT authorization
+router.post('/register-cof', mandateController.registerMandateWithCIT);
+
+// Card-on-File: Process agent payment via MIT
+router.post('/agent-payment', mandateController.processAgentPayment);
+
 // Complete mandates after payment (called by backend after successful payment)
 router.post('/complete', mandateController.completeMandatesAfterPayment);
 

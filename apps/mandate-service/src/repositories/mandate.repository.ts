@@ -16,6 +16,17 @@ export interface AgentMandate {
   revokedReason?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Card-on-File (CoF) fields
+  networkToken?: string;
+  citTransactionId?: string;
+  dailyLimit?: number;
+  periodLimit?: number;
+  periodType?: 'daily' | 'weekly' | 'monthly';
+  periodStartDate?: Date;
+  amountUsedToday?: number;
+  amountUsedPeriod?: number;
+  lastDailyReset?: Date;
+  lastPeriodReset?: Date;
 }
 
 export interface CreateMandateRequest {
@@ -368,6 +379,54 @@ export class MandateRepository {
     return result.rows.map(row => this.mapRowToMandate(row));
   }
 
+  async updateCofData(mandateId: string, data: { networkToken: string; citTransactionId: string }): Promise<AgentMandate> {
+    const result = await query(
+      `UPDATE agent_mandates
+       SET network_token = $2,
+           cit_transaction_id = $3,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [mandateId, data.networkToken, data.citTransactionId]
+    );
+    return this.mapRowToMandate(result.rows[0]);
+  }
+
+  async updateCofUsage(mandateId: string, amount: number): Promise<AgentMandate> {
+    const result = await query(
+      `UPDATE agent_mandates
+       SET amount_used_today = COALESCE(amount_used_today, 0) + $2,
+           amount_used_period = COALESCE(amount_used_period, 0) + $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [mandateId, amount]
+    );
+    return this.mapRowToMandate(result.rows[0]);
+  }
+
+  async resetDailyUsage(mandateId: string): Promise<void> {
+    await query(
+      `UPDATE agent_mandates
+       SET amount_used_today = 0,
+           last_daily_reset = CURRENT_DATE,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [mandateId]
+    );
+  }
+
+  async resetPeriodUsage(mandateId: string): Promise<void> {
+    await query(
+      `UPDATE agent_mandates
+       SET amount_used_period = 0,
+           last_period_reset = CURRENT_DATE,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [mandateId]
+    );
+  }
+
   private mapRowToMandate(row: any): AgentMandate {
     return {
       id: row.id,
@@ -389,6 +448,17 @@ export class MandateRepository {
       revokedReason: row.revoked_reason,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      // CoF fields
+      networkToken: row.network_token || undefined,
+      citTransactionId: row.cit_transaction_id || undefined,
+      dailyLimit: row.daily_limit != null ? parseFloat(row.daily_limit) : undefined,
+      periodLimit: row.period_limit != null ? parseFloat(row.period_limit) : undefined,
+      periodType: row.period_type || undefined,
+      periodStartDate: row.period_start_date || undefined,
+      amountUsedToday: row.amount_used_today != null ? parseFloat(row.amount_used_today) : undefined,
+      amountUsedPeriod: row.amount_used_period != null ? parseFloat(row.amount_used_period) : undefined,
+      lastDailyReset: row.last_daily_reset || undefined,
+      lastPeriodReset: row.last_period_reset || undefined,
     };
   }
 }

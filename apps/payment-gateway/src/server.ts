@@ -5,6 +5,7 @@ import { config } from './config/env';
 import { query } from './config/database';
 import vrpRoutes from './routes/vrp.routes';
 import adminRoutes from './routes/admin.routes';
+import cofPaymentRoutes from './routes/cof-payment.routes';
 
 const app: Application = express();
 
@@ -35,6 +36,7 @@ app.get('/', (req: Request, res: Response) => {
       processPayment: 'POST /process',
       vrp: '/api/vrp/*',
       admin: '/api/admin/*',
+      cofPayments: '/payments/cit, /payments/mit',
     },
   });
 });
@@ -98,6 +100,9 @@ app.use('/api/vrp', vrpRoutes);
 
 // Admin routes
 app.use('/api/admin', adminRoutes);
+
+// Card-on-File (CoF) CIT/MIT payment routes
+app.use('/payments', cofPaymentRoutes);
 
 // Error handling
 app.use((err: any, req: Request, res: Response, next: any) => {

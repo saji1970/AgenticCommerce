@@ -283,6 +283,106 @@ export class MandateController {
     }
   };
 
+  // Register a mandate with CIT authorization (provisions network token)
+  registerMandateWithCIT = async (req: Request, res: Response) => {
+    try {
+      const {
+        userId, agentId, agentName, type, constraints, parentMandateId,
+        paymentMethods, validUntil, cardDetails, dailyLimit, periodLimit, periodType,
+      } = req.body;
+
+      if (!userId || !agentId || !type) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: userId, agentId, type',
+        });
+      }
+
+      if (!cardDetails || !cardDetails.pan || !cardDetails.amount) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: cardDetails.pan, cardDetails.amount',
+        });
+      }
+
+      const result = await this.mandateService.createMandateWithCIT({
+        userId,
+        agentId,
+        agentName,
+        type,
+        constraints,
+        parentMandateId,
+        paymentMethods,
+        validUntil: validUntil ? new Date(validUntil) : undefined,
+        cardDetails,
+        dailyLimit,
+        periodLimit,
+        periodType,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error('Error registering mandate with CIT:', error);
+      const message = error instanceof Error ? error.message : 'Failed to register mandate with CIT';
+      const status = message.includes('CIT authorization failed') ? 402 : 400;
+      res.status(status).json({
+        success: false,
+        error: message,
+      });
+    }
+  };
+
+  // Process agent payment via MIT (uses stored network token)
+  processAgentPayment = async (req: Request, res: Response) => {
+    try {
+      const { mandateId, userId, agentId, amount, currency } = req.body;
+
+      if (!mandateId || !userId || !agentId || !amount) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: mandateId, userId, agentId, amount',
+        });
+      }
+
+      if (typeof amount !== 'number' || amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'amount must be a positive number',
+        });
+      }
+
+      const result = await this.mandateService.processAgentPaymentMIT({
+        mandateId,
+        userId,
+        agentId,
+        amount,
+        currency,
+      });
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error('Error processing agent payment:', error);
+      const message = error instanceof Error ? error.message : 'Failed to process agent payment';
+
+      let status = 400;
+      if (message.includes('not found')) status = 404;
+      else if (message.includes('Unauthorized')) status = 403;
+      else if (message.includes('MIT authorization failed')) status = 402;
+      else if (message.includes('limit exceeded') || message.includes('Limit exceeded')) status = 429;
+
+      res.status(status).json({
+        success: false,
+        error: message,
+      });
+    }
+  };
+
   // Validate mandate for transaction (called by agents before transactions)
   validateMandate = async (req: Request, res: Response) => {
     try {

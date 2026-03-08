@@ -28,6 +28,14 @@ jest.mock('../config/env', () => ({
   config: {
     jwt: { secret: 'test-secret-key-for-jwt-signing' },
     port: 3001,
+    paymentGateway: { url: 'http://localhost:3002' },
+  },
+}));
+
+jest.mock('../clients/paymentClient', () => ({
+  paymentClient: {
+    authorizeCIT: jest.fn(),
+    authorizeMIT: jest.fn(),
   },
 }));
 
