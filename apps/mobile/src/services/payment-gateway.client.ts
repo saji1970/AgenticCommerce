@@ -40,6 +40,16 @@ export interface VrpUsage {
   maxAmountPerPayment: number;
 }
 
+export interface VrpConsentConstraintsWithRules {
+  rules?: {
+    isDefault?: boolean;
+    category?: string;
+    minAmount?: number;
+    maxAmount?: number;
+  };
+  [key: string]: any;
+}
+
 export interface CreateVrpConsentRequest {
   userId: string;
   agentId: string;

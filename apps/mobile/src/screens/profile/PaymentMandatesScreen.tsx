@@ -24,6 +24,7 @@ import {
   CreateVrpConsentRequest,
   VrpTransaction,
 } from '../../services/payment-gateway.client';
+import { extractRules, getRuleSummary } from '../../utils/vrpRuleEngine';
 
 const VRP_CONSENT_TOKENS_KEY = 'vrp_consent_tokens';
 const PAYMENT_METHODS_KEY = 'payment_methods';
@@ -67,6 +68,11 @@ export const PaymentMandatesScreen: React.FC = () => {
   const [dailyLimit, setDailyLimit] = useState('500');
   const [monthlyLimit, setMonthlyLimit] = useState('2000');
   const [expiryDate, setExpiryDate] = useState('');
+  const [ruleIsDefault, setRuleIsDefault] = useState(false);
+  const [ruleCategory, setRuleCategory] = useState('');
+  const [ruleMinAmount, setRuleMinAmount] = useState('');
+  const [ruleMaxAmount, setRuleMaxAmount] = useState('');
+
 
   useEffect(() => {
     loadData();
@@ -154,6 +160,20 @@ export const PaymentMandatesScreen: React.FC = () => {
 
     const appMandateId = findAppMandateForAgent(agentId.trim());
 
+    // Build usage rules
+    const rules: Record<string, any> = {};
+    if (ruleIsDefault) rules.isDefault = true;
+    if (ruleCategory.trim()) rules.category = ruleCategory.trim().toUpperCase();
+    if (ruleMinAmount.trim()) {
+      const min = parseFloat(ruleMinAmount);
+      if (!isNaN(min) && min > 0) rules.minAmount = min;
+    }
+    if (ruleMaxAmount.trim()) {
+      const max = parseFloat(ruleMaxAmount);
+      if (!isNaN(max) && max > 0) rules.maxAmount = max;
+    }
+    const constraints = Object.keys(rules).length > 0 ? { rules } : undefined;
+
     const request: CreateVrpConsentRequest = {
       userId: user.id,
       agentId: agentId.trim(),
@@ -164,6 +184,7 @@ export const PaymentMandatesScreen: React.FC = () => {
       ...(monthlyLimit ? { monthlyLimit: parseFloat(monthlyLimit) } : {}),
       ...(expiryDate ? { expiryDate } : {}),
       ...(appMandateId ? { appMandateId } : {}),
+      ...(constraints ? { constraints } : {}),
     };
 
     try {
@@ -296,6 +317,22 @@ export const PaymentMandatesScreen: React.FC = () => {
                     <Text style={styles.limitValue}>{formatCurrency(consent.monthlyLimit)}</Text>
                   </View>
                 </View>
+
+                {(() => {
+                  const rules = extractRules(consent);
+                  const summary = getRuleSummary(rules);
+                  if (summary === 'No rules') return null;
+                  return (
+                    <View style={styles.rulesRow}>
+                      {rules.isDefault && (
+                        <View style={styles.defaultBadge}>
+                          <Text style={styles.defaultBadgeText}>DEFAULT</Text>
+                        </View>
+                      )}
+                      <Text style={styles.rulesSummary}>Rules: {summary}</Text>
+                    </View>
+                  );
+                })()}
 
                 <View style={styles.usageRow}>
                   <Text style={styles.usageLabel}>Used Today:</Text>
@@ -450,6 +487,58 @@ export const PaymentMandatesScreen: React.FC = () => {
               placeholder="YYYY-MM-DD"
               autoCapitalize="none"
             />
+          </View>
+
+          {/* Usage Rules */}
+          <View style={styles.rulesSection}>
+            <Text style={styles.rulesSectionTitle}>Usage Rules (optional)</Text>
+            <Text style={styles.rulesSectionSubtext}>
+              Configure rules to auto-select this mandate at checkout based on transaction type and amount.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.defaultToggle}
+              onPress={() => setRuleIsDefault(!ruleIsDefault)}
+            >
+              <View style={[styles.toggleTrack, ruleIsDefault && styles.toggleTrackOn]}>
+                <View style={[styles.toggleThumb, ruleIsDefault && styles.toggleThumbOn]} />
+              </View>
+              <Text style={styles.defaultToggleLabel}>Use as default (fallback)</Text>
+            </TouchableOpacity>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Transaction Category</Text>
+              <TextInput
+                style={styles.input}
+                value={ruleCategory}
+                onChangeText={setRuleCategory}
+                placeholder="e.g. TRAVEL, FOOD, ELECTRONICS"
+                autoCapitalize="characters"
+              />
+            </View>
+
+            <View style={styles.inputRow}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                <Text style={styles.inputLabel}>Min Amount ($)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={ruleMinAmount}
+                  onChangeText={setRuleMinAmount}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 500"
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                <Text style={styles.inputLabel}>Max Amount ($)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={ruleMaxAmount}
+                  onChangeText={setRuleMaxAmount}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 2000"
+                />
+              </View>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -880,5 +969,78 @@ const styles = StyleSheet.create({
   txStatusText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  rulesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingVertical: 4,
+  },
+  defaultBadge: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  defaultBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+  rulesSummary: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  rulesSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 14,
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  rulesSectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  rulesSectionSubtext: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  defaultToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  toggleTrack: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#D1D5DB',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleTrackOn: {
+    backgroundColor: '#4F46E5',
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+  },
+  toggleThumbOn: {
+    alignSelf: 'flex-end',
+  },
+  defaultToggleLabel: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
   },
 });

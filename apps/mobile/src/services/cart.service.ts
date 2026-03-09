@@ -14,6 +14,7 @@ import { openMandateApp } from '../utils/deepLink';
 const API_URL = 'https://agenticcommerce-production.up.railway.app/api';
 const DEMO_MODE = true;
 const DEMO_CART_KEY = 'demo_cart_items';
+const DEMO_CART_CATEGORIES_KEY = 'demo_cart_categories';
 
 /** Export for components that need to choose between local cart vs backend ACP */
 export const isCartDemoMode = (): boolean => DEMO_MODE;
@@ -166,6 +167,7 @@ export const cartService = {
   async clearCart(): Promise<void> {
     if (DEMO_MODE) {
       await saveDemoCartItems([]);
+      await AsyncStorage.removeItem(DEMO_CART_CATEGORIES_KEY);
       return;
     }
 
@@ -210,3 +212,23 @@ export const cartService = {
     }
   },
 };
+
+export async function setCartItemCategory(productId: string, category: string): Promise<void> {
+  try {
+    const data = await AsyncStorage.getItem(DEMO_CART_CATEGORIES_KEY);
+    const map: Record<string, string> = data ? JSON.parse(data) : {};
+    map[productId] = category;
+    await AsyncStorage.setItem(DEMO_CART_CATEGORIES_KEY, JSON.stringify(map));
+  } catch {
+    // non-critical
+  }
+}
+
+export async function getCartCategories(): Promise<Record<string, string>> {
+  try {
+    const data = await AsyncStorage.getItem(DEMO_CART_CATEGORIES_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}

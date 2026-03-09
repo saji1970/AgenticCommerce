@@ -18,7 +18,15 @@ import { AppConfig } from '../../config/app.config';
 import { storageService } from '../../services/storage.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { paymentGatewayClient } from '../../services/payment-gateway.client';
-import { cartService, isCartDemoMode } from '../../services/cart.service';
+import { cartService, isCartDemoMode, getCartCategories } from '../../services/cart.service';
+import {
+  evaluateConsentRules,
+  inferCartCategory,
+  RuleMatchResult,
+  getRuleSummary,
+  extractRules,
+} from '../../utils/vrpRuleEngine';
+import { VrpConsent } from '../../services/payment-gateway.client';
 
 const VRP_CONSENT_TOKENS_KEY = 'vrp_consent_tokens';
 
@@ -34,6 +42,8 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
   const [checkingMandate, setCheckingMandate] = useState(true);
   const [consentToken, setConsentToken] = useState<string | null>(null);
   const [mandateReady, setMandateReady] = useState(false);
+  const [selectedConsent, setSelectedConsent] = useState<VrpConsent | null>(null);
+  const [matchResult, setMatchResult] = useState<RuleMatchResult | null>(null);
 
   const defaultAgent = AppConfig.getDefaultAgent();
 
@@ -50,40 +60,66 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
       if (!user?.id) {
         setMandateReady(false);
         setConsentToken(null);
+        setSelectedConsent(null);
+        setMatchResult(null);
         setCheckingMandate(false);
         Alert.alert('Login Required', 'Please log in to checkout.');
         return;
       }
 
-      const [consents, tokensJson] = await Promise.all([
+      const [consents, tokensJson, categoryMap] = await Promise.all([
         paymentGatewayClient.getUserConsents(user.id, 'active'),
         AsyncStorage.getItem(VRP_CONSENT_TOKENS_KEY),
+        getCartCategories(),
       ]);
 
       const tokens: Record<string, string> = tokensJson ? JSON.parse(tokensJson) : {};
-      const agentConsent = consents.find(
+
+      // Filter to agent's consents
+      const agentConsents = consents.filter(
         (c) => c.agentId === defaultAgent.id && (c.status === 'active' || c.status === 'pending')
       );
 
-      if (agentConsent) {
-        const token = typeof tokens[agentConsent.id] === 'string'
-          ? tokens[agentConsent.id]
-          : (tokens[agentConsent.id] as any)?.token;
-        if (token) {
-          setConsentToken(token);
-          setMandateReady(true);
-        } else {
-          setConsentToken(null);
-          setMandateReady(false);
-        }
+      if (agentConsents.length === 0) {
+        setConsentToken(null);
+        setMandateReady(false);
+        setSelectedConsent(null);
+        setMatchResult(null);
+        setCheckingMandate(false);
+        return;
+      }
+
+      // Build evaluation context from cart
+      const cartTotal = cart?.total ?? 0;
+      const cartItems = cart?.items ?? [];
+      const cartCategory = inferCartCategory(
+        cartItems.map((i) => ({ productId: i.productId })),
+        categoryMap
+      );
+
+      // Evaluate rules across all consents
+      const result = evaluateConsentRules(agentConsents, tokens, {
+        cartTotal,
+        cartCategory,
+      });
+
+      if (result) {
+        setConsentToken(result.token);
+        setSelectedConsent(result.consent);
+        setMatchResult(result);
+        setMandateReady(true);
       } else {
         setConsentToken(null);
         setMandateReady(false);
+        setSelectedConsent(null);
+        setMatchResult(null);
       }
     } catch (err) {
       console.error('Check payment mandate:', err);
       setConsentToken(null);
       setMandateReady(false);
+      setSelectedConsent(null);
+      setMatchResult(null);
     } finally {
       setCheckingMandate(false);
     }
@@ -228,7 +264,21 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <View style={styles.paymentMethodInfo}>
-        <Text style={styles.paymentMethodInfoText}>Paying with your Checkout Payment Mandate</Text>
+        <Text style={styles.paymentMethodInfoText}>
+          Paying with your Checkout Payment Mandate
+        </Text>
+        {selectedConsent && (
+          <Text style={styles.paymentMethodDetail}>
+            {selectedConsent.paymentMethod?.label || selectedConsent.agentName}
+            {' '}
+            ({getRuleSummary(extractRules(selectedConsent))})
+          </Text>
+        )}
+        {matchResult && matchResult.matchReasons.length > 0 && (
+          <Text style={styles.matchReasonText}>
+            Matched: {matchResult.matchReasons.join(', ')}
+          </Text>
+        )}
       </View>
 
       <TouchableOpacity
@@ -319,6 +369,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2E7D32',
     textAlign: 'center',
+  },
+  paymentMethodDetail: {
+    fontSize: 13,
+    color: '#1B5E20',
+    textAlign: 'center',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  matchReasonText: {
+    fontSize: 12,
+    color: '#388E3C',
+    textAlign: 'center',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   mandateRequired: {
     backgroundColor: '#FFF3E0',
