@@ -17,7 +17,7 @@ import { CartStackParamList } from '../../types/navigation';
 import { AppConfig } from '../../config/app.config';
 import { storageService } from '../../services/storage.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { paymentGatewayClient } from '../../services/payment-gateway.client';
+import { mandateServiceClient, AgentMandate } from '../../services/mandate-service.client';
 import { cartService, isCartDemoMode, getCartCategories } from '../../services/cart.service';
 import {
   evaluateConsentRules,
@@ -53,6 +53,34 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
     }, [])
   );
 
+  // Adapter: convert AgentMandate to VrpConsent shape for rule engine compatibility
+  const mandateToConsent = (m: AgentMandate): VrpConsent => {
+    const c = m.constraints || {};
+    return {
+      id: m.id,
+      userId: m.userId,
+      agentId: m.agentId,
+      agentName: m.agentName,
+      status: m.status as any,
+      paymentMethod: m.paymentMethods?.[0] || {},
+      maxAmountPerPayment: c.maxAmountPerPayment ?? 0,
+      dailyLimit: c.dailyLimit ?? (m as any).dailyLimit ?? null,
+      monthlyLimit: c.monthlyLimit ?? (m as any).periodLimit ?? null,
+      expiryDate: m.validUntil ?? null,
+      amountUsedToday: (m as any).amountUsedToday ?? 0,
+      amountUsedMonth: (m as any).amountUsedPeriod ?? 0,
+      transactionsToday: (m as any).transactionsToday ?? 0,
+      consentToken: (m as any).consentToken ?? null,
+      constraints: m.constraints || {},
+      appMandateId: m.parentMandateId ?? null,
+      merchantId: null,
+      createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
+      revokedAt: null,
+      revokedReason: null,
+    };
+  };
+
   const checkPaymentMandate = async () => {
     try {
       setCheckingMandate(true);
@@ -67,18 +95,18 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
         return;
       }
 
-      const [consents, tokensJson, categoryMap] = await Promise.all([
-        paymentGatewayClient.getUserConsents(user.id, 'active'),
+      const [mandates, tokensJson, categoryMap] = await Promise.all([
+        mandateServiceClient.getUserCheckoutMandates(user.id, 'active'),
         AsyncStorage.getItem(VRP_CONSENT_TOKENS_KEY),
         getCartCategories(),
       ]);
 
       const tokens: Record<string, string> = tokensJson ? JSON.parse(tokensJson) : {};
 
-      // Filter to agent's consents
-      const agentConsents = consents.filter(
-        (c) => c.agentId === defaultAgent.id && (c.status === 'active' || c.status === 'pending')
-      );
+      // Filter to agent's mandates and adapt to VrpConsent shape for rule engine
+      const agentConsents = mandates
+        .filter((m) => m.agentId === defaultAgent.id && (m.status === 'active' || m.status === 'pending'))
+        .map(mandateToConsent);
 
       if (agentConsents.length === 0) {
         setConsentToken(null);

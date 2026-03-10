@@ -38,6 +38,38 @@ export interface ValidateMandateRequest {
   transactionAmount?: number;
 }
 
+export interface CreateCheckoutMandateRequest {
+  userId: string;
+  agentId: string;
+  agentName: string;
+  paymentMethod: Record<string, any>;
+  maxAmountPerPayment: number;
+  dailyLimit?: number;
+  monthlyLimit?: number;
+  expiryDate?: string;
+  appMandateId?: string;
+  constraints?: Record<string, any>;
+}
+
+export interface CheckoutUsage {
+  amountUsedToday: number;
+  amountUsedMonth: number;
+  transactionsToday: number;
+  remainingToday: number | null;
+  remainingMonth: number | null;
+  maxAmountPerPayment: number;
+}
+
+export interface CheckoutTransaction {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  transactionId?: string;
+  description?: string;
+  createdAt: string;
+}
+
 class MandateServiceClient {
   private client: AxiosInstance;
 
@@ -142,6 +174,75 @@ class MandateServiceClient {
    */
   async registerAppMandate(data: Omit<RegisterMandateRequest, 'type'>): Promise<AgentMandate> {
     return this.registerMandate({ ...data, type: 'app' });
+  }
+
+  /**
+   * Create a checkout payment mandate
+   */
+  async createCheckoutMandate(data: CreateCheckoutMandateRequest): Promise<AgentMandate> {
+    const response = await this.client.post<{ success: boolean; data: AgentMandate }>(
+      '/mandates/checkout',
+      data
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Get user's checkout mandates
+   */
+  async getUserCheckoutMandates(userId: string, status?: string): Promise<AgentMandate[]> {
+    const params: any = {};
+    if (status) params.status = status;
+    const response = await this.client.get<{ success: boolean; data: AgentMandate[] }>(
+      `/mandates/checkout/user/${userId}`,
+      { params }
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Approve a checkout mandate — returns mandate and consent token
+   */
+  async approveCheckoutMandate(mandateId: string, userId: string): Promise<{ mandate: AgentMandate; consentToken?: string }> {
+    const response = await this.client.post<{ success: boolean; data: AgentMandate; consentToken?: string }>(
+      `/mandates/checkout/${mandateId}/approve`,
+      { userId }
+    );
+    return {
+      mandate: response.data.data,
+      consentToken: response.data.consentToken,
+    };
+  }
+
+  /**
+   * Revoke a checkout mandate
+   */
+  async revokeCheckoutMandate(mandateId: string, userId: string, reason?: string): Promise<AgentMandate> {
+    const response = await this.client.post<{ success: boolean; data: AgentMandate }>(
+      `/mandates/checkout/${mandateId}/revoke`,
+      { userId, reason }
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Get checkout mandate usage stats
+   */
+  async getCheckoutUsage(mandateId: string): Promise<CheckoutUsage> {
+    const response = await this.client.get<{ success: boolean; data: CheckoutUsage }>(
+      `/mandates/checkout/${mandateId}/usage`
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Get checkout mandate transactions
+   */
+  async getCheckoutTransactions(mandateId: string): Promise<{ transactions: CheckoutTransaction[]; total: number }> {
+    const response = await this.client.get<{ success: boolean; data: CheckoutTransaction[]; total: number }>(
+      `/mandates/checkout/${mandateId}/transactions`
+    );
+    return { transactions: response.data.data || [], total: response.data.total || 0 };
   }
 
   /**

@@ -27,6 +27,10 @@ export interface AgentMandate {
   amountUsedPeriod?: number;
   lastDailyReset?: Date;
   lastPeriodReset?: Date;
+  // Checkout mandate fields
+  consentToken?: string;
+  transactionsToday?: number;
+  lastMonthlyReset?: Date;
 }
 
 export interface CreateMandateRequest {
@@ -427,6 +431,57 @@ export class MandateRepository {
     );
   }
 
+  async storeConsentToken(mandateId: string, token: string): Promise<void> {
+    await query(
+      `UPDATE agent_mandates
+       SET consent_token = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [mandateId, token]
+    );
+  }
+
+  async getCheckoutMandatesByUser(userId: string, status?: string): Promise<AgentMandate[]> {
+    let queryText = `SELECT * FROM agent_mandates
+      WHERE user_id = $1 AND type = 'payment'
+        AND (constraints->>'checkoutMandate')::boolean = true`;
+    const params: any[] = [userId];
+
+    if (status) {
+      params.push(status);
+      queryText += ` AND status = $${params.length}`;
+    }
+
+    queryText += ' ORDER BY created_at DESC';
+    const result = await query(queryText, params);
+    return result.rows.map(row => this.mapRowToMandate(row));
+  }
+
+  async updateCheckoutUsage(mandateId: string, amount: number): Promise<AgentMandate> {
+    const result = await query(
+      `UPDATE agent_mandates
+       SET amount_used_today = COALESCE(amount_used_today, 0) + $2,
+           amount_used_period = COALESCE(amount_used_period, 0) + $2,
+           transactions_today = COALESCE(transactions_today, 0) + 1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [mandateId, amount]
+    );
+    return this.mapRowToMandate(result.rows[0]);
+  }
+
+  async resetMonthlyUsage(mandateId: string): Promise<void> {
+    await query(
+      `UPDATE agent_mandates
+       SET amount_used_period = 0,
+           last_monthly_reset = CURRENT_DATE,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [mandateId]
+    );
+  }
+
   private mapRowToMandate(row: any): AgentMandate {
     return {
       id: row.id,
@@ -459,6 +514,10 @@ export class MandateRepository {
       amountUsedPeriod: row.amount_used_period != null ? parseFloat(row.amount_used_period) : undefined,
       lastDailyReset: row.last_daily_reset || undefined,
       lastPeriodReset: row.last_period_reset || undefined,
+      // Checkout mandate fields
+      consentToken: row.consent_token || undefined,
+      transactionsToday: row.transactions_today != null ? parseInt(row.transactions_today) : undefined,
+      lastMonthlyReset: row.last_monthly_reset || undefined,
     };
   }
 }

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import type { Router as RouterType } from 'express';
 import { MandateController } from '../controllers/mandate.controller';
+import { CheckoutMandateController } from '../controllers/checkout-mandate.controller';
 
 const router: RouterType = Router();
 const mandateController = new MandateController();
+const checkoutController = new CheckoutMandateController();
 
 // Register mandate (called by agents)
 router.post('/register', mandateController.registerMandate);
@@ -19,6 +21,16 @@ router.post('/register-cof', mandateController.registerMandateWithCIT);
 
 // Card-on-File: Process agent payment via MIT
 router.post('/agent-payment', mandateController.processAgentPayment);
+
+// Checkout mandate routes (must come before /:id)
+router.post('/checkout', checkoutController.createCheckoutMandate);
+router.get('/checkout/user/:userId', checkoutController.getUserCheckoutMandates);
+router.post('/checkout/:id/approve', checkoutController.approveCheckoutMandate);
+router.post('/checkout/:id/revoke', checkoutController.revokeCheckoutMandate);
+router.get('/checkout/:id/usage', checkoutController.getUsage);
+router.get('/checkout/:id/transactions', checkoutController.getTransactions);
+router.post('/checkout/execute-with-token', checkoutController.executePaymentWithToken);
+router.post('/checkout/validate-token', checkoutController.validateConsentToken);
 
 // Complete mandates after payment (called by backend after successful payment)
 router.post('/complete', mandateController.completeMandatesAfterPayment);

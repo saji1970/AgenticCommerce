@@ -19,12 +19,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { useMandate } from '../../contexts/MandateContext';
 import { AppConfig } from '../../config/app.config';
 import {
-  paymentGatewayClient,
-  VrpConsent,
-  CreateVrpConsentRequest,
-  VrpTransaction,
-} from '../../services/payment-gateway.client';
-import { extractRules, getRuleSummary } from '../../utils/vrpRuleEngine';
+  mandateServiceClient,
+  AgentMandate,
+  CreateCheckoutMandateRequest,
+  CheckoutTransaction,
+} from '../../services/mandate-service.client';
 
 const VRP_CONSENT_TOKENS_KEY = 'vrp_consent_tokens';
 const PAYMENT_METHODS_KEY = 'payment_methods';
@@ -50,14 +49,14 @@ export const PaymentMandatesScreen: React.FC = () => {
   const { user } = useAuth();
   const { activeMandates, mandates } = useMandate();
 
-  const [consents, setConsents] = useState<VrpConsent[]>([]);
+  const [consents, setConsents] = useState<AgentMandate[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [detailConsent, setDetailConsent] = useState<VrpConsent | null>(null);
+  const [detailConsent, setDetailConsent] = useState<AgentMandate | null>(null);
   const [detailToken, setDetailToken] = useState<string | null>(null);
-  const [detailTransactions, setDetailTransactions] = useState<VrpTransaction[]>([]);
+  const [detailTransactions, setDetailTransactions] = useState<CheckoutTransaction[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Form state
@@ -96,7 +95,7 @@ export const PaymentMandatesScreen: React.FC = () => {
   const loadConsents = async () => {
     if (!user?.id) return;
     try {
-      const data = await paymentGatewayClient.getUserConsents(user.id);
+      const data = await mandateServiceClient.getUserCheckoutMandates(user.id);
       setConsents(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Failed to load consents:', err);
@@ -174,7 +173,7 @@ export const PaymentMandatesScreen: React.FC = () => {
     }
     const constraints = Object.keys(rules).length > 0 ? { rules } : undefined;
 
-    const request: CreateVrpConsentRequest = {
+    const request: CreateCheckoutMandateRequest = {
       userId: user.id,
       agentId: agentId.trim(),
       agentName: agentName.trim(),
@@ -189,16 +188,16 @@ export const PaymentMandatesScreen: React.FC = () => {
 
     try {
       setCreating(true);
-      const consent = await paymentGatewayClient.createConsent(request);
+      const mandate = await mandateServiceClient.createCheckoutMandate(request);
 
       // Auto-approve
-      const { consentToken } = await paymentGatewayClient.approveConsent(consent.id, user.id);
+      const { consentToken } = await mandateServiceClient.approveCheckoutMandate(mandate.id, user.id);
 
       // Store consent token
       if (consentToken) {
         const existing = await AsyncStorage.getItem(VRP_CONSENT_TOKENS_KEY);
         const tokens = existing ? JSON.parse(existing) : {};
-        tokens[consent.id] = consentToken;
+        tokens[mandate.id] = consentToken;
         await AsyncStorage.setItem(VRP_CONSENT_TOKENS_KEY, JSON.stringify(tokens));
       }
 
@@ -206,14 +205,28 @@ export const PaymentMandatesScreen: React.FC = () => {
       await loadConsents();
     } catch (err: any) {
       const serverError = err.response?.data?.error;
-      const msg = typeof serverError === 'string' ? serverError : err.message || 'Failed to create payment mandate';
+      const statusCode = err.response?.status;
+      let msg: string;
+      if (typeof serverError === 'string' && serverError !== 'Error') {
+        msg = serverError;
+      } else if (err.message && err.message !== 'Error') {
+        msg = err.message;
+      } else if (statusCode === 502 || statusCode === 503) {
+        msg = 'Mandate service is unavailable. Please try again later.';
+      } else if (statusCode === 401) {
+        msg = 'Authentication failed. Please log out and log in again.';
+      } else if (!err.response) {
+        msg = 'Network error. Please check your connection and try again.';
+      } else {
+        msg = `Request failed (status ${statusCode || 'unknown'}). Please try again.`;
+      }
       Alert.alert('Error', msg);
     } finally {
       setCreating(false);
     }
   };
 
-  const openConsentDetail = async (consent: VrpConsent) => {
+  const openConsentDetail = async (consent: AgentMandate) => {
     if (!consent?.id) return;
     setDetailConsent(consent);
     setDetailToken(null);
@@ -222,7 +235,7 @@ export const PaymentMandatesScreen: React.FC = () => {
     try {
       const [storedTokens, txResult] = await Promise.all([
         AsyncStorage.getItem(VRP_CONSENT_TOKENS_KEY),
-        paymentGatewayClient.getTransactions(consent.id).catch(() => ({ transactions: [], total: 0 })),
+        mandateServiceClient.getCheckoutTransactions(consent.id).catch(() => ({ transactions: [], total: 0 })),
       ]);
       const tokens = storedTokens ? JSON.parse(storedTokens) : {};
       const tokenVal = tokens[consent.id];
@@ -236,7 +249,7 @@ export const PaymentMandatesScreen: React.FC = () => {
     }
   };
 
-  const handleRevoke = (consent: VrpConsent) => {
+  const handleRevoke = (consent: AgentMandate) => {
     Alert.alert(
       'Revoke Payment Mandate',
       `Revoke mandate for "${consent.agentName}"? This cannot be undone.`,
@@ -247,7 +260,7 @@ export const PaymentMandatesScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await paymentGatewayClient.revokeConsent(consent.id, consent.userId, 'Revoked by user');
+              await mandateServiceClient.revokeCheckoutMandate(consent.id, consent.userId, 'Revoked by user');
               await loadConsents();
             } catch (err: any) {
               Alert.alert('Error', 'Failed to revoke mandate');
@@ -256,6 +269,42 @@ export const PaymentMandatesScreen: React.FC = () => {
         },
       ]
     );
+  };
+
+  // Helper to extract checkout fields from AgentMandate constraints/columns
+  const getCheckoutFields = (m: AgentMandate) => {
+    const c = m.constraints || {};
+    return {
+      maxAmountPerPayment: c.maxAmountPerPayment ?? 0,
+      dailyLimit: c.dailyLimit ?? (m as any).dailyLimit ?? null,
+      monthlyLimit: c.monthlyLimit ?? (m as any).periodLimit ?? null,
+      amountUsedToday: (m as any).amountUsedToday ?? 0,
+      amountUsedMonth: (m as any).amountUsedPeriod ?? 0,
+      appMandateId: m.parentMandateId ?? null,
+      expiryDate: m.validUntil ?? null,
+    };
+  };
+
+  // Inline rule extraction (previously from vrpRuleEngine)
+  const extractRules = (m: AgentMandate) => {
+    try {
+      const rules = m.constraints?.rules;
+      if (rules && typeof rules === 'object') return rules;
+    } catch {}
+    return {};
+  };
+
+  const getRuleSummary = (rules: any) => {
+    const parts: string[] = [];
+    if (rules.category) parts.push(rules.category.toUpperCase());
+    if (typeof rules.minAmount === 'number') parts.push(`$${rules.minAmount}+`);
+    if (typeof rules.maxAmount === 'number') parts.push(`<= $${rules.maxAmount}`);
+    if (parts.length > 0) {
+      const label = parts.join(', ');
+      return rules.isDefault ? `${label} (Default)` : label;
+    }
+    if (rules.isDefault) return 'Default';
+    return 'No rules';
   };
 
   const getStatusStyle = (status: string) => {
@@ -292,6 +341,7 @@ export const PaymentMandatesScreen: React.FC = () => {
         ) : (
           (consents ?? []).map((consent) => {
             const statusStyle = getStatusStyle(consent.status);
+            const fields = getCheckoutFields(consent);
             return (
               <View key={consent.id} style={styles.consentCard}>
                 <View style={styles.consentHeader}>
@@ -306,15 +356,15 @@ export const PaymentMandatesScreen: React.FC = () => {
                 <View style={styles.limitsGrid}>
                   <View style={styles.limitItem}>
                     <Text style={styles.limitLabel}>Per Payment</Text>
-                    <Text style={styles.limitValue}>{formatCurrency(consent.maxAmountPerPayment)}</Text>
+                    <Text style={styles.limitValue}>{formatCurrency(fields.maxAmountPerPayment)}</Text>
                   </View>
                   <View style={styles.limitItem}>
                     <Text style={styles.limitLabel}>Daily Limit</Text>
-                    <Text style={styles.limitValue}>{formatCurrency(consent.dailyLimit)}</Text>
+                    <Text style={styles.limitValue}>{formatCurrency(fields.dailyLimit)}</Text>
                   </View>
                   <View style={styles.limitItem}>
                     <Text style={styles.limitLabel}>Monthly Limit</Text>
-                    <Text style={styles.limitValue}>{formatCurrency(consent.monthlyLimit)}</Text>
+                    <Text style={styles.limitValue}>{formatCurrency(fields.monthlyLimit)}</Text>
                   </View>
                 </View>
 
@@ -336,21 +386,21 @@ export const PaymentMandatesScreen: React.FC = () => {
 
                 <View style={styles.usageRow}>
                   <Text style={styles.usageLabel}>Used Today:</Text>
-                  <Text style={styles.usageValue}>{formatCurrency(consent.amountUsedToday)}</Text>
+                  <Text style={styles.usageValue}>{formatCurrency(fields.amountUsedToday)}</Text>
                   <Text style={styles.usageSep}>|</Text>
                   <Text style={styles.usageLabel}>This Month:</Text>
-                  <Text style={styles.usageValue}>{formatCurrency(consent.amountUsedMonth)}</Text>
+                  <Text style={styles.usageValue}>{formatCurrency(fields.amountUsedMonth)}</Text>
                 </View>
 
-                {consent.appMandateId && (
+                {fields.appMandateId && (
                   <Text style={styles.linkedMandate}>
-                    Linked APP Mandate: {consent.appMandateId.slice(0, 8)}...
+                    Linked APP Mandate: {fields.appMandateId.slice(0, 8)}...
                   </Text>
                 )}
 
-                {consent.expiryDate && (
+                {fields.expiryDate && (
                   <Text style={styles.expiryText}>
-                    Expires: {new Date(consent.expiryDate).toLocaleDateString()}
+                    Expires: {new Date(fields.expiryDate).toLocaleDateString()}
                   </Text>
                 )}
 
@@ -593,12 +643,12 @@ export const PaymentMandatesScreen: React.FC = () => {
 
                   <Text style={styles.detailLabel}>Limits</Text>
                   <Text style={styles.detailValue}>
-                    Per: {formatCurrency(detailConsent.maxAmountPerPayment)} | Daily: {formatCurrency(detailConsent.dailyLimit)} | Monthly: {formatCurrency(detailConsent.monthlyLimit)}
+                    Per: {formatCurrency(getCheckoutFields(detailConsent).maxAmountPerPayment)} | Daily: {formatCurrency(getCheckoutFields(detailConsent).dailyLimit)} | Monthly: {formatCurrency(getCheckoutFields(detailConsent).monthlyLimit)}
                   </Text>
 
                   <Text style={styles.detailLabel}>Usage</Text>
                   <Text style={styles.detailValue}>
-                    Today: {formatCurrency(detailConsent.amountUsedToday)} | Month: {formatCurrency(detailConsent.amountUsedMonth)}
+                    Today: {formatCurrency(getCheckoutFields(detailConsent).amountUsedToday)} | Month: {formatCurrency(getCheckoutFields(detailConsent).amountUsedMonth)}
                   </Text>
 
                   <Text style={[styles.detailLabel, { marginTop: 16 }]}>Transactions ({detailTransactions.length})</Text>
