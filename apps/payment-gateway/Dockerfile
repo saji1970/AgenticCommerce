@@ -19,6 +19,6 @@ RUN npx tsc
 # Switch to production for runtime
 ENV NODE_ENV=production
 
-EXPOSE 3003
+EXPOSE 3002
 
 CMD ["node", "dist/server.js"]
