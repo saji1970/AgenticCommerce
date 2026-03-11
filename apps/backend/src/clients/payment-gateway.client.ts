@@ -1,12 +1,12 @@
 import axios from 'axios';
 import { config } from '../config/env';
 
-const PAYMENT_GATEWAY_URL = (config.paymentGateway?.url || 'http://localhost:3002').replace(/\/$/, '');
-const VRP_BASE = `${PAYMENT_GATEWAY_URL}/api/vrp`;
+// Checkout execute-with-token lives on the mandate-service (moved from payment-gateway)
+const MANDATE_SERVICE_URL = (config.mandateService?.url || 'http://localhost:3001/api').replace(/\/$/, '');
 
 /**
- * Execute payment using VRP consent token.
- * Pass the user's JWT in authHeader so the payment gateway can verify the user owns the consent.
+ * Execute payment using VRP consent token via the mandate-service.
+ * Pass the user's JWT in authHeader so the mandate-service can verify the user owns the consent.
  */
 export async function executeWithToken(
   params: {
@@ -27,7 +27,7 @@ export async function executeWithToken(
     headers['Authorization'] = authHeader;
   }
 
-  const response = await axios.post(`${VRP_BASE}/execute-with-token`, params, {
+  const response = await axios.post(`${MANDATE_SERVICE_URL}/mandates/checkout/execute-with-token`, params, {
     headers,
     timeout: 30000,
   });
@@ -35,5 +35,5 @@ export async function executeWithToken(
   if (response.data?.success && response.data?.data) {
     return response.data.data;
   }
-  throw new Error(response.data?.error || 'Payment gateway execution failed');
+  throw new Error(response.data?.error || 'Payment execution failed');
 }
