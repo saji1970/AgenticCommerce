@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS cart_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  product_id TEXT,
   product_name VARCHAR(255) NOT NULL,
   product_image TEXT,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
