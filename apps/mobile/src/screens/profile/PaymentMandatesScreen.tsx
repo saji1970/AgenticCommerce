@@ -12,7 +12,9 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../hooks/useAuth';
@@ -67,6 +69,7 @@ export const PaymentMandatesScreen: React.FC = () => {
   const [dailyLimit, setDailyLimit] = useState('500');
   const [monthlyLimit, setMonthlyLimit] = useState('2000');
   const [expiryDate, setExpiryDate] = useState('');
+  const [showExpiryPicker, setShowExpiryPicker] = useState(false);
   const [ruleIsDefault, setRuleIsDefault] = useState(false);
   const [ruleCategory, setRuleCategory] = useState('');
   const [ruleMinAmount, setRuleMinAmount] = useState('');
@@ -147,10 +150,7 @@ export const PaymentMandatesScreen: React.FC = () => {
       Alert.alert('Invalid', 'Max per payment must be a positive number');
       return;
     }
-    if (expiryDate && !/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) {
-      Alert.alert('Invalid', 'Expiry date must be in YYYY-MM-DD format');
-      return;
-    }
+    // expiryDate is always valid YYYY-MM-DD from the date picker (or empty)
 
     const selectedMethod = paymentMethods[selectedMethodIndex];
     const paymentMethod = selectedMethod
@@ -530,13 +530,36 @@ export const PaymentMandatesScreen: React.FC = () => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Expiry Date (optional)</Text>
-            <TextInput
+            <TouchableOpacity
               style={styles.input}
-              value={expiryDate}
-              onChangeText={setExpiryDate}
-              placeholder="YYYY-MM-DD"
-              autoCapitalize="none"
-            />
+              onPress={() => setShowExpiryPicker(true)}
+            >
+              <Text style={{ color: expiryDate ? '#111827' : '#9CA3AF', fontSize: 16 }}>
+                {expiryDate || 'Select expiry date'}
+              </Text>
+            </TouchableOpacity>
+            {expiryDate ? (
+              <TouchableOpacity onPress={() => setExpiryDate('')}>
+                <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 4 }}>Clear date</Text>
+              </TouchableOpacity>
+            ) : null}
+            {showExpiryPicker && (
+              <DateTimePicker
+                value={expiryDate ? new Date(expiryDate) : new Date(Date.now() + 30 * 86400000)}
+                mode="date"
+                display="default"
+                minimumDate={new Date(Date.now() + 86400000)}
+                onChange={(event, selectedDate) => {
+                  setShowExpiryPicker(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const yyyy = selectedDate.getFullYear();
+                    const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const dd = String(selectedDate.getDate()).padStart(2, '0');
+                    setExpiryDate(`${yyyy}-${mm}-${dd}`);
+                  }
+                }}
+              />
+            )}
           </View>
 
           {/* Usage Rules */}
