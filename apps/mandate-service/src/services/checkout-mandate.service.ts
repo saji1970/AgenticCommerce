@@ -36,11 +36,31 @@ export class CheckoutMandateService {
       throw new Error(`Agent ${data.agentId} is not active. Current status: ${agent.status}`);
     }
 
+    // Resolve parent APP mandate — use explicit ID or look up by user+agent
+    let parentMandateId = data.appMandateId;
+    if (!parentMandateId) {
+      const appMandate = await this.mandateRepository.getActiveAppMandate(data.userId, data.agentId);
+      if (appMandate) {
+        parentMandateId = appMandate.id;
+        console.log(`[CheckoutMandate] Auto-linked parent APP mandate ${appMandate.id} for agent ${data.agentId}`);
+      }
+    }
+
+    // Inherit maxTransactionAmount from parent APP mandate if it's more permissive
+    let maxAmountPerPayment = data.maxAmountPerPayment;
+    if (parentMandateId) {
+      const parent = await this.mandateRepository.getById(parentMandateId);
+      if (parent?.constraints?.maxTransactionAmount && parent.constraints.maxTransactionAmount > maxAmountPerPayment) {
+        console.log(`[CheckoutMandate] Using parent maxTransactionAmount $${parent.constraints.maxTransactionAmount} instead of form default $${maxAmountPerPayment}`);
+        maxAmountPerPayment = parent.constraints.maxTransactionAmount;
+      }
+    }
+
     // Build constraints with checkoutMandate flag
     const constraints: Record<string, any> = {
       ...(data.constraints || {}),
       checkoutMandate: true,
-      maxAmountPerPayment: data.maxAmountPerPayment,
+      maxAmountPerPayment,
     };
     if (data.dailyLimit != null) constraints.dailyLimit = data.dailyLimit;
     if (data.monthlyLimit != null) constraints.monthlyLimit = data.monthlyLimit;
@@ -52,7 +72,7 @@ export class CheckoutMandateService {
       agentName: data.agentName || agent.agent_name,
       type: 'payment',
       constraints,
-      parentMandateId: data.appMandateId,
+      parentMandateId,
       paymentMethods: [data.paymentMethod],
       validUntil: data.expiryDate ? new Date(data.expiryDate) : undefined,
     });
@@ -193,15 +213,29 @@ export class CheckoutMandateService {
     // 5. Check per-payment limit — use parent APP mandate's maxTransactionAmount if available
     //    (the parent is the user's authoritative spending limit source)
     let maxPerPayment = constraints.maxAmountPerPayment;
+
+    // Resolve parent: use parentMandateId if set, otherwise look up by user+agent
+    let parent: AgentMandate | null = null;
     if (mandate.parentMandateId) {
-      const parent = await this.mandateRepository.getById(mandate.parentMandateId);
-      if (parent && parent.status === 'active' && parent.constraints?.maxTransactionAmount) {
-        // Use parent's limit if it's more permissive (user updated it after checkout mandate was created)
-        if (!maxPerPayment || parent.constraints.maxTransactionAmount > maxPerPayment) {
-          maxPerPayment = parent.constraints.maxTransactionAmount;
-        }
+      parent = await this.mandateRepository.getById(mandate.parentMandateId);
+    }
+    if (!parent) {
+      parent = await this.mandateRepository.getActiveAppMandate(mandate.userId, mandate.agentId);
+      if (parent) {
+        console.log(`[ExecutePayment] Found APP mandate ${parent.id} for user=${mandate.userId} agent=${mandate.agentId} (parentMandateId was not set)`);
       }
     }
+
+    if (parent && parent.status === 'active' && parent.constraints?.maxTransactionAmount) {
+      // Use parent's limit if it's more permissive (user updated it after checkout mandate was created)
+      if (!maxPerPayment || parent.constraints.maxTransactionAmount > maxPerPayment) {
+        console.log(`[ExecutePayment] Using parent maxTransactionAmount $${parent.constraints.maxTransactionAmount} instead of checkout mandate's $${maxPerPayment}`);
+        maxPerPayment = parent.constraints.maxTransactionAmount;
+      }
+    }
+
+    console.log(`[ExecutePayment] mandate=${mandate.id} amount=$${amount} maxPerPayment=$${maxPerPayment} parentId=${parent?.id || 'none'}`);
+
     if (maxPerPayment && amount > maxPerPayment) {
       throw new Error(`Amount $${amount.toFixed(2)} exceeds max per payment $${maxPerPayment}`);
     }
@@ -242,17 +276,14 @@ export class CheckoutMandateService {
       }
     }
 
-    // 10. Check parent mandate constraints
-    if (mandate.parentMandateId) {
-      const parent = await this.mandateRepository.getById(mandate.parentMandateId);
-      if (parent) {
-        if (parent.status !== 'active') {
-          throw new Error(`Parent app mandate is ${parent.status}. Child mandates are invalid when parent is not active.`);
-        }
-        const pc = parent.constraints || {};
-        if (pc.maxTransactionAmount && amount > pc.maxTransactionAmount) {
-          throw new Error(`Transaction amount $${amount.toFixed(2)} exceeds parent app mandate limit $${pc.maxTransactionAmount}`);
-        }
+    // 10. Check parent mandate constraints (reuse parent loaded in step 5)
+    if (parent) {
+      if (parent.status !== 'active') {
+        throw new Error(`Parent app mandate is ${parent.status}. Child mandates are invalid when parent is not active.`);
+      }
+      const pc = parent.constraints || {};
+      if (pc.maxTransactionAmount && amount > pc.maxTransactionAmount) {
+        throw new Error(`Transaction amount $${amount.toFixed(2)} exceeds parent app mandate limit $${pc.maxTransactionAmount}`);
       }
     }
 
