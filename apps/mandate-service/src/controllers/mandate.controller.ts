@@ -433,6 +433,13 @@ export class MandateController {
         }
       }
 
+      // Keep maxAmountPerPayment and maxTransactionAmount in sync
+      if (constraints.maxTransactionAmount && !constraints.maxAmountPerPayment) {
+        constraints.maxAmountPerPayment = constraints.maxTransactionAmount;
+      } else if (constraints.maxAmountPerPayment && !constraints.maxTransactionAmount) {
+        constraints.maxTransactionAmount = constraints.maxAmountPerPayment;
+      }
+
       const merged = { ...mandate.constraints, ...constraints };
       const updated = await this.mandateService.updateMandateConstraints(id, merged);
 

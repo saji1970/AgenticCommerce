@@ -57,10 +57,12 @@ export class CheckoutMandateService {
     }
 
     // Build constraints with checkoutMandate flag
+    // Store both field names so admin panel (maxTransactionAmount) and mobile (maxAmountPerPayment) stay in sync
     const constraints: Record<string, any> = {
       ...(data.constraints || {}),
       checkoutMandate: true,
       maxAmountPerPayment,
+      maxTransactionAmount: maxAmountPerPayment,
     };
     if (data.dailyLimit != null) constraints.dailyLimit = data.dailyLimit;
     if (data.monthlyLimit != null) constraints.monthlyLimit = data.monthlyLimit;
@@ -165,7 +167,7 @@ export class CheckoutMandateService {
       transactionsToday: mandate.transactionsToday || 0,
       remainingToday: dailyLimit != null ? Math.max(0, dailyLimit - (mandate.amountUsedToday || 0)) : null,
       remainingMonth: monthlyLimit != null ? Math.max(0, monthlyLimit - (mandate.amountUsedPeriod || 0)) : null,
-      maxAmountPerPayment: constraints.maxAmountPerPayment || 0,
+      maxAmountPerPayment: Math.max(constraints.maxAmountPerPayment || 0, constraints.maxTransactionAmount || 0),
     };
   }
 
@@ -212,7 +214,11 @@ export class CheckoutMandateService {
 
     // 5. Check per-payment limit — use parent APP mandate's maxTransactionAmount if available
     //    (the parent is the user's authoritative spending limit source)
-    let maxPerPayment = constraints.maxAmountPerPayment;
+    //    Note: mobile form creates with "maxAmountPerPayment", admin panel updates with "maxTransactionAmount"
+    let maxPerPayment = Math.max(
+      constraints.maxAmountPerPayment || 0,
+      constraints.maxTransactionAmount || 0
+    ) || constraints.maxAmountPerPayment;
 
     // Resolve parent: use parentMandateId if set, otherwise look up by user+agent
     let parent: AgentMandate | null = null;

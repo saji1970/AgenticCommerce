@@ -327,7 +327,7 @@ export const adminMandateController = {
       }
 
       // Validate numeric fields are positive numbers
-      const numericFields = ['maxAmountPerPayment', 'dailyLimit', 'monthlyLimit', 'maxFrequency'];
+      const numericFields = ['maxAmountPerPayment', 'maxTransactionAmount', 'dailyLimit', 'monthlyLimit', 'maxFrequency'];
       for (const field of numericFields) {
         if (constraints[field] !== undefined) {
           const val = Number(constraints[field]);
@@ -337,6 +337,13 @@ export const adminMandateController = {
           }
           constraints[field] = val;
         }
+      }
+
+      // Keep maxAmountPerPayment and maxTransactionAmount in sync
+      if (constraints.maxTransactionAmount && !constraints.maxAmountPerPayment) {
+        constraints.maxAmountPerPayment = constraints.maxTransactionAmount;
+      } else if (constraints.maxAmountPerPayment && !constraints.maxTransactionAmount) {
+        constraints.maxTransactionAmount = constraints.maxAmountPerPayment;
       }
 
       const oldConstraints = { ...mandate.constraints };
