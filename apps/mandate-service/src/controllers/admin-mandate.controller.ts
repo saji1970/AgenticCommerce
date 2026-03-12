@@ -224,7 +224,7 @@ export const adminMandateController = {
         }
       }
 
-      if (['revoked', 'expired'].includes(mandate.status)) {
+      if (['completed', 'revoked', 'expired'].includes(mandate.status)) {
         res.status(400).json({ error: `Cannot revoke mandate with status '${mandate.status}'` });
         return;
       }
@@ -293,6 +293,73 @@ export const adminMandateController = {
       res.json({ success: true, mandate: updated });
     } catch (error) {
       res.status(500).json({ error: 'Failed to reactivate mandate' });
+    }
+  },
+
+  updateConstraints: async (req: Request, res: Response) => {
+    try {
+      const caller = req.adminCaller!;
+      const { id } = req.params;
+      const { constraints } = req.body;
+
+      if (!constraints || typeof constraints !== 'object' || Object.keys(constraints).length === 0) {
+        res.status(400).json({ error: 'Constraints must be a non-empty object' });
+        return;
+      }
+
+      const mandate = await mandateRepo.getByIdWithMerchantCheck(id);
+      if (!mandate) {
+        res.status(404).json({ error: 'Mandate not found' });
+        return;
+      }
+
+      // Merchant scope check
+      if (caller.adminRole !== 'super_admin' && caller.merchantId) {
+        if (mandate.agentMerchantId !== caller.merchantId) {
+          res.status(403).json({ error: 'Access denied' });
+          return;
+        }
+      }
+
+      if (['completed', 'revoked', 'expired'].includes(mandate.status)) {
+        res.status(400).json({ error: `Cannot update constraints for mandate with status '${mandate.status}'` });
+        return;
+      }
+
+      // Validate numeric fields are positive numbers
+      const numericFields = ['maxAmountPerPayment', 'dailyLimit', 'monthlyLimit', 'maxFrequency'];
+      for (const field of numericFields) {
+        if (constraints[field] !== undefined) {
+          const val = Number(constraints[field]);
+          if (isNaN(val) || val <= 0) {
+            res.status(400).json({ error: `${field} must be a positive number` });
+            return;
+          }
+          constraints[field] = val;
+        }
+      }
+
+      const oldConstraints = { ...mandate.constraints };
+      const merged = { ...mandate.constraints, ...constraints };
+      const updated = await mandateRepo.update(id, { constraints: merged });
+
+      // Audit log
+      await auditLogService.log({
+        eventType: 'mandate.constraints_updated',
+        eventCategory: 'mandate',
+        severity: 'warning',
+        description: `Admin ${caller.userId} updated constraints for mandate ${id}`,
+        actorType: 'system',
+        actorId: caller.userId,
+        mandateId: id,
+        oldState: oldConstraints,
+        newState: merged,
+        metadata: { adminRole: caller.adminRole, source: 'admin_panel' },
+      }).catch(() => {});
+
+      res.json({ success: true, mandate: updated });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update constraints' });
     }
   },
 };

@@ -11,7 +11,12 @@ import {
   DollarSign,
   AlertTriangle,
   TrendingUp,
+  CreditCard,
+  RefreshCw,
+  SlidersHorizontal,
+  ArrowRight,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart,
   Bar,
@@ -61,6 +66,7 @@ function StatCard({ title, value, icon, description, trend }: StatCardProps) {
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const { data: statsData, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['dashboard', 'stats'],
@@ -185,6 +191,44 @@ export function DashboardPage() {
               icon={<DollarSign className="h-6 w-6" />}
             />
           </div>
+
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Manage AI Apps', icon: Bot, href: '/ai-apps', color: 'bg-indigo-50 text-indigo-600' },
+              { label: 'View Mandates', icon: FileText, href: '/mandates', color: 'bg-blue-50 text-blue-600' },
+              { label: 'VRP Consents', icon: RefreshCw, href: '/vrp-consents', color: 'bg-green-50 text-green-600' },
+              { label: 'Transactions', icon: CreditCard, href: '/transactions', color: 'bg-purple-50 text-purple-600' },
+            ].map((action) => (
+              <button
+                key={action.href}
+                type="button"
+                onClick={() => navigate(action.href)}
+                className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:shadow-md transition-shadow text-left"
+              >
+                <div className={`p-2.5 rounded-lg ${action.color}`}>
+                  <action.icon className="h-5 w-5" />
+                </div>
+                <span className="text-sm font-medium text-gray-900 flex-1">{action.label}</span>
+                <ArrowRight className="h-4 w-4 text-gray-400" />
+              </button>
+            ))}
+          </div>
+
+          {/* Pending Approvals Banner */}
+          {(stats.mandates.byStatus.pending || 0) > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate('/mandates?status=pending')}
+              className="w-full bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3 hover:bg-amber-100 transition-colors text-left"
+            >
+              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+              <span className="text-sm font-medium text-amber-800 flex-1">
+                You have {stats.mandates.byStatus.pending} mandate{(stats.mandates.byStatus.pending || 0) !== 1 ? 's' : ''} waiting for approval
+              </span>
+              <ArrowRight className="h-4 w-4 text-amber-600" />
+            </button>
+          )}
 
           {/* Charts Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -190,8 +190,18 @@ export class CheckoutMandateService {
 
     const constraints = mandate.constraints || {};
 
-    // 5. Check per-payment limit
-    const maxPerPayment = constraints.maxAmountPerPayment;
+    // 5. Check per-payment limit — use parent APP mandate's maxTransactionAmount if available
+    //    (the parent is the user's authoritative spending limit source)
+    let maxPerPayment = constraints.maxAmountPerPayment;
+    if (mandate.parentMandateId) {
+      const parent = await this.mandateRepository.getById(mandate.parentMandateId);
+      if (parent && parent.status === 'active' && parent.constraints?.maxTransactionAmount) {
+        // Use parent's limit if it's more permissive (user updated it after checkout mandate was created)
+        if (!maxPerPayment || parent.constraints.maxTransactionAmount > maxPerPayment) {
+          maxPerPayment = parent.constraints.maxTransactionAmount;
+        }
+      }
+    }
     if (maxPerPayment && amount > maxPerPayment) {
       throw new Error(`Amount $${amount.toFixed(2)} exceeds max per payment $${maxPerPayment}`);
     }

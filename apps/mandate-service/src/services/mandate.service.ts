@@ -83,6 +83,10 @@ export class MandateService {
     return await this.mandateRepository.getByUserAndAgent(userId, agentId, type);
   }
 
+  async updateMandateConstraints(mandateId: string, constraints: Record<string, any>) {
+    return await this.mandateRepository.update(mandateId, { constraints });
+  }
+
   async approveMandate(mandateId: string, userId: string) {
     const mandate = await this.mandateRepository.getById(mandateId);
     if (!mandate) {

@@ -12,6 +12,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useMandates } from '../contexts/MandateContext';
 import { MandateLimitsEditor, MandateLimits } from '../components/MandateLimitsEditor';
+import { mandateServiceClient } from '../services/mandate-service.client';
+import { useAuth } from '../contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AIApp {
@@ -31,10 +33,12 @@ const DEFAULT_LIMITS_KEY = 'default_spending_limits';
 
 export const AIAppsScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const { mandates, loading, refreshMandates } = useMandates();
   const [selectedApp, setSelectedApp] = useState<AIApp | null>(null);
   const [isLimitsModalOpen, setIsLimitsModalOpen] = useState(false);
   const [editingLimits, setEditingLimits] = useState<MandateLimits | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Group mandates by AI agent
   const aiApps = useMemo(() => {
@@ -99,15 +103,53 @@ export const AIAppsScreen: React.FC = () => {
   };
 
   const handleSaveLimits = async () => {
-    if (!selectedApp || !editingLimits) return;
+    if (!selectedApp || !editingLimits || !user?.id) return;
 
-    // In a real app, this would update the backend
-    // For now, we'll show a success message
-    Alert.alert(
-      'Limits Updated',
-      `Transaction limits for ${selectedApp.agentName} have been updated.`,
-      [{ text: 'OK', onPress: () => setIsLimitsModalOpen(false) }]
-    );
+    setSaving(true);
+    try {
+      const constraints = {
+        maxTransactionAmount: editingLimits.maxTransactionAmount,
+        dailySpendingLimit: editingLimits.dailySpendingLimit,
+        monthlySpendingLimit: editingLimits.monthlySpendingLimit,
+        requiresTwoFactor: editingLimits.requiresTwoFactor,
+      };
+
+      // Update all active/pending mandates for this agent
+      const mandatesToUpdate = selectedApp.mandates.filter(
+        (m) => m.status === 'active' || m.status === 'pending'
+      );
+
+      let updated = 0;
+      for (const mandate of mandatesToUpdate) {
+        try {
+          await mandateServiceClient.updateMandateConstraints(
+            mandate.id,
+            user.id,
+            constraints
+          );
+          updated++;
+        } catch (err) {
+          console.warn(`Failed to update mandate ${mandate.id}:`, err);
+        }
+      }
+
+      await refreshMandates();
+
+      Alert.alert(
+        'Limits Updated',
+        `Transaction limits for ${selectedApp.agentName} have been updated (${updated} mandate${updated !== 1 ? 's' : ''}).`,
+        [{ text: 'OK', onPress: () => setIsLimitsModalOpen(false) }]
+      );
+    } catch (error) {
+      console.error('Error saving limits:', error);
+      Alert.alert(
+        'Update Failed',
+        'Could not update spending limits. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleViewMandates = (app: AIApp) => {

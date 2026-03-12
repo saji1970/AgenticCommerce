@@ -172,6 +172,10 @@ export const mandatesApi = {
     const response = await apiClient.put(`/mandates/${id}/reactivate`);
     return response.data;
   },
+  updateConstraints: async (id: string, constraints: Record<string, unknown>) => {
+    const response = await apiClient.put(`/mandates/${id}/constraints`, { constraints });
+    return response.data;
+  },
 };
 
 // Transactions API (admin view)

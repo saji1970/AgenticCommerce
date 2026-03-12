@@ -383,6 +383,72 @@ export class MandateController {
     }
   };
 
+  // Update constraints on user's own mandate
+  updateConstraints = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { userId, constraints } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          error: 'userId is required in request body',
+        });
+      }
+
+      if (!constraints || typeof constraints !== 'object' || Object.keys(constraints).length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'constraints must be a non-empty object',
+        });
+      }
+
+      const mandate = await this.mandateService.getMandate(id);
+      if (mandate.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: 'You can only update constraints on your own mandates',
+        });
+      }
+
+      if (['completed', 'revoked', 'expired'].includes(mandate.status)) {
+        return res.status(400).json({
+          success: false,
+          error: `Cannot update constraints for mandate with status '${mandate.status}'`,
+        });
+      }
+
+      // Validate numeric fields are positive numbers
+      const numericFields = ['maxTransactionAmount', 'maxAmountPerPayment', 'dailySpendingLimit', 'dailyLimit', 'monthlySpendingLimit', 'monthlyLimit'];
+      for (const field of numericFields) {
+        if (constraints[field] !== undefined) {
+          const val = Number(constraints[field]);
+          if (isNaN(val) || val <= 0) {
+            return res.status(400).json({
+              success: false,
+              error: `${field} must be a positive number`,
+            });
+          }
+          constraints[field] = val;
+        }
+      }
+
+      const merged = { ...mandate.constraints, ...constraints };
+      const updated = await this.mandateService.updateMandateConstraints(id, merged);
+
+      res.json({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      console.error('Error updating mandate constraints:', error);
+      res.status(error instanceof Error && error.message.includes('not found') ? 404 : 500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update constraints',
+      });
+    }
+  };
+
   // Validate mandate for transaction (called by agents before transactions)
   validateMandate = async (req: Request, res: Response) => {
     try {

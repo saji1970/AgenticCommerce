@@ -15,6 +15,9 @@ import { AdminUsersPage } from './pages/admin-users/AdminUsersPage';
 import { MandatesListPage } from './pages/mandates/MandatesListPage';
 import { VrpConsentsListPage } from './pages/vrp-consents/VrpConsentsListPage';
 import { TransactionsListPage } from './pages/transactions/TransactionsListPage';
+import { AIAppsPage } from './pages/ai-apps/AIAppsPage';
+import { PaymentMethodsPage } from './pages/payment-methods/PaymentMethodsPage';
+import { DefaultLimitsPage } from './pages/default-limits/DefaultLimitsPage';
 import { LoadingPage } from './components/common';
 
 function ProtectedRoute({ children, requiredRoles }: { children: React.ReactNode; requiredRoles?: AdminRole[] }) {
@@ -130,6 +133,36 @@ function App() {
         element={
           <ProtectedRoute>
             <VrpConsentsListPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* AI Apps - all roles */}
+      <Route
+        path="/ai-apps"
+        element={
+          <ProtectedRoute>
+            <AIAppsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Payment Methods - all roles */}
+      <Route
+        path="/payment-methods"
+        element={
+          <ProtectedRoute>
+            <PaymentMethodsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Default Spending Limits - super_admin only */}
+      <Route
+        path="/default-limits"
+        element={
+          <ProtectedRoute requiredRoles={['super_admin']}>
+            <DefaultLimitsPage />
           </ProtectedRoute>
         }
       />

@@ -10,6 +10,9 @@ import {
   Settings,
   CreditCard,
   RefreshCw,
+  Bot,
+  Wallet,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface NavItem {
@@ -28,23 +31,30 @@ export function Sidebar() {
 
   if (isSuperAdmin) {
     navigation.push({ name: 'Merchants & Agents', href: '/merchants', icon: Building2 });
+    navigation.push({ name: 'AI Apps', href: '/ai-apps', icon: Bot });
     navigation.push({ name: 'Admin Users', href: '/admin-users', icon: UserCog });
     navigation.push({ name: 'End Users', href: '/users', icon: Users });
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
     navigation.push({ name: 'VRP Consents', href: '/vrp-consents', icon: RefreshCw });
+    navigation.push({ name: 'Payment Methods', href: '/payment-methods', icon: Wallet });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
+    navigation.push({ name: 'Default Limits', href: '/default-limits', icon: SlidersHorizontal });
     navigation.push({ name: 'Certificates', href: '/certificates', icon: Shield });
     navigation.push({ name: 'Audit Logs', href: '/audit-logs', icon: FileText });
     navigation.push({ name: 'Settings', href: '/settings', icon: Settings });
   } else if (isMerchantAdmin) {
     navigation.push({ name: 'My Merchant', href: user?.merchantId ? `/merchants/${user.merchantId}` : '/merchants', icon: Building2 });
+    navigation.push({ name: 'AI Apps', href: '/ai-apps', icon: Bot });
     navigation.push({ name: 'Team Members', href: '/admin-users', icon: UserCog });
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
     navigation.push({ name: 'VRP Consents', href: '/vrp-consents', icon: RefreshCw });
+    navigation.push({ name: 'Payment Methods', href: '/payment-methods', icon: Wallet });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
   } else if (isMerchantOperator) {
+    navigation.push({ name: 'AI Apps', href: '/ai-apps', icon: Bot });
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
     navigation.push({ name: 'VRP Consents', href: '/vrp-consents', icon: RefreshCw });
+    navigation.push({ name: 'Payment Methods', href: '/payment-methods', icon: Wallet });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
   }
 

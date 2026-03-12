@@ -168,6 +168,12 @@ router.put('/mandates/:id/reactivate',
   adminMandateController.reactivate,
 );
 
+router.put('/mandates/:id/constraints',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMandateController.updateConstraints,
+);
+
 // ============================================================================
 // Transactions (admin view)
 // ============================================================================

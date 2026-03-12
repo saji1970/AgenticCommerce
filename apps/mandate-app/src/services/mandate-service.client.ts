@@ -265,6 +265,14 @@ class MandateServiceClient {
     return response.data.data;
   }
 
+  async updateMandateConstraints(mandateId: string, userId: string, constraints: Record<string, any>): Promise<AgentMandate> {
+    const response = await this.client.put<{ success: boolean; data: AgentMandate }>(
+      `/mandates/${mandateId}/constraints`,
+      { userId, constraints }
+    );
+    return response.data.data;
+  }
+
   async revokeMandate(mandateId: string, userId: string, reason?: string): Promise<AgentMandate> {
     const response = await this.client.post<{ success: boolean; data: AgentMandate }>(
       `/mandates/${mandateId}/revoke`,

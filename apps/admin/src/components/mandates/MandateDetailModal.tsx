@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mandatesApi } from '../../api/client';
 import { Modal, Badge, LoadingPage } from '../common';
 import type { MandateDetail } from '../../types';
@@ -25,6 +26,47 @@ export function MandateDetailModal({
   });
 
   const detail = data as MandateDetail | undefined;
+  const queryClient = useQueryClient();
+  const [isEditingConstraints, setIsEditingConstraints] = useState(false);
+  const [editedConstraints, setEditedConstraints] = useState<Record<string, string>>({});
+  const [constraintError, setConstraintError] = useState<string | null>(null);
+
+  const constraintsMutation = useMutation({
+    mutationFn: (constraints: Record<string, unknown>) =>
+      mandatesApi.updateConstraints(mandateId!, constraints),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mandate-detail', mandateId] });
+      queryClient.invalidateQueries({ queryKey: ['mandates'] });
+      setIsEditingConstraints(false);
+      setConstraintError(null);
+    },
+    onError: (err: any) => {
+      setConstraintError(err.response?.data?.error || 'Failed to update constraints');
+    },
+  });
+
+  const startEditing = () => {
+    if (!detail) return;
+    const current: Record<string, string> = {};
+    for (const [key, val] of Object.entries(detail.mandate.constraints || {})) {
+      current[key] = typeof val === 'object' ? JSON.stringify(val) : String(val);
+    }
+    setEditedConstraints(current);
+    setConstraintError(null);
+    setIsEditingConstraints(true);
+  };
+
+  const saveConstraints = () => {
+    const parsed: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(editedConstraints)) {
+      const num = Number(val);
+      parsed[key] = isNaN(num) ? val : num;
+    }
+    constraintsMutation.mutate(parsed);
+  };
+
+  const canEditConstraints = detail &&
+    !['completed', 'revoked', 'expired'].includes(detail.mandate.status);
 
   const statusVariant = (s: string): 'success' | 'warning' | 'error' | 'default' => {
     const map: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
@@ -87,15 +129,62 @@ export function MandateDetailModal({
             {/* Constraints */}
             {Object.keys(detail.mandate.constraints || {}).length > 0 && (
               <div className="mt-2">
-                <span className="text-gray-500 text-sm font-medium">Constraints:</span>
-                <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                  {Object.entries(detail.mandate.constraints).map(([key, val]) => (
-                    <div key={key}>
-                      <span className="text-gray-500">{key}:</span>{' '}
-                      <span className="font-medium">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
-                    </div>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 text-sm font-medium">Constraints:</span>
+                  {canEditConstraints && !isEditingConstraints && (
+                    <button
+                      onClick={startEditing}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+                    >
+                      Edit Constraints
+                    </button>
+                  )}
                 </div>
+                {isEditingConstraints ? (
+                  <div className="mt-1 space-y-2">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      {Object.entries(editedConstraints).map(([key, val]) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <span className="text-gray-500 min-w-0 shrink-0">{key}:</span>
+                          <input
+                            type="text"
+                            value={val}
+                            onChange={(e) => setEditedConstraints(prev => ({ ...prev, [key]: e.target.value }))}
+                            className="border border-gray-300 rounded px-2 py-0.5 text-sm w-full focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {constraintError && (
+                      <p className="text-red-600 text-xs">{constraintError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={saveConstraints}
+                        disabled={constraintsMutation.isPending}
+                        className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        {constraintsMutation.isPending ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={() => { setIsEditingConstraints(false); setConstraintError(null); }}
+                        disabled={constraintsMutation.isPending}
+                        className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                    {Object.entries(detail.mandate.constraints).map(([key, val]) => (
+                      <div key={key}>
+                        <span className="text-gray-500">{key}:</span>{' '}
+                        <span className="font-medium">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {/* Payment Methods */}

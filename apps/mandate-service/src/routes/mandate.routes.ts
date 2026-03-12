@@ -53,6 +53,9 @@ router.post('/:id/approve', mandateController.approveMandate);
 // Suspend mandate (requires userId in body)
 router.post('/:id/suspend', mandateController.suspendMandate);
 
+// Update mandate constraints (requires userId in body for ownership check)
+router.put('/:id/constraints', mandateController.updateConstraints);
+
 // Revoke mandate (requires userId in body)
 router.post('/:id/revoke', mandateController.revokeMandate);
 
