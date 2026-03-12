@@ -41,7 +41,12 @@ class ApiClient {
       async (error: AxiosError<ApiResponse>) => {
         if (error.response?.status === 401) {
           // Token expired or invalid - clear storage
+          // Each screen's catch handler should prompt re-login via AuthContext.logout()
           await storageService.clearAll();
+        }
+        if (!error.response) {
+          // Network error - add a clearer message
+          error.message = 'Network error. Please check your connection and try again.';
         }
         return Promise.reject(error);
       }

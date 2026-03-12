@@ -81,6 +81,19 @@ class PaymentGatewayClient {
       }
       return config;
     });
+
+    // Response interceptor for better error messages
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (!error.response) {
+          error.message = 'Network error. Please check your connection and try again.';
+        } else if (error.response.status === 502) {
+          error.message = error.response.data?.error || 'Payment gateway is unavailable. Please ensure the payment-gateway service is running.';
+        }
+        return Promise.reject(error);
+      }
+    );
   }
 
   async createConsent(data: CreateVrpConsentRequest): Promise<VrpConsent> {

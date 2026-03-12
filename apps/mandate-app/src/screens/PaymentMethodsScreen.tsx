@@ -15,7 +15,7 @@ const PAYMENT_METHODS_KEY = 'payment_methods';
 
 interface PaymentMethod {
   id: string;
-  type: 'card' | 'paypal' | 'apple_pay';
+  type: 'card' | 'paypal' | 'apple_pay' | 'google_pay';
   label: string;
   last4?: string;
   cardholderName?: string;
@@ -170,18 +170,12 @@ export const PaymentMethodsScreen: React.FC = () => {
     Alert.alert('Success', 'PayPal account linked');
   };
 
-  const handleAddApplePay = async () => {
-    const newMethod: PaymentMethod = {
-      id: `apple_pay_${Date.now()}`,
-      type: 'apple_pay',
-      label: 'Apple Pay',
-      isDefault: methods.length === 0,
-      createdAt: new Date().toISOString(),
-    };
+  const handleAddApplePay = () => {
+    Alert.alert('Coming Soon', 'Apple Pay functionality will be implemented later.');
+  };
 
-    await saveMethods([...methods, newMethod]);
-    setShowAddWallet(false);
-    Alert.alert('Success', 'Apple Pay added (simulated)');
+  const handleAddGooglePay = () => {
+    Alert.alert('Coming Soon', 'Google Pay functionality will be implemented later.');
   };
 
   const handleSetDefault = async (id: string) => {
@@ -219,6 +213,7 @@ export const PaymentMethodsScreen: React.FC = () => {
       case 'card': return '💳';
       case 'paypal': return '🅿️';
       case 'apple_pay': return '🍎';
+      case 'google_pay': return '🔵';
       default: return '💰';
     }
   };
@@ -374,7 +369,18 @@ export const PaymentMethodsScreen: React.FC = () => {
               <Text style={styles.walletOptionIcon}>🍎</Text>
               <View style={styles.walletOptionText}>
                 <Text style={styles.walletOptionTitle}>Apple Pay</Text>
-                <Text style={styles.walletOptionSubtitle}>Add simulated Apple Pay</Text>
+                <Text style={styles.walletOptionSubtitle}>Coming soon</Text>
+              </View>
+              <Text style={styles.walletOptionChevron}>+</Text>
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity style={styles.walletOption} onPress={handleAddGooglePay}>
+              <Text style={styles.walletOptionIcon}>🔵</Text>
+              <View style={styles.walletOptionText}>
+                <Text style={styles.walletOptionTitle}>Google Pay</Text>
+                <Text style={styles.walletOptionSubtitle}>Coming soon</Text>
               </View>
               <Text style={styles.walletOptionChevron}>+</Text>
             </TouchableOpacity>

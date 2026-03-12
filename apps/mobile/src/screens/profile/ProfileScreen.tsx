@@ -17,7 +17,7 @@ import { Button } from '../../components/common/Button';
 import { useNavigation } from '@react-navigation/native';
 
 export const ProfileScreen = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigation = useNavigation<StackNavigationProp<ProfileStackParamList, 'ProfileMain'>>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +31,22 @@ export const ProfileScreen = () => {
       const data = await userService.getProfile();
       setProfile(data);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to load profile');
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        Alert.alert(
+          'Session Expired',
+          'Your session has expired. Please log in again.',
+          [{ text: 'OK', onPress: logout }]
+        );
+        return;
+      }
+      const msg =
+        error?.response?.data?.error?.message ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to load profile';
+      console.error('[ProfileScreen] Load profile error:', msg, error?.response?.status);
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
