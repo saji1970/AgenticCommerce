@@ -170,7 +170,7 @@ export class PaymentService {
         );
         paymentResult = {
           success: true,
-          transactionId: vrpResult.gatewayResult?.transactionId || vrpResult.transaction?.transactionId,
+          transactionId: vrpResult.transactionId || vrpResult.gatewayResult?.transactionId || vrpResult.transaction?.transactionId,
         };
       } else {
         // Legacy: card or PayPal via mock gateway
