@@ -84,6 +84,35 @@ export const adminTransactionController = {
         ? await mandateRepo.getById(transaction.mandateId)
         : null;
 
+      // Fetch parent mandate (APP/VRP) and sibling mandates
+      let parentMandate = null;
+      let relatedMandates: any[] = [];
+
+      if (linkedMandate?.parentMandateId) {
+        const parent = await mandateRepo.getById(linkedMandate.parentMandateId);
+        if (parent) {
+          parentMandate = {
+            id: parent.id,
+            type: parent.type,
+            status: parent.status,
+            agentName: parent.agentName,
+            constraints: parent.constraints || {},
+          };
+
+          // Fetch sibling mandates (other children of the same parent)
+          const siblings = await mandateRepo.getChildMandates(parent.id);
+          relatedMandates = siblings
+            .filter(s => s.id !== linkedMandate.id)
+            .map(s => ({
+              id: s.id,
+              type: s.type,
+              status: s.status,
+              constraints: s.constraints || {},
+              createdAt: s.createdAt,
+            }));
+        }
+      }
+
       res.json({
         success: true,
         transaction,
@@ -96,6 +125,8 @@ export const adminTransactionController = {
           constraints: linkedMandate.constraints,
           createdAt: linkedMandate.createdAt,
         } : null,
+        parentMandate,
+        relatedMandates,
       });
     } catch (error) {
       res.status(500).json({ error: 'Failed to get transaction detail' });

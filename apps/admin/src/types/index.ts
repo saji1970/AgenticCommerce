@@ -276,6 +276,20 @@ export interface TransactionDetail {
     constraints: Record<string, unknown>;
     createdAt: string;
   } | null;
+  parentMandate: {
+    id: string;
+    type: string;
+    status: string;
+    agentName: string;
+    constraints: Record<string, unknown>;
+  } | null;
+  relatedMandates: {
+    id: string;
+    type: string;
+    status: string;
+    constraints: Record<string, unknown>;
+    createdAt: string;
+  }[];
 }
 
 export interface PurchaseIntent {

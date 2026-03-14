@@ -1,8 +1,43 @@
 import jwt from 'jsonwebtoken';
 import { MandateRepository, AgentMandate } from '../repositories/mandate.repository';
 import { AIAgentAppRepository } from '../repositories/ai-agent-app.repository';
+import { TransactionRepository } from '../repositories/transaction.repository';
 import { config } from '../config/env';
 import { paymentClient } from '../clients/paymentClient';
+
+function buildISOMessageFields(params: {
+  networkToken: string;
+  amount: number;
+  currency: string;
+  citTransactionId: string;
+  mandateId: string;
+}): Record<string, string> {
+  const now = new Date();
+  const mmddhhmmss = [
+    String(now.getUTCMonth() + 1).padStart(2, '0'),
+    String(now.getUTCDate()).padStart(2, '0'),
+    String(now.getUTCHours()).padStart(2, '0'),
+    String(now.getUTCMinutes()).padStart(2, '0'),
+    String(now.getUTCSeconds()).padStart(2, '0'),
+  ].join('');
+  const stan = String(Math.floor(Math.random() * 999999) + 1).padStart(6, '0');
+  const masked = params.networkToken.length >= 4
+    ? '****' + params.networkToken.slice(-4)
+    : '****';
+
+  return {
+    MTI: '0200',
+    DE2_NetworkToken: masked,
+    DE4_Amount: String(Math.round(params.amount * 100)).padStart(12, '0'),
+    DE7_TransmissionDateTime: mmddhhmmss,
+    DE11_STAN: stan,
+    DE25_POSConditionCode: '08',
+    DE48_CoFIndicator: 'MIT',
+    DE49_Currency: params.currency,
+    DE63_OriginalCitRef: params.citTransactionId,
+    MandateId: params.mandateId,
+  };
+}
 
 export interface CreateCheckoutMandateData {
   userId: string;
@@ -20,10 +55,12 @@ export interface CreateCheckoutMandateData {
 export class CheckoutMandateService {
   private mandateRepository: MandateRepository;
   private agentRepository: AIAgentAppRepository;
+  private transactionRepository: TransactionRepository;
 
   constructor() {
     this.mandateRepository = new MandateRepository();
     this.agentRepository = new AIAgentAppRepository();
+    this.transactionRepository = new TransactionRepository();
   }
 
   async createCheckoutMandate(data: CreateCheckoutMandateData) {
@@ -308,6 +345,50 @@ export class CheckoutMandateService {
 
     // 12. Update usage counters
     await this.mandateRepository.updateCheckoutUsage(mandate.id, amount);
+
+    // 13. Record transaction with ISO 8583 display fields
+    const isoMessage = buildISOMessageFields({
+      networkToken: mandate.networkToken,
+      amount,
+      currency,
+      citTransactionId: mandate.citTransactionId,
+      mandateId: mandate.id,
+    });
+
+    // Resolve merchantId via the agent's registered app
+    let merchantId: string | undefined;
+    const agentApp = await this.agentRepository.getByAgentId(mandate.agentId);
+    if (agentApp?.merchant_id) {
+      merchantId = agentApp.merchant_id;
+    }
+
+    try {
+      await this.transactionRepository.create({
+        mandateId: mandate.id,
+        userId: mandate.userId,
+        agentId: mandate.agentId,
+        merchantId,
+        type: 'payment',
+        status: 'completed',
+        amount,
+        currency,
+        gatewayTransactionId: mitResult.transactionId,
+        gatewayResponse: {
+          responseCode: mitResult.responseCode,
+          message: mitResult.message,
+          isoMessage,
+        },
+        metadata: {
+          parentMandateId: mandate.parentMandateId || parent?.id || null,
+          description: description || null,
+          isoMessage,
+        },
+        processedAt: new Date(),
+      });
+    } catch (err) {
+      // Log but don't fail the payment if transaction recording fails
+      console.error('[ExecutePayment] Failed to record transaction:', err);
+    }
 
     return {
       transactionId: mitResult.transactionId,

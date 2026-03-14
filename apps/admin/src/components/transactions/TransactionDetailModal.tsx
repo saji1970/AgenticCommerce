@@ -11,6 +11,19 @@ interface TransactionDetailModalProps {
   onOpenMandate?: (id: string) => void;
 }
 
+const ISO_FIELD_LABELS: Record<string, string> = {
+  MTI: 'Message Type Indicator',
+  DE2_NetworkToken: 'Network Token (masked)',
+  DE4_Amount: 'Transaction Amount',
+  DE7_TransmissionDateTime: 'Transmission Date/Time',
+  DE11_STAN: 'System Trace Audit Number',
+  DE25_POSConditionCode: 'POS Condition Code',
+  DE48_CoFIndicator: 'Card-on-File Indicator',
+  DE49_Currency: 'Currency Code',
+  DE63_OriginalCitRef: 'Original CIT Reference',
+  MandateId: 'Mandate ID',
+};
+
 export function TransactionDetailModal({
   transactionId,
   isOpen,
@@ -30,6 +43,7 @@ export function TransactionDetailModal({
   const statusVariant = (s: string): 'success' | 'warning' | 'error' | 'info' | 'default' => {
     const map: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
       completed: 'success', processing: 'info', pending: 'warning', failed: 'error', refunded: 'default',
+      active: 'success', suspended: 'error', revoked: 'error', expired: 'default',
     };
     return map[s] || 'default';
   };
@@ -37,6 +51,7 @@ export function TransactionDetailModal({
   const typeVariant = (t: string): 'info' | 'warning' | 'success' | 'default' => {
     const map: Record<string, 'info' | 'warning' | 'success' | 'default'> = {
       payment: 'success', refund: 'warning', authorization: 'info',
+      app: 'info', cart: 'info', intent: 'warning',
     };
     return map[t] || 'default';
   };
@@ -46,6 +61,11 @@ export function TransactionDetailModal({
 
   const formatAmount = (amount: number, currency: string) =>
     amount.toLocaleString('en-US', { style: 'currency', currency });
+
+  // Extract ISO message fields from gatewayResponse or metadata
+  const isoMessage = detail?.transaction?.gatewayResponse?.isoMessage
+    || detail?.transaction?.metadata?.isoMessage
+    || null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Transaction Detail" size="2xl">
@@ -85,6 +105,33 @@ export function TransactionDetailModal({
             </div>
           </div>
 
+          {/* ISO 8583 Message */}
+          {isoMessage && typeof isoMessage === 'object' && Object.keys(isoMessage).length > 0 && (
+            <div className="bg-gray-900 rounded-lg p-4">
+              <h3 className="font-semibold text-sm text-green-400 uppercase tracking-wide mb-3">ISO 8583 Message</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left px-3 py-1.5 text-gray-400 font-medium">Field</th>
+                      <th className="text-left px-3 py-1.5 text-gray-400 font-medium">Description</th>
+                      <th className="text-left px-3 py-1.5 text-gray-400 font-medium">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {Object.entries(isoMessage as Record<string, string>).map(([field, value]) => (
+                      <tr key={field}>
+                        <td className="px-3 py-1.5 font-mono text-green-300 text-xs">{field}</td>
+                        <td className="px-3 py-1.5 text-gray-400 text-xs">{ISO_FIELD_LABELS[field] || field}</td>
+                        <td className="px-3 py-1.5 font-mono text-gray-100 text-xs">{String(value)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Metadata / Product Info */}
           {Object.keys(detail.transaction.metadata || {}).length > 0 && (
             <div className="bg-gray-50 rounded-lg p-4">
@@ -112,7 +159,9 @@ export function TransactionDetailModal({
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                  {Object.entries(detail.transaction.metadata).map(([key, val]) => (
+                  {Object.entries(detail.transaction.metadata)
+                    .filter(([key]) => key !== 'isoMessage')
+                    .map(([key, val]) => (
                     <div key={key}>
                       <span className="text-gray-500">{key}:</span>{' '}
                       <span className="font-medium">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
@@ -123,7 +172,7 @@ export function TransactionDetailModal({
             </div>
           )}
 
-          {/* Linked Mandate */}
+          {/* Linked Mandate (Checkout/Payment mandate) */}
           {detail.linkedMandate && (
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="font-semibold text-sm text-gray-700 uppercase tracking-wide mb-2">Linked Mandate</h3>
@@ -147,6 +196,73 @@ export function TransactionDetailModal({
                   ).join(', ')}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Parent / VRP APP Mandate */}
+          {detail.parentMandate && (
+            <div className="bg-indigo-50 rounded-lg p-4">
+              <h3 className="font-semibold text-sm text-indigo-700 uppercase tracking-wide mb-2">VRP / APP Mandate</h3>
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant={typeVariant(detail.parentMandate.type)}>{detail.parentMandate.type.toUpperCase()}</Badge>
+                <Badge variant={statusVariant(detail.parentMandate.status)}>{detail.parentMandate.status}</Badge>
+                <span className="text-gray-600">{detail.parentMandate.agentName}</span>
+                {onOpenMandate && (
+                  <button
+                    onClick={() => onOpenMandate(detail.parentMandate!.id)}
+                    className="text-indigo-600 hover:text-indigo-800 underline text-xs"
+                  >
+                    View APP Mandate
+                  </button>
+                )}
+              </div>
+              {Object.keys(detail.parentMandate.constraints || {}).length > 0 && (
+                <div className="mt-2 text-xs text-gray-500">
+                  Constraints: {Object.entries(detail.parentMandate.constraints).map(([k, v]) =>
+                    `${k}=${typeof v === 'object' ? JSON.stringify(v) : v}`
+                  ).join(', ')}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Related Mandates (Cart/Intent siblings) */}
+          {detail.relatedMandates && detail.relatedMandates.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-sm text-gray-700 uppercase tracking-wide mb-2">
+                Related Mandates ({detail.relatedMandates.length})
+              </h3>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Type</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Status</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Created</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {detail.relatedMandates.map((m) => (
+                      <tr key={m.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2"><Badge variant={typeVariant(m.type)}>{m.type}</Badge></td>
+                        <td className="px-3 py-2"><Badge variant={statusVariant(m.status)}>{m.status}</Badge></td>
+                        <td className="px-3 py-2 text-gray-500">{formatDate(m.createdAt)}</td>
+                        <td className="px-3 py-2">
+                          {onOpenMandate && (
+                            <button
+                              onClick={() => onOpenMandate(m.id)}
+                              className="text-indigo-600 hover:text-indigo-800 text-xs underline"
+                            >
+                              View
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

@@ -19,7 +19,7 @@ export async function executeWithToken(
     productInfo?: Record<string, any>;
   },
   authHeader?: string
-): Promise<{ transaction: any; gatewayResult: any }> {
+): Promise<{ transactionId?: string; transaction?: any; gatewayResult?: any; [key: string]: any }> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };

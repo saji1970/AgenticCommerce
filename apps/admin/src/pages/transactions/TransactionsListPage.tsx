@@ -18,6 +18,8 @@ import {
   Alert,
 } from '../../components/common';
 import { CreditCard } from 'lucide-react';
+import { TransactionDetailModal } from '../../components/transactions/TransactionDetailModal';
+import { MandateDetailModal } from '../../components/mandates/MandateDetailModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -25,6 +27,10 @@ export function TransactionsListPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Detail modal state
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  const [selectedMandateId, setSelectedMandateId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['transactions', { status: statusFilter, type: typeFilter, page: currentPage }],
@@ -134,7 +140,11 @@ export function TransactionsListPage() {
                 </TableHeader>
                 <TableBody>
                   {transactions.map((tx) => (
-                    <TableRow key={tx.id}>
+                    <TableRow
+                      key={tx.id}
+                      className="cursor-pointer hover:bg-gray-50"
+                      onClick={() => setSelectedTransactionId(tx.id)}
+                    >
                       <TableCell>
                         <span className="font-mono text-xs">{tx.id.slice(0, 8)}...</span>
                       </TableCell>
@@ -166,6 +176,29 @@ export function TransactionsListPage() {
           )}
         </Card>
       )}
+
+      {/* Transaction Detail Modal */}
+      <TransactionDetailModal
+        transactionId={selectedTransactionId}
+        isOpen={!!selectedTransactionId}
+        onClose={() => setSelectedTransactionId(null)}
+        onOpenMandate={(id) => {
+          setSelectedTransactionId(null);
+          setSelectedMandateId(id);
+        }}
+      />
+
+      {/* Mandate Detail Modal (cross-navigation from transaction) */}
+      <MandateDetailModal
+        mandateId={selectedMandateId}
+        isOpen={!!selectedMandateId}
+        onClose={() => setSelectedMandateId(null)}
+        onOpenMandate={(id) => setSelectedMandateId(id)}
+        onOpenTransaction={(id) => {
+          setSelectedMandateId(null);
+          setSelectedTransactionId(id);
+        }}
+      />
     </div>
   );
 }
