@@ -182,6 +182,11 @@ router.get('/transactions',
   adminTransactionController.list,
 );
 
+router.post('/transactions/seed-test',
+  authenticateAdmin,
+  adminTransactionController.seedTest,
+);
+
 router.get('/transactions/:id/detail',
   authenticateAdmin,
   adminTransactionController.getDetail,
