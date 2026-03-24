@@ -1,7 +1,8 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { AuthResponse, LoginCredentials, RegisterData } from '@agentic-commerce/shared-types';
 import { authService } from '../services/auth.service';
 import { storageService } from '../services/storage.service';
+import { setOnAuthFailure } from '../services/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -69,7 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await storageService.clearAll();
       setUser(null);
@@ -77,7 +78,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     }
-  };
+  }, []);
+
+  // Register the API interceptor's auth failure callback so 401/403 triggers a real logout
+  useEffect(() => {
+    setOnAuthFailure(() => {
+      setUser(null);
+      setIsAuthenticated(false);
+    });
+    return () => setOnAuthFailure(null);
+  }, []);
 
   return (
     <AuthContext.Provider

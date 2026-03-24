@@ -216,8 +216,14 @@ export const AIChatScreen = () => {
         addMessages(responseMsgs);
       } catch (err: any) {
         removeTypingIndicator();
-        const errorText =
-          err.response?.data?.error?.message || err.message || 'Something went wrong. Please try again.';
+        const status = err.response?.status;
+        const serverMessage = err.response?.data?.error?.message;
+        let errorText: string;
+        if (status === 401 || status === 403) {
+          errorText = 'Your session has expired. Please log in again.';
+        } else {
+          errorText = serverMessage || err.message || 'Something went wrong. Please try again.';
+        }
         addMessages([
           {
             id: generateId(),

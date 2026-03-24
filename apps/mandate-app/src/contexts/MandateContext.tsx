@@ -79,17 +79,9 @@ export const MandateProvider: React.FC<{ children: ReactNode }> = ({ children })
       setMandates(userMandates);
     } catch (error) {
       console.error('Error fetching mandates:', error);
-      // Fallback to demo data
-      console.log('Using demo seed data as fallback');
+      // Show local mandates only (real mandates stored from deep-link callbacks)
       const localMandates = await getLocalMandates();
-      const seedMandates = getDemoMandates(user?.id || DEMO_USER_ID);
-      const mergedMandates = [...localMandates];
-      for (const seedMandate of seedMandates) {
-        if (!mergedMandates.find(m => m.id === seedMandate.id)) {
-          mergedMandates.push(seedMandate);
-        }
-      }
-      setMandates(mergedMandates);
+      setMandates(localMandates);
     } finally {
       setLoading(false);
     }
@@ -192,12 +184,6 @@ export const MandateProvider: React.FC<{ children: ReactNode }> = ({ children })
       await refreshMandates();
     } catch (error) {
       console.error('Error suspending mandate:', error);
-      // Fallback to demo data update
-      const updated = updateDemoMandate(mandateId, { status: 'suspended' });
-      if (updated) {
-        await refreshMandates();
-        return;
-      }
       throw error;
     }
   };

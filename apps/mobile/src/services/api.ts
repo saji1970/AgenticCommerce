@@ -11,6 +11,13 @@ const DEVELOPMENT_URL = 'http://10.0.2.2:3000/api';
 // Using Railway backend for all environments
 const API_URL = PRODUCTION_URL;
 
+// Global auth failure callback — set by AuthContext to trigger proper logout
+let onAuthFailure: (() => void) | null = null;
+
+export function setOnAuthFailure(callback: (() => void) | null) {
+  onAuthFailure = callback;
+}
+
 class ApiClient {
   private client: AxiosInstance;
 
@@ -39,10 +46,12 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError<ApiResponse>) => {
-        if (error.response?.status === 401) {
-          // Token expired or invalid - clear storage
-          // Each screen's catch handler should prompt re-login via AuthContext.logout()
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          // Token expired or invalid - clear storage and trigger logout
           await storageService.clearAll();
+          if (onAuthFailure) {
+            onAuthFailure();
+          }
         }
         if (!error.response) {
           // Network error - add a clearer message
