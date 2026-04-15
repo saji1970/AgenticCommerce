@@ -205,12 +205,28 @@ export class ProductService {
           mcpTravelPromise,
         ]);
 
+        const coerceFlightPrice = (result: any): number | undefined => {
+          const r = result?.price;
+          if (typeof r === 'number' && !Number.isNaN(r) && r > 0) return r;
+          if (typeof r === 'string') {
+            const p = parseFloat(r.replace(/[^0-9.]/g, ''));
+            if (!Number.isNaN(p) && p > 0) return p;
+          }
+          const raw = result?.rawData?.price ?? result?.rawData?.fare;
+          if (typeof raw === 'number' && !Number.isNaN(raw) && raw > 0) return raw;
+          if (typeof raw === 'string') {
+            const p = parseFloat(raw.replace(/[^0-9.]/g, ''));
+            if (!Number.isNaN(p) && p > 0) return p;
+          }
+          return undefined;
+        };
+
         // Convert SerpAPI flight results to CreateProductDTO
         const serpApiFlightProducts: CreateProductDTO[] = serpApiResults.map((result: any) => ({
           userId,
           name: result.title,
           description: result.snippet,
-          price: typeof result.price === 'number' ? result.price : undefined,
+          price: coerceFlightPrice(result),
           currency: result.currency || 'USD',
           imageUrl: result.image || undefined,
           productUrl: result.url,

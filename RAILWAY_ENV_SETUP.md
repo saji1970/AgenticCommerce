@@ -35,7 +35,12 @@ This document lists all environment variables required for each service when dep
 | `GOOGLE_SEARCH_ENGINE_ID` | No | Google Search Engine ID |
 | `SERPAPI_KEY` | No | SerpAPI key |
 | `RAPIDAPI_KEY` | No | RapidAPI (e.g. flights) |
-| `MCP_CONFIG_PATH` | No | Path to MCP config |
+| `MCP_CONFIG_PATH` | No | Path to MCP config (stdio MCP servers) |
+| `CARD_MCP_SERVER_URL` | No | Card / payment-options **Streamable HTTP** MCP endpoint (e.g. `https://host/mcp`) — mapped to `cardMCPServerURL` in config; required for `POST /api/mcp/evaluate-payment-options` |
+| `MCP_HTTP_URL` | No | Legacy alias for `CARD_MCP_SERVER_URL` if the latter is unset |
+| `MCP_API_TOKEN` | No | Bearer token for that MCP server (**server only** — do not ship in mobile APK) |
+| `MCP_PROTOCOL_VERSION` | No | Default `2025-06-18` |
+| `MCP_HTTP_TIMEOUT_MS` | No | Default `60000` |
 
 **Fallback DB vars** (if `DATABASE_URL` not used): `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
 
@@ -156,3 +161,19 @@ PAYMENT_GATEWAY_URL=https://payment-gateway.railway.app  # if using VRP
    - `ADMIN_JWT_SECRET` = mandate-service `JWT_SECRET`
 5. Add `PAYMENT_GATEWAY_URL` to mandate-service pointing to the payment-gateway public URL.
 6. Implement proxy in mandate-service: `/api/admin` → `PAYMENT_GATEWAY_URL/api/admin` so the admin SPA can call VRP endpoints.
+
+---
+
+## Railway Railpack build: `secret ID missing for ""` environment variable
+
+This error usually means **BuildKit/Railpack was asked to inject a secret whose name is empty** (`""`). It is not typically caused by your application code.
+
+**Check on Railway (service → Variables and shared variables):**
+
+1. **Remove any variable with a blank name** — sometimes created by a bad paste or import from `.env`.
+2. Open the **Raw Editor** and look for a line that starts with `=` (no key on the left) or a JSON entry like `{"": "something"}`.
+3. If you use **reference / template** variables, fix any `${{ }}` or `${{VAR}}` with a missing or empty variable name.
+4. **Shared Variables** (Project Settings): repeat the same checks for the current environment.
+5. Retry the deployment.
+
+**Repo config:** Root [`railpack.json`](./railpack.json) sets the Node provider explicitly and does **not** declare a `secrets` list, so the build does not depend on custom secret IDs from that file. If the error persists after cleaning variables, regenerate the deploy or open a Railway support thread with the deployment ID.

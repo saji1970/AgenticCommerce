@@ -9,6 +9,9 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
       }
     },
     "preview": {
@@ -16,11 +19,17 @@
       "android": {
         "buildType": "apk"
       },
+      "ios": {
+        "distribution": "internal"
+      },
       "node": "20.18.0"
     },
     "production": {
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "distribution": "store"
       },
       "node": "20.18.0"
     }

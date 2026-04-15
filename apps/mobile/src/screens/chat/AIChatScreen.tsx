@@ -15,6 +15,14 @@ import { ChatMessage } from '../../types/chat';
 import { ChatBubble } from '../../components/chat/ChatBubble';
 import { ChatInput } from '../../components/chat/ChatInput';
 import { useProduct } from '../../hooks/useProduct';
+import { storageService } from '../../services/storage.service';
+import { loadSavedPaymentMethodsForMcp } from '../../services/savedPaymentMethods';
+import {
+  buildBasketFromSearchProducts,
+  formatChatPaymentRecommendation,
+} from '../../utils/mcpPaymentInsight';
+import { evaluatePurchasePaymentOptions } from '../../services/mcp-payment-options.client';
+import { ensureDemoPaymentMethodsMerged } from '../../services/savedPaymentMethods';
 
 const EXAMPLE_QUERIES = [
   'Flights from New York to Delhi in March',
@@ -131,6 +139,58 @@ export const AIChatScreen = () => {
             totalResults === 1
               ? `I found a great match for "${text}". Take a look!`
               : `I found ${totalResults} products for "${text}". Here are my top picks:`;
+        }
+
+        // Compare saved Profile payment methods with MCP for best card + rationale
+        const token = await storageService.getToken();
+        const basket = buildBasketFromSearchProducts(products);
+
+        if (!token) {
+          summaryText +=
+            '\n\n_Sign in to see which saved card fits this purchase._';
+        } else if (!basket) {
+          summaryText +=
+            '\n\n_No usable prices on these results, so card comparison was skipped._';
+        } else {
+          try {
+            await ensureDemoPaymentMethodsMerged();
+            const methods = await loadSavedPaymentMethodsForMcp();
+            if (methods.length === 0) {
+              summaryText +=
+                '\n\n_Add payment methods under Profile to compare cards._';
+            } else {
+              const mcpResult = await evaluatePurchasePaymentOptions({
+                items: basket.items,
+                subtotal: basket.subtotal,
+                tax: basket.tax,
+                total: basket.total,
+                currency: products[0]?.currency || 'USD',
+                paymentMethods: methods,
+              });
+              const insight = formatChatPaymentRecommendation(mcpResult);
+              if (insight) {
+                summaryText += `\n\n${insight}`;
+              } else {
+                summaryText +=
+                  '\n\n_Card recommendation service returned no text. Check API logs and CARD_MCP_SERVER_URL._';
+                if (__DEV__) {
+                  console.warn('[AIChatScreen] MCP returned empty insight', mcpResult);
+                }
+              }
+            }
+          } catch (mcpErr: any) {
+            const status = mcpErr?.response?.status;
+            const serverMsg =
+              typeof mcpErr?.response?.data?.error === 'object'
+                ? mcpErr.response.data.error?.message
+                : mcpErr?.response?.data?.error;
+            console.warn('[AIChatScreen] MCP evaluate-payment-options failed:', {
+              status,
+              message: serverMsg || mcpErr?.message,
+            });
+            summaryText +=
+              '\n\n_Card comparison failed (service unavailable). On the API server, set CARD_MCP_SERVER_URL and MCP_API_TOKEN, then try again._';
+          }
         }
 
         const responseMsgs: ChatMessage[] = [];

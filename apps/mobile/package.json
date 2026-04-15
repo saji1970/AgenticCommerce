@@ -16,6 +16,11 @@
     "build:android:local": "cd android && gradlew assembleRelease",
     "build:android:local:debug": "cd android && gradlew assembleDebug",
     "build:android:local:release": "cd android && gradlew assembleRelease",
+    "prebuild:ios": "expo prebuild --platform ios",
+    "prebuild:ios:clean": "expo prebuild --platform ios --clean",
+    "build:ios:dev": "eas build --platform ios --profile development",
+    "build:ios:preview": "eas build --platform ios --profile preview",
+    "build:ios:prod": "eas build --platform ios --profile production",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "jest"

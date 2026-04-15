@@ -90,6 +90,16 @@ export const config = {
     configPath: process.env.MCP_CONFIG_PATH || './config/mcp-servers.json',
   },
 
+  /** MCP Streamable HTTP (card / payment-options MCP server) */
+  mcpHttp: {
+    /** Remote MCP endpoint; prefer CARD_MCP_SERVER_URL, fallback MCP_HTTP_URL */
+    cardMCPServerURL: (process.env.CARD_MCP_SERVER_URL || process.env.MCP_HTTP_URL || '')
+      .replace(/\/$/, ''),
+    apiToken: process.env.MCP_API_TOKEN || '',
+    protocolVersion: process.env.MCP_PROTOCOL_VERSION || '2025-06-18',
+    timeoutMs: parseInt(process.env.MCP_HTTP_TIMEOUT_MS || '60000', 10),
+  },
+
   mandateService: {
     url: process.env.MANDATE_SERVICE_URL || 'http://localhost:3001/api',
     // Optional: Admin token for mandate-service if it requires auth

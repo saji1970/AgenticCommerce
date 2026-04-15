@@ -27,6 +27,11 @@ import {
   extractRules,
 } from '../../utils/vrpRuleEngine';
 import { VrpConsent } from '../../services/payment-gateway.client';
+import {
+  evaluatePurchasePaymentOptions,
+  formatMcpPaymentOptionSummary,
+} from '../../services/mcp-payment-options.client';
+import { loadSavedPaymentMethodsForMcp } from '../../services/savedPaymentMethods';
 
 const VRP_CONSENT_TOKENS_KEY = 'vrp_consent_tokens';
 
@@ -44,6 +49,7 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
   const [mandateReady, setMandateReady] = useState(false);
   const [selectedConsent, setSelectedConsent] = useState<VrpConsent | null>(null);
   const [matchResult, setMatchResult] = useState<RuleMatchResult | null>(null);
+  const [mcpSuggestionLoading, setMcpSuggestionLoading] = useState(false);
 
   const defaultAgent = AppConfig.getDefaultAgent();
 
@@ -213,6 +219,39 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const handleBestPaymentOption = async () => {
+    if (!cart?.items?.length) return;
+    try {
+      setMcpSuggestionLoading(true);
+      const paymentMethods = await loadSavedPaymentMethodsForMcp();
+      const result = await evaluatePurchasePaymentOptions({
+        items: cart.items.map((i) => ({
+          productId: i.productId,
+          productName: i.productName,
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        subtotal: cart.subtotal,
+        tax: cart.tax,
+        total: cart.total,
+        currency: 'USD',
+        ...(paymentMethods.length > 0 ? { paymentMethods } : {}),
+      });
+      Alert.alert('Payment options (MCP)', formatMcpPaymentOptionSummary(result));
+    } catch (e: any) {
+      const errData = e?.response?.data?.error;
+      const msg =
+        typeof errData === 'string'
+          ? errData
+          : typeof errData?.message === 'string'
+            ? errData.message
+            : e?.message || 'Could not load payment options.';
+      Alert.alert('Payment options', msg);
+    } finally {
+      setMcpSuggestionLoading(false);
+    }
+  };
+
   if (!cart) {
     return (
       <View style={styles.centered}>
@@ -310,6 +349,18 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <TouchableOpacity
+        style={[styles.secondaryButton, mcpSuggestionLoading && styles.payButtonDisabled]}
+        onPress={handleBestPaymentOption}
+        disabled={mcpSuggestionLoading || loading}
+      >
+        {mcpSuggestionLoading ? (
+          <ActivityIndicator color="#007AFF" />
+        ) : (
+          <Text style={styles.secondaryButtonText}>Best card for this order (MCP)</Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={[styles.payButton, loading && styles.payButtonDisabled]}
         onPress={handlePayment}
         disabled={loading}
@@ -404,6 +455,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     fontWeight: '500',
+  },
+  secondaryButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  secondaryButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   matchReasonText: {
     fontSize: 12,

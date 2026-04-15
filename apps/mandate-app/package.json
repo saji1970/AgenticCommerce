@@ -7,6 +7,7 @@
     "start": "react-native start",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
+    "ios:pod-install": "cd ios && pod install",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx"
   },

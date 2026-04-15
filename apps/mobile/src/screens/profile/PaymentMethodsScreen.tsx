@@ -13,8 +13,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MandateType } from '@agentic-commerce/shared-types';
 import { useMandate } from '../../contexts/MandateContext';
 import { AppConfig } from '../../config/app.config';
-
-const PAYMENT_METHODS_KEY = 'payment_methods';
+import {
+  PAYMENT_METHODS_STORAGE_KEY,
+  ensureDemoPaymentMethodsMerged,
+} from '../../services/savedPaymentMethods';
 
 interface PaymentMethod {
   id: string;
@@ -27,6 +29,8 @@ interface PaymentMethod {
   isDefault: boolean;
   createdAt: string;
   mandateId?: string;
+  /** Optional network hint for MCP (Visa / Amex) */
+  network?: string;
 }
 
 function luhnCheck(num: string): boolean {
@@ -90,7 +94,8 @@ export const PaymentMethodsScreen: React.FC = () => {
 
   const loadMethods = async () => {
     try {
-      const data = await AsyncStorage.getItem(PAYMENT_METHODS_KEY);
+      await ensureDemoPaymentMethodsMerged();
+      const data = await AsyncStorage.getItem(PAYMENT_METHODS_STORAGE_KEY);
       setMethods(data ? JSON.parse(data) : []);
     } catch {
       setMethods([]);
@@ -98,7 +103,7 @@ export const PaymentMethodsScreen: React.FC = () => {
   };
 
   const saveMethods = async (updated: PaymentMethod[]) => {
-    await AsyncStorage.setItem(PAYMENT_METHODS_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(PAYMENT_METHODS_STORAGE_KEY, JSON.stringify(updated));
     setMethods(updated);
   };
 
@@ -283,6 +288,9 @@ export const PaymentMethodsScreen: React.FC = () => {
       {/* Saved Methods */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Saved Payment Methods</Text>
+        <Text style={styles.demoHint}>
+          Demo Chase Visa and American Express cards are included for MCP “best card” testing.
+        </Text>
         {methods.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>💳</Text>
@@ -295,7 +303,17 @@ export const PaymentMethodsScreen: React.FC = () => {
               <View style={styles.methodRow}>
                 <Text style={styles.methodIcon}>{getTypeIcon(method.type)}</Text>
                 <View style={styles.methodDetails}>
-                  <Text style={styles.methodLabel}>{method.label}</Text>
+                  <View style={styles.methodLabelRow}>
+                    <Text style={styles.methodLabel}>{method.label}</Text>
+                    {method.id.startsWith('demo_') && (
+                      <View style={styles.demoPill}>
+                        <Text style={styles.demoPillText}>Demo</Text>
+                      </View>
+                    )}
+                  </View>
+                  {method.network ? (
+                    <Text style={styles.methodNetwork}>{method.network}</Text>
+                  ) : null}
                   {method.expiry && (
                     <Text style={styles.methodExpiry}>Exp: {method.expiry}</Text>
                   )}
@@ -442,7 +460,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#1F2937',
+    marginBottom: 8,
+  },
+  demoHint: {
+    fontSize: 12,
+    color: '#6B7280',
     marginBottom: 12,
+    lineHeight: 18,
+  },
+  methodLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  demoPill: {
+    backgroundColor: '#E0E7FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  demoPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#3730A3',
+  },
+  methodNetwork: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
   },
   emptyCard: {
     backgroundColor: '#FFFFFF',

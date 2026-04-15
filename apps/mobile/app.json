@@ -19,7 +19,9 @@
       "bundleIdentifier": "com.agentic.commerce",
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to let you search for products by voice.",
-        "NSMicrophoneUsageDescription": "This app uses the microphone to transcribe your voice into text for shopping queries."
+        "NSMicrophoneUsageDescription": "This app uses the microphone to transcribe your voice into text for shopping queries.",
+        "NSFaceIDUsageDescription": "This app uses Face ID to authenticate biometric mandates and authorize AI agent transactions.",
+        "LSApplicationQueriesSchemes": ["mandate"]
       }
     },
     "android": {

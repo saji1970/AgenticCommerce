@@ -41,11 +41,18 @@ apps/mobile/android/app/build/
 apps/mobile/android/.gradle/
 apps/mobile/android/local.properties
 
-# iOS
+# iOS — Mobile (Expo managed, ios/ is gitignored by apps/mobile/.gitignore)
 apps/mobile/ios/Pods/
 apps/mobile/ios/build/
 *.xcworkspace
 !default.xcworkspace
+
+# iOS — Mandate App (bare RN, ios/ is committed but artifacts excluded)
+apps/mandate-app/ios/Pods/
+apps/mandate-app/ios/build/
+apps/mandate-app/ios/*.xcworkspace/xcuserdata/
+apps/mandate-app/ios/*.xcodeproj/xcuserdata/
+apps/mandate-app/ios/DerivedData/
 
 # Temporary files
 tmpclaude-*
