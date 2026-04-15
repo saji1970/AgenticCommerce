@@ -9,7 +9,7 @@ This document lists all environment variables required for each service when dep
 | Service | Root Directory | Port | Railway Config |
 |---------|----------------|------|----------------|
 | **Backend** | `apps/backend` | 3000 | `apps/backend/railway.json` |
-| **Mandate Service** | `apps/mandate-service` | 3001 | `apps/mandate-service/railway.json` |
+| **Mandate Service** | **Repository root** (see Mandate section) | 3001 | `apps/mandate-service/railpack.json` + `apps/mandate-service/railway.json` |
 | **Admin** | `apps/admin` | 5173 | `apps/admin/railway.json` (or built into mandate-service) |
 | **Payment Gateway** | `apps/payment-gateway` | 3002 | No `railway.json` yet |
 
@@ -48,8 +48,11 @@ This document lists all environment variables required for each service when dep
 
 ## 2. Mandate Service (`apps/mandate-service`)
 
+**Deploy from the monorepo root** (leave **Root Directory** empty or `/`), not `apps/mandate-service` alone—otherwise `pnpm` cannot see `pnpm-lock.yaml` and the workspace. Use a **Start Command** such as `cd apps/mandate-service && node dist/server.js`.
+
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `RAILPACK_CONFIG_FILE` | Yes (Railpack) | Set to `apps/mandate-service/railpack.json`. Limits install/build to mandate-service and its workspace deps (avoids monorepo **build timeouts**). |
 | `PORT` | Yes (Railway sets) | Use Railway's `PORT` – defaults to 3001 |
 | `DATABASE_URL` | Yes | Same PostgreSQL as backend (shared DB) |
 | `NODE_ENV` | No | `production` |
@@ -108,9 +111,13 @@ When deployed as a **standalone** service (using `apps/admin/server.js`):
 
 ### Root directory
 - **Backend:** `apps/backend` (from `railway.json` start command)
-- **Mandate Service:** `apps/mandate-service` (from `nixpacks.toml`)
+- **Mandate Service:** **repository root** with `RAILPACK_CONFIG_FILE=apps/mandate-service/railpack.json` and start command `cd apps/mandate-service && node dist/server.js` (pnpm workspace + lockfile live at the repo root)
 - **Admin:** `apps/admin` (if standalone)
 - **Payment Gateway:** `apps/payment-gateway` (no `railway.json` – add one if deploying)
+
+### Railpack build timeout (monorepo)
+
+If the build stops with **Build timed out**, the service is likely running a full-workspace `pnpm install` and root `pnpm run build` (admin + backend). For **mandate-service only**, set **`RAILPACK_CONFIG_FILE=apps/mandate-service/railpack.json`** on that service so install uses `pnpm install --filter @agentic-commerce/mandate-service...` and build compiles only shared-types, validation, and mandate-service. Local equivalent: `pnpm run build:mandate` from the repo root.
 
 ### Database
 - All services can share one PostgreSQL instance via `DATABASE_URL`.

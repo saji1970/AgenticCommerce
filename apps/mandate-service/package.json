@@ -6,7 +6,6 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "postinstall": "cd ../.. && pnpm build:shared && cd apps/mandate-service && pnpm run build",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "migrate": "tsx src/scripts/run-migration.ts",

@@ -12,6 +12,7 @@
     "dev:backend": "pnpm --filter @agentic-commerce/backend dev",
     "dev:mobile": "pnpm --filter @agentic-commerce/mobile start",
     "build": "pnpm --filter @agentic-commerce/shared-types build && pnpm --filter @agentic-commerce/validation build && pnpm --filter @agentic-commerce/admin build && pnpm --filter @agentic-commerce/backend build",
+    "build:mandate": "pnpm --filter @agentic-commerce/shared-types build && pnpm --filter @agentic-commerce/validation build && pnpm --filter @agentic-commerce/mandate-service build",
     "build:shared": "pnpm --filter @agentic-commerce/shared-types build && pnpm --filter @agentic-commerce/validation build",
     "type-check": "pnpm -r run type-check",
     "lint": "pnpm -r run lint"
