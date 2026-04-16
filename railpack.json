@@ -3,22 +3,5 @@
   "provider": "node",
   "packages": {
     "node": "22"
-  },
-  "steps": {
-    "install": {
-      "inputs": [{ "step": "packages:mise" }],
-      "commands": [
-        "npm i -g corepack@latest && corepack enable && corepack prepare pnpm@9.0.0 --activate",
-        "pnpm install --frozen-lockfile --prefer-offline --filter @agentic-commerce/mandate-service... --ignore-scripts"
-      ]
-    },
-    "build": {
-      "inputs": [{ "step": "install" }],
-      "commands": [
-        "pnpm --filter @agentic-commerce/shared-types build",
-        "pnpm --filter @agentic-commerce/validation build",
-        "pnpm --filter @agentic-commerce/mandate-service build"
-      ]
-    }
   }
 }
