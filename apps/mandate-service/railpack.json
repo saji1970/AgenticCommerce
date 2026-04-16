@@ -8,7 +8,7 @@
     "install": {
       "inputs": [{ "step": "packages:mise" }],
       "commands": [
-        "npm i -g corepack@latest && corepack enable && corepack prepare --activate",
+        "npm i -g corepack@latest && corepack enable && corepack prepare pnpm@9.0.0 --activate",
         "pnpm install --frozen-lockfile --prefer-offline --filter @agentic-commerce/mandate-service... --ignore-scripts"
       ]
     },
