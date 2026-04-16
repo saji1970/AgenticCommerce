@@ -1,7 +1,19 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { certificateManagerService } from './certificate-manager.service';
 import { cryptoService } from './crypto.service';
 import { getTestServerPublicKey, isTestCertificateFingerprint } from './test-certificate-generator';
+
+const AGENT_APP_TOKEN_STORAGE_KEY = 'mandate_agent_app_token';
+
+/** Persist token from admin portal (Register Agent → copy app token). Sent as X-Agent-App-Token when set. */
+export async function setMandateAgentAppToken(token: string | null): Promise<void> {
+  if (token) {
+    await AsyncStorage.setItem(AGENT_APP_TOKEN_STORAGE_KEY, token);
+  } else {
+    await AsyncStorage.removeItem(AGENT_APP_TOKEN_STORAGE_KEY);
+  }
+}
 
 // Mandate Service API Configuration
 const MANDATE_SERVICE_URL = __DEV__
@@ -97,6 +109,19 @@ class MandateServiceClient {
       headers: {
         'Content-Type': 'application/json',
       },
+    });
+
+    this.client.interceptors.request.use(async (config) => {
+      try {
+        const agentToken = await AsyncStorage.getItem(AGENT_APP_TOKEN_STORAGE_KEY);
+        if (agentToken) {
+          config.headers = config.headers || {};
+          (config.headers as Record<string, string>)['X-Agent-App-Token'] = agentToken;
+        }
+      } catch {
+        // ignore storage errors
+      }
+      return config;
     });
 
     // Add request interceptor for secure payload encryption

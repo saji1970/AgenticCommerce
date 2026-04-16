@@ -113,6 +113,11 @@ export const merchantsApi = {
     const response = await apiClient.post(`/merchants/${merchantId}/rotate-keys`);
     return response.data;
   },
+  /** Returns { success, appToken, agent } — copy appToken immediately; it is not stored in full on the agent record in responses. */
+  rotateAgentAppToken: async (merchantId: string, agentRowId: string) => {
+    const response = await apiClient.post(`/merchants/${merchantId}/agents/${agentRowId}/rotate-app-token`);
+    return response.data;
+  },
 };
 
 // Admin Users API (new)

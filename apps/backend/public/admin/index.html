@@ -359,11 +359,12 @@
             </div>
 
             <div class="nav-tabs">
-                <button class="nav-tab active" onclick="showTab('dashboard')">Dashboard</button>
-                <button class="nav-tab" onclick="showTab('users')">Users</button>
-                <button class="nav-tab" onclick="showTab('mandates')">Mandates</button>
-                <button class="nav-tab" onclick="showTab('intents')">Intents</button>
-                <button class="nav-tab" onclick="showTab('transactions')">Transactions</button>
+                <button type="button" class="nav-tab active" data-tab="dashboard" onclick="showTab('dashboard')">Dashboard</button>
+                <button type="button" class="nav-tab" data-tab="users" onclick="showTab('users')">Users</button>
+                <button type="button" class="nav-tab" data-tab="mandates" onclick="showTab('mandates')">Mandates</button>
+                <button type="button" class="nav-tab" data-tab="intents" onclick="showTab('intents')">Intents</button>
+                <button type="button" class="nav-tab" data-tab="transactions" onclick="showTab('transactions')">Transactions</button>
+                <button type="button" class="nav-tab" data-tab="card-mcp" onclick="showTab('card-mcp')">Card MCP / Agentic</button>
             </div>
 
             <div class="content">
@@ -472,6 +473,73 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Card MCP control plane — Agentic API & other connecting clients -->
+                <div id="tab-card-mcp" class="tab-content" style="display: none;">
+                    <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;">
+                        <h2 style="margin-bottom:8px;color:#333;">Card MCP control plane</h2>
+                        <p class="muted" style="color:#666;font-size:14px;line-height:1.5;margin-bottom:20px;">
+                            Issue API keys for clients that call this Agentic Commerce backend at
+                            <code>POST /api/mcp/evaluate-payment-options</code> (card payment-options MCP is proxied here; <code>CARD_MCP_SERVER_URL</code> and <code>MCP_API_TOKEN</code> stay server-side only).
+                            Use header <code>X-Connecting-App-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code> instead of an end-user JWT when appropriate.
+                        </p>
+                        <div class="form-group" style="max-width:480px;">
+                            <label for="mcpNewKeyName">Client / integration name</label>
+                            <input type="text" id="mcpNewKeyName" placeholder="e.g. Staging checkout agent" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                        </div>
+                        <p style="font-size:13px;color:#64748b;margin:12px 0 8px 0;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Generate API key</p>
+                        <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;">
+                            <div style="flex:1;min-width:260px;border:2px solid #4f46e5;border-radius:12px;padding:16px;background:linear-gradient(180deg,#eef2ff 0%,#fff 40%);">
+                                <h3 style="font-size:16px;color:#312e81;margin-bottom:8px;">Agentic API</h3>
+                                <p style="font-size:13px;color:#475569;line-height:1.45;margin-bottom:14px;">
+                                    For <strong>AI agents, shopping apps, and checkout services</strong> that integrate with Agentic Commerce and need to evaluate card payment options via this backend.
+                                </p>
+                                <button type="button" class="btn" style="width:100%;max-width:none;" onclick="createMcpConnectingAppKey('agentic_api')">Generate API key for Agentic API</button>
+                            </div>
+                            <div style="flex:1;min-width:260px;border:2px solid #e2e8f0;border-radius:12px;padding:16px;background:#f8fafc;">
+                                <h3 style="font-size:16px;color:#334155;margin-bottom:8px;">Other MCP caller</h3>
+                                <p style="font-size:13px;color:#64748b;line-height:1.45;margin-bottom:14px;">
+                                    Generic integration key (same endpoint and headers). Use when the client is not part of the Agentic agent / commerce stack.
+                                </p>
+                                <button type="button" class="btn" style="width:100%;max-width:none;background:#64748b;" onclick="createMcpConnectingAppKey('mcp_proxy')">Generate key (MCP proxy only)</button>
+                            </div>
+                        </div>
+                        <p id="mcpKeysError" class="error" style="margin-top:12px;"></p>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Integration</th>
+                                    <th>Key preview</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mcpConnectingAppsTableBody">
+                                <tr><td colspan="6" class="loading">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="mcpNewKeyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+                    <div style="background:white;border-radius:12px;max-width:560px;width:100%;padding:24px;">
+                        <h3 style="margin-bottom:12px;">New API key</h3>
+                        <p id="mcpNewKeyPurposeLabel" style="font-size:13px;color:#4338ca;margin-bottom:10px;font-weight:600;"></p>
+                        <p style="color:#92400e;background:#fffbeb;padding:12px;border-radius:8px;font-size:14px;margin-bottom:16px;">
+                            Copy this key now. It will not be shown again.
+                        </p>
+                        <label style="display:block;font-weight:600;margin-bottom:6px;">Secret</label>
+                        <textarea id="mcpNewKeyValue" readonly rows="3" style="width:100%;font-family:monospace;font-size:13px;padding:10px;border:2px solid #e0e0e0;border-radius:8px;"></textarea>
+                        <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+                            <button type="button" class="btn" style="width:auto;padding:10px 20px;" onclick="copyMcpNewKey()">Copy</button>
+                            <button type="button" class="btn" style="width:auto;padding:10px 20px;background:#6b7280;" onclick="closeMcpNewKeyModal()">Done</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -555,12 +623,14 @@
             currentTab = tab;
             
             // Update nav tabs
-            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            document.querySelectorAll('.nav-tab').forEach(t => {
+                t.classList.toggle('active', t.getAttribute('data-tab') === tab);
+            });
             
             // Show/hide tab content
             document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-            document.getElementById(`tab-${tab}`).style.display = 'block';
+            const panel = document.getElementById(`tab-${tab}`);
+            if (panel) panel.style.display = 'block';
             
             // Load tab data
             if (tab === 'dashboard') {
@@ -573,6 +643,8 @@
                 loadIntents();
             } else if (tab === 'transactions') {
                 loadTransactions();
+            } else if (tab === 'card-mcp') {
+                loadMcpConnectingAppKeys();
             }
         }
 
@@ -711,6 +783,108 @@
             } catch (error) {
                 console.error('Error loading transactions:', error);
                 document.getElementById('transactionsTableBody').innerHTML = '<tr><td colspan="5" class="empty">Error loading transactions</td></tr>';
+            }
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function mcpPurposeLabel(purpose) {
+            if (purpose === 'agentic_api') return 'Agentic API';
+            return 'MCP proxy';
+        }
+
+        async function loadMcpConnectingAppKeys() {
+            const errEl = document.getElementById('mcpKeysError');
+            errEl.style.display = 'none';
+            const tbody = document.getElementById('mcpConnectingAppsTableBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading...</td></tr>';
+            try {
+                const response = await fetch(`${API_URL}/admin/mcp/connecting-apps`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to load');
+                const keys = data.keys || [];
+                if (keys.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty">No keys yet. Generate one for Agentic API or another MCP client.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = keys.map(k => `
+                    <tr>
+                        <td>${escapeHtml(k.name)}</td>
+                        <td><span class="badge ${k.purpose === 'agentic_api' ? 'admin' : 'user'}">${escapeHtml(mcpPurposeLabel(k.purpose))}</span></td>
+                        <td><code style="font-size:12px;">${escapeHtml(k.keyPreview)}</code></td>
+                        <td><span class="badge ${k.active ? 'active' : 'rejected'}">${k.active ? 'active' : 'revoked'}</span></td>
+                        <td>${new Date(k.createdAt).toLocaleString()}</td>
+                        <td>${k.active ? `<button type="button" class="btn" style="width:auto;padding:6px 12px;font-size:13px;background:#dc2626;" onclick="revokeMcpConnectingAppKey('${k.id}')">Revoke</button>` : '—'}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty">Could not load keys. Run migrations 013 and 014 if tables or columns are missing.</td></tr>';
+                errEl.textContent = e.message || 'Error';
+                errEl.style.display = 'block';
+            }
+        }
+
+        async function createMcpConnectingAppKey(purpose) {
+            const errEl = document.getElementById('mcpKeysError');
+            errEl.style.display = 'none';
+            const name = document.getElementById('mcpNewKeyName').value || (purpose === 'agentic_api' ? 'Agentic API client' : 'MCP client');
+            try {
+                const response = await fetch(`${API_URL}/admin/mcp/connecting-apps`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, purpose })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Create failed');
+                document.getElementById('mcpNewKeyValue').value = data.apiKey || '';
+                const label = document.getElementById('mcpNewKeyPurposeLabel');
+                label.textContent = data.purpose === 'agentic_api'
+                    ? 'Integration: Agentic API — use this key on checkout / AI agents calling Agentic Commerce.'
+                    : 'Integration: MCP proxy (generic) — same endpoint; labeled for your records.';
+                document.getElementById('mcpNewKeyModal').style.display = 'flex';
+                document.getElementById('mcpNewKeyName').value = '';
+                loadMcpConnectingAppKeys();
+            } catch (e) {
+                errEl.textContent = e.message || 'Failed to create key';
+                errEl.style.display = 'block';
+            }
+        }
+
+        function copyMcpNewKey() {
+            const v = document.getElementById('mcpNewKeyValue').value;
+            navigator.clipboard.writeText(v).then(() => alert('Copied to clipboard'));
+        }
+
+        function closeMcpNewKeyModal() {
+            document.getElementById('mcpNewKeyModal').style.display = 'none';
+            document.getElementById('mcpNewKeyValue').value = '';
+            document.getElementById('mcpNewKeyPurposeLabel').textContent = '';
+        }
+
+        async function revokeMcpConnectingAppKey(id) {
+            if (!confirm('Revoke this key? Connecting apps using it will stop working.')) return;
+            try {
+                const response = await fetch(`${API_URL}/admin/mcp/connecting-apps/${id}/revoke`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Revoke failed');
+                loadMcpConnectingAppKeys();
+            } catch (e) {
+                alert(e.message || 'Revoke failed');
             }
         }
 

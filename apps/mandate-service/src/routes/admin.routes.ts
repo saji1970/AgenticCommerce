@@ -126,6 +126,12 @@ router.delete('/merchants/:merchantId/agents/:agentId',
   adminMerchantController.deleteAgent,
 );
 
+router.post('/merchants/:merchantId/agents/:agentId/rotate-app-token',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminMerchantController.rotateAgentAppToken,
+);
+
 router.post('/merchants/:merchantId/rotate-keys',
   authenticateAdmin,
   requireAdminRole('super_admin', 'merchant_admin'),

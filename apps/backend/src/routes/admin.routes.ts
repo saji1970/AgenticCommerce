@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
 import axios from 'axios';
 import { AdminController } from '../controllers/admin.controller';
+import { mcpConnectingAppAdminController } from '../controllers/mcp-connecting-app-admin.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { requireAdmin } from '../middleware/admin.middleware';
 import { config } from '../config/env';
@@ -71,6 +72,11 @@ router.get('/audit-logs', adminController.getAuditLogs);
 router.get('/settings', adminController.getSettings);
 router.get('/settings/:category', adminController.getSettingsByCategory);
 router.put('/settings', adminController.updateSettings);
+
+// Card MCP — connecting app API keys (for POST /api/mcp/evaluate-payment-options without user JWT)
+router.get('/mcp/connecting-apps', mcpConnectingAppAdminController.list);
+router.post('/mcp/connecting-apps', mcpConnectingAppAdminController.create);
+router.put('/mcp/connecting-apps/:id/revoke', mcpConnectingAppAdminController.revoke);
 
 // AP2 Transactions
 router.get('/ap2/transactions', adminController.getAllAP2Transactions);

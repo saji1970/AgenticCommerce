@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { MandateService } from '../services/mandate.service';
+import { assertOptionalAgentAppToken } from '../services/agent-app-token.service';
 
 export class MandateController {
   private mandateService: MandateService;
@@ -18,6 +19,11 @@ export class MandateController {
           success: false,
           error: 'Missing required fields: userId, agentId, type',
         });
+      }
+
+      const tokenCheck = await assertOptionalAgentAppToken(req, agentId);
+      if (!tokenCheck.ok) {
+        return res.status(401).json({ success: false, error: tokenCheck.message });
       }
 
       const mandate = await this.mandateService.createMandate({
@@ -305,6 +311,11 @@ export class MandateController {
         });
       }
 
+      const tokenCheckCit = await assertOptionalAgentAppToken(req, agentId);
+      if (!tokenCheckCit.ok) {
+        return res.status(401).json({ success: false, error: tokenCheckCit.message });
+      }
+
       const result = await this.mandateService.createMandateWithCIT({
         userId,
         agentId,
@@ -352,6 +363,11 @@ export class MandateController {
           success: false,
           error: 'amount must be a positive number',
         });
+      }
+
+      const tokenCheckPay = await assertOptionalAgentAppToken(req, agentId);
+      if (!tokenCheckPay.ok) {
+        return res.status(401).json({ success: false, error: tokenCheckPay.message });
       }
 
       const result = await this.mandateService.processAgentPaymentMIT({
@@ -466,6 +482,11 @@ export class MandateController {
           success: false,
           error: 'Missing required fields: userId, agentId, mandateType',
         });
+      }
+
+      const tokenCheckVal = await assertOptionalAgentAppToken(req, agentId);
+      if (!tokenCheckVal.ok) {
+        return res.status(401).json({ success: false, error: tokenCheckVal.message });
       }
 
       const mandate = await this.mandateService.validateMandateForTransaction(

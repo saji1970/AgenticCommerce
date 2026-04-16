@@ -41,6 +41,8 @@ interface AgentFormData {
   agentName: string;
   apiEndpoint: string;
   capabilities: string;
+  appUiDisplayName: string;
+  appUiBundleId: string;
 }
 
 const emptyAgentForm: AgentFormData = {
@@ -50,6 +52,8 @@ const emptyAgentForm: AgentFormData = {
   agentName: '',
   apiEndpoint: '',
   capabilities: '',
+  appUiDisplayName: '',
+  appUiBundleId: '',
 };
 
 export function MerchantDetailPage() {
@@ -64,6 +68,12 @@ export function MerchantDetailPage() {
   const [isRotateKeysDialogOpen, setIsRotateKeysDialogOpen] = useState(false);
   const [isNewKeysModalOpen, setIsNewKeysModalOpen] = useState(false);
   const [newKeys, setNewKeys] = useState<{ apiKey: string; apiSecret: string } | null>(null);
+  const [isNewAgentTokenModalOpen, setIsNewAgentTokenModalOpen] = useState(false);
+  const [newAgentToken, setNewAgentToken] = useState<{
+    appToken: string;
+    agentLabel: string;
+    agentPublicId: string;
+  } | null>(null);
 
   // Agent CRUD state
   const [isCreateAgentOpen, setIsCreateAgentOpen] = useState(false);
@@ -107,10 +117,33 @@ export function MerchantDetailPage() {
 
   const createAgentMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => merchantsApi.addAgent(id!, data),
-    onSuccess: () => {
+    onSuccess: (data: { appToken?: string; agent?: { agent_id?: string; name?: string } }) => {
       queryClient.invalidateQueries({ queryKey: ['merchant', id, 'agents'] });
       setIsCreateAgentOpen(false);
       setAgentForm(emptyAgentForm);
+      if (data?.appToken) {
+        setNewAgentToken({
+          appToken: data.appToken,
+          agentLabel: data.agent?.name || 'Agent',
+          agentPublicId: data.agent?.agent_id || '',
+        });
+        setIsNewAgentTokenModalOpen(true);
+      }
+    },
+  });
+
+  const rotateAgentTokenMutation = useMutation({
+    mutationFn: (agentRowId: string) => merchantsApi.rotateAgentAppToken(id!, agentRowId),
+    onSuccess: (data: { appToken?: string; agent?: { agent_id?: string; name?: string } }) => {
+      queryClient.invalidateQueries({ queryKey: ['merchant', id, 'agents'] });
+      if (data?.appToken) {
+        setNewAgentToken({
+          appToken: data.appToken,
+          agentLabel: data.agent?.name || 'Agent',
+          agentPublicId: data.agent?.agent_id || '',
+        });
+        setIsNewAgentTokenModalOpen(true);
+      }
     },
   });
 
@@ -186,6 +219,8 @@ export function MerchantDetailPage() {
       capabilities: agentForm.capabilities
         ? agentForm.capabilities.split(',').map(c => c.trim()).filter(Boolean)
         : [],
+      appUiDisplayName: agentForm.appUiDisplayName.trim() || undefined,
+      appUiBundleId: agentForm.appUiBundleId.trim() || undefined,
     });
   };
 
@@ -200,11 +235,14 @@ export function MerchantDetailPage() {
         capabilities: agentForm.capabilities
           ? agentForm.capabilities.split(',').map(c => c.trim()).filter(Boolean)
           : undefined,
+        appUiDisplayName: agentForm.appUiDisplayName,
+        appUiBundleId: agentForm.appUiBundleId,
       },
     });
   };
 
   const openEditAgent = (agent: any) => {
+    const appUi = agent.metadata?.appUi;
     setEditingAgent(agent);
     setAgentForm({
       name: agent.name || '',
@@ -213,6 +251,8 @@ export function MerchantDetailPage() {
       agentName: agent.agent_name || '',
       apiEndpoint: agent.api_endpoint || '',
       capabilities: (agent.capabilities || []).join(', '),
+      appUiDisplayName: (appUi && appUi.displayName) || '',
+      appUiBundleId: (appUi && appUi.bundleId) || '',
     });
   };
 
@@ -372,6 +412,7 @@ export function MerchantDetailPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Agent ID</TableHead>
+                  <TableHead>App token</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   {canManageAgents && <TableHead>Actions</TableHead>}
@@ -389,6 +430,11 @@ export function MerchantDetailPage() {
                     <TableCell>
                       <span className="font-mono text-sm">{agent.agent_id}</span>
                     </TableCell>
+                    <TableCell>
+                      <code className="text-xs font-mono bg-gray-50 px-1.5 py-0.5 rounded">
+                        {agent.api_key || '—'}
+                      </code>
+                    </TableCell>
                     <TableCell>{getStatusBadge(agent.status)}</TableCell>
                     <TableCell>
                       {new Date(agent.created_at).toLocaleDateString()}
@@ -399,6 +445,15 @@ export function MerchantDetailPage() {
                           <Button variant="secondary" size="sm" onClick={() => openEditAgent(agent)}>
                             <Pencil className="h-3 w-3 mr-1" />
                             Edit
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => rotateAgentTokenMutation.mutate(agent.id)}
+                            disabled={rotateAgentTokenMutation.isPending}
+                          >
+                            <Key className="h-3 w-3 mr-1" />
+                            New token
                           </Button>
                           <Button variant="danger" size="sm" onClick={() => setDeleteAgentTarget(agent)}>
                             <Trash2 className="h-3 w-3 mr-1" />
@@ -438,6 +493,62 @@ export function MerchantDetailPage() {
         variant="warning"
         isLoading={rotateKeysMutation.isPending}
       />
+
+      {/* New agent app token (register / rotate) */}
+      <Modal
+        isOpen={isNewAgentTokenModalOpen}
+        onClose={() => {
+          setIsNewAgentTokenModalOpen(false);
+          setNewAgentToken(null);
+        }}
+        title="Agentic app token"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <Alert variant="warning">
+            Copy this token now. For security, the full value is only shown here — list views show a masked preview.
+          </Alert>
+          {newAgentToken && (
+            <>
+              <div>
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium text-gray-800">{newAgentToken.agentLabel}</span>
+                  {newAgentToken.agentPublicId ? (
+                    <span className="ml-2 font-mono text-xs text-gray-500">{newAgentToken.agentPublicId}</span>
+                  ) : null}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">App token</label>
+                <div className="flex items-center gap-2">
+                  <Input value={newAgentToken.appToken} readOnly className="font-mono text-sm" />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigator.clipboard.writeText(newAgentToken.appToken)}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">
+                The mandate app sends this automatically once stored via <code className="text-xs">setMandateAgentAppToken</code>{' '}
+                (AsyncStorage key <code className="text-xs">mandate_agent_app_token</code>).
+              </p>
+            </>
+          )}
+          <div className="flex justify-end pt-4">
+            <Button
+              onClick={() => {
+                setIsNewAgentTokenModalOpen(false);
+                setNewAgentToken(null);
+              }}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* New Keys Modal */}
       <Modal
@@ -535,6 +646,28 @@ export function MerchantDetailPage() {
               placeholder="cart, payment, search"
             />
           </div>
+          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Agentic app (mandate app) UI</p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">App display name</label>
+            <Input
+              value={agentForm.appUiDisplayName}
+              onChange={(e) => setAgentForm({ ...agentForm, appUiDisplayName: e.target.value })}
+              placeholder="e.g. Mandate App — Shopping"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Package / bundle ID</label>
+            <Input
+              value={agentForm.appUiBundleId}
+              onChange={(e) => setAgentForm({ ...agentForm, appUiBundleId: e.target.value })}
+              placeholder="e.g. com.example.mandateapp"
+            />
+          </div>
+          <Alert variant="info" title="App token">
+            After registration you will receive a one-time app token (<code className="text-xs">aat_…</code>). Configure
+            the mandate mobile app to send it as <code className="text-xs">X-Agent-App-Token</code> when the token is
+            required for your deployment.
+          </Alert>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="secondary" onClick={() => { setIsCreateAgentOpen(false); setAgentForm(emptyAgentForm); }}>
               Cancel
@@ -583,6 +716,21 @@ export function MerchantDetailPage() {
             <Input
               value={agentForm.capabilities}
               onChange={(e) => setAgentForm({ ...agentForm, capabilities: e.target.value })}
+            />
+          </div>
+          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Agentic app UI</p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">App display name</label>
+            <Input
+              value={agentForm.appUiDisplayName}
+              onChange={(e) => setAgentForm({ ...agentForm, appUiDisplayName: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Package / bundle ID</label>
+            <Input
+              value={agentForm.appUiBundleId}
+              onChange={(e) => setAgentForm({ ...agentForm, appUiBundleId: e.target.value })}
             />
           </div>
           <div className="flex justify-end gap-2 pt-4">

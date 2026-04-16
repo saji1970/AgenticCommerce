@@ -95,6 +95,14 @@ export class AIAgentAppRepository {
     return this.mapRowToAgentApp(result.rows[0]);
   }
 
+  async getByApiKey(apiKey: string): Promise<AIAgentApp | null> {
+    const result = await query('SELECT * FROM ai_agent_apps WHERE api_key = $1', [apiKey]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return this.mapRowToAgentApp(result.rows[0]);
+  }
+
   async getByMerchantId(merchantId: string): Promise<AIAgentApp[]> {
     const result = await query(
       'SELECT * FROM ai_agent_apps WHERE merchant_id = $1 ORDER BY created_at DESC',
