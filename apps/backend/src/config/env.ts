@@ -96,6 +96,18 @@ export const config = {
     cardMCPServerURL: (process.env.CARD_MCP_SERVER_URL || process.env.MCP_HTTP_URL || '')
       .replace(/\/$/, ''),
     apiToken: process.env.MCP_API_TOKEN || '',
+    /**
+     * Card MCP auth: bearer (Authorization: Bearer <token>) or x-api-key (X-API-Key).
+     * Railway Card MCP accepts either for cmcp_sk_* keys.
+     */
+    cardMcpAuth: ((process.env.CARD_MCP_AUTH || 'bearer').toLowerCase() === 'x-api-key'
+      ? 'x-api-key'
+      : 'bearer') as 'bearer' | 'x-api-key',
+    /**
+     * Optional X-Toolset-Id (e.g. agent-default_optimizer = Default Rewards Optimizer).
+     * Omit in env to let the server expose every tool the subscription allows.
+     */
+    cardMCPToolsetId: (process.env.CARD_MCP_TOOLSET_ID || process.env.MCP_TOOLSET_ID || '').trim(),
     protocolVersion: process.env.MCP_PROTOCOL_VERSION || '2025-06-18',
     timeoutMs: parseInt(process.env.MCP_HTTP_TIMEOUT_MS || '60000', 10),
   },
@@ -108,5 +120,19 @@ export const config = {
 
   paymentGateway: {
     url: process.env.PAYMENT_GATEWAY_URL || 'http://localhost:3002',
+  },
+
+  smtp: {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.SMTP_FROM || 'AgenticCommerce <noreply@agenticcommerce.com>',
+  },
+
+  passwordReset: {
+    tokenExpiryMinutes: parseInt(process.env.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES || '60', 10),
+    adminPortalUrl: process.env.ADMIN_PORTAL_URL || 'http://localhost:3000/admin',
   },
 };

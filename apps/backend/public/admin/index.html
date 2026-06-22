@@ -107,6 +107,85 @@
             display: none;
         }
 
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .forgot-password-link {
+            display: block;
+            text-align: center;
+            margin-top: 15px;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: underline;
+        }
+
+        .forgot-password-link:hover {
+            color: #764ba2;
+        }
+
+        .back-to-login {
+            display: block;
+            text-align: center;
+            margin-top: 15px;
+            color: #666;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .back-to-login:hover {
+            color: #333;
+        }
+
+        .btn-change-password {
+            padding: 8px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-change-password:hover {
+            background: #5a6fd6;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-card {
+            background: white;
+            border-radius: 12px;
+            max-width: 420px;
+            width: 100%;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-card h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
         /* Dashboard */
         .dashboard {
             display: none;
@@ -340,10 +419,52 @@
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required value="admin123@">
+                    <input type="password" id="password" name="password" required value="Balaji1@">
                 </div>
                 <button type="submit" class="btn">Sign In</button>
+                <a class="forgot-password-link" onclick="showForgotPassword()">Forgot Password?</a>
             </form>
+        </div>
+    </div>
+
+    <!-- Forgot Password Screen -->
+    <div class="login-container" id="forgotPasswordScreen" style="display: none;">
+        <div class="login-card">
+            <h1>Forgot Password</h1>
+            <p>Enter your email to receive a password reset link</p>
+            <div class="error" id="forgotError"></div>
+            <div class="success" id="forgotSuccess"></div>
+            <form id="forgotPasswordForm">
+                <div class="form-group">
+                    <label for="forgotEmail">Email</label>
+                    <input type="email" id="forgotEmail" name="email" required>
+                </div>
+                <button type="submit" class="btn">Send Reset Link</button>
+            </form>
+            <a class="back-to-login" onclick="showLoginScreen()">Back to Login</a>
+        </div>
+    </div>
+
+    <!-- Reset Password Screen -->
+    <div class="login-container" id="resetPasswordScreen" style="display: none;">
+        <div class="login-card">
+            <h1>Reset Password</h1>
+            <p>Enter your new password</p>
+            <div class="error" id="resetError"></div>
+            <div class="success" id="resetSuccess"></div>
+            <form id="resetPasswordForm">
+                <div class="form-group">
+                    <label for="resetPassword">New Password</label>
+                    <input type="password" id="resetPassword" name="password" required
+                           placeholder="Min 8 chars, uppercase, lowercase, number">
+                </div>
+                <div class="form-group">
+                    <label for="resetPasswordConfirm">Confirm Password</label>
+                    <input type="password" id="resetPasswordConfirm" name="confirmPassword" required>
+                </div>
+                <button type="submit" class="btn">Reset Password</button>
+            </form>
+            <a class="back-to-login" onclick="showLoginScreen()">Back to Login</a>
         </div>
     </div>
 
@@ -354,6 +475,7 @@
                 <h1>Admin Dashboard</h1>
                 <div class="user-info">
                     <span id="userEmail"></span>
+                    <button class="btn-change-password" onclick="showChangePasswordModal()">Change Password</button>
                     <button class="btn-logout" onclick="logout()">Logout</button>
                 </div>
             </div>
@@ -480,7 +602,7 @@
                         <h2 style="margin-bottom:8px;color:#333;">Card MCP control plane</h2>
                         <p class="muted" style="color:#666;font-size:14px;line-height:1.5;margin-bottom:20px;">
                             Issue API keys for clients that call this Agentic Commerce backend at
-                            <code>POST /api/mcp/evaluate-payment-options</code> (card payment-options MCP is proxied here; <code>CARD_MCP_SERVER_URL</code> and <code>MCP_API_TOKEN</code> stay server-side only).
+                            <code>POST /api/mcp/evaluate-payment-options</code> (card MCP is proxied here; set <code>CARD_MCP_SERVER_URL</code>, <code>MCP_API_TOKEN</code> (or <code>CARD_MCP_AUTH=x-api-key</code>), and optionally <code>CARD_MCP_TOOLSET_ID=agent-default_optimizer</code> for Default Rewards Optimizer — all server-side only).
                             Use header <code>X-Connecting-App-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code> instead of an end-user JWT when appropriate.
                         </p>
                         <div class="form-group" style="max-width:480px;">
@@ -541,6 +663,35 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Change Password Modal -->
+            <div class="modal-overlay" id="changePasswordModal">
+                <div class="modal-card">
+                    <h2>Change Password</h2>
+                    <div class="error" id="changePasswordError"></div>
+                    <div class="success" id="changePasswordSuccess"></div>
+                    <form id="changePasswordForm">
+                        <div class="form-group">
+                            <label for="currentPassword">Current Password</label>
+                            <input type="password" id="currentPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">New Password</label>
+                            <input type="password" id="newPassword" required
+                                   placeholder="Min 8 chars, uppercase, lowercase, number">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmNewPassword">Confirm New Password</label>
+                            <input type="password" id="confirmNewPassword" required>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="submit" class="btn" style="flex: 1;">Update Password</button>
+                            <button type="button" class="btn" style="flex: 0; padding: 12px 20px; background: #6b7280;"
+                                    onclick="closeChangePasswordModal()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -549,10 +700,22 @@
         let authToken = localStorage.getItem('adminToken');
         let currentTab = 'dashboard';
 
-        // Check if already logged in
-        if (authToken) {
-            showDashboard();
-        }
+        // Check URL for reset token
+        (function checkResetToken() {
+            const params = new URLSearchParams(window.location.search);
+            const resetToken = params.get('reset_token');
+            if (resetToken) {
+                window._resetToken = resetToken;
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('resetPasswordScreen').style.display = 'flex';
+                window.history.replaceState({}, '', window.location.pathname);
+                return;
+            }
+            // Check if already logged in (only if not on reset flow)
+            if (authToken) {
+                showDashboard();
+            }
+        })();
 
         // Login form handler
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -618,6 +781,140 @@
             document.getElementById('loginScreen').style.display = 'flex';
             document.getElementById('dashboard').classList.remove('active');
         }
+
+        // ===== PASSWORD RESET FLOWS =====
+
+        function showLoginScreen() {
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('forgotPasswordScreen').style.display = 'none';
+            document.getElementById('resetPasswordScreen').style.display = 'none';
+            hideMsg('forgotError'); hideMsg('forgotSuccess');
+            hideMsg('resetError'); hideMsg('resetSuccess');
+        }
+
+        function showForgotPassword() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('forgotPasswordScreen').style.display = 'flex';
+            hideMsg('forgotError'); hideMsg('forgotSuccess');
+        }
+
+        function hideMsg(id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        }
+
+        function showError(id, message) {
+            const el = document.getElementById(id);
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function showSuccess(id, message) {
+            const el = document.getElementById(id);
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        // Forgot Password form
+        document.getElementById('forgotPasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('forgotEmail').value;
+            hideMsg('forgotError'); hideMsg('forgotSuccess');
+
+            try {
+                const response = await fetch(`${API_URL}/auth/forgot-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error?.message || 'Request failed');
+                showSuccess('forgotSuccess', data.data?.message || 'If an account with that email exists, a reset link has been sent.');
+                document.getElementById('forgotPasswordForm').reset();
+            } catch (error) {
+                showError('forgotError', error.message);
+            }
+        });
+
+        // Reset Password form
+        document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('resetPassword').value;
+            const confirmPassword = document.getElementById('resetPasswordConfirm').value;
+            hideMsg('resetError'); hideMsg('resetSuccess');
+
+            if (password !== confirmPassword) {
+                showError('resetError', 'Passwords do not match');
+                return;
+            }
+            if (password.length < 8) { showError('resetError', 'Password must be at least 8 characters'); return; }
+            if (!/[A-Z]/.test(password)) { showError('resetError', 'Password must contain at least one uppercase letter'); return; }
+            if (!/[a-z]/.test(password)) { showError('resetError', 'Password must contain at least one lowercase letter'); return; }
+            if (!/[0-9]/.test(password)) { showError('resetError', 'Password must contain at least one number'); return; }
+
+            try {
+                const response = await fetch(`${API_URL}/auth/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: window._resetToken, password })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error?.message || 'Password reset failed');
+                showSuccess('resetSuccess', 'Password reset successfully! Redirecting to login...');
+                document.getElementById('resetPasswordForm').reset();
+                window._resetToken = null;
+                setTimeout(() => showLoginScreen(), 2000);
+            } catch (error) {
+                showError('resetError', error.message);
+            }
+        });
+
+        // Change Password Modal
+        function showChangePasswordModal() {
+            document.getElementById('changePasswordModal').classList.add('active');
+            hideMsg('changePasswordError'); hideMsg('changePasswordSuccess');
+            document.getElementById('changePasswordForm').reset();
+        }
+
+        function closeChangePasswordModal() {
+            document.getElementById('changePasswordModal').classList.remove('active');
+        }
+
+        // Change Password form
+        document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+            hideMsg('changePasswordError'); hideMsg('changePasswordSuccess');
+
+            if (newPassword !== confirmNewPassword) {
+                showError('changePasswordError', 'New passwords do not match');
+                return;
+            }
+            if (newPassword.length < 8) { showError('changePasswordError', 'Password must be at least 8 characters'); return; }
+            if (!/[A-Z]/.test(newPassword)) { showError('changePasswordError', 'Password must contain at least one uppercase letter'); return; }
+            if (!/[a-z]/.test(newPassword)) { showError('changePasswordError', 'Password must contain at least one lowercase letter'); return; }
+            if (!/[0-9]/.test(newPassword)) { showError('changePasswordError', 'Password must contain at least one number'); return; }
+
+            try {
+                const response = await fetch(`${API_URL}/auth/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ currentPassword, newPassword })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error?.message || 'Password change failed');
+                showSuccess('changePasswordSuccess', 'Password changed successfully!');
+                document.getElementById('changePasswordForm').reset();
+                setTimeout(() => closeChangePasswordModal(), 1500);
+            } catch (error) {
+                showError('changePasswordError', error.message);
+            }
+        });
 
         function showTab(tab) {
             currentTab = tab;

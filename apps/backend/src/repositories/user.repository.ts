@@ -76,6 +76,21 @@ export class UserRepository {
     return result.rows.length > 0 ? result.rows[0].password_hash : null;
   }
 
+  async getPasswordHashById(userId: string): Promise<string | null> {
+    const result = await query(
+      'SELECT password_hash FROM users WHERE id = $1',
+      [userId]
+    );
+    return result.rows.length > 0 ? result.rows[0].password_hash : null;
+  }
+
+  async updatePasswordHash(userId: string, newPasswordHash: string): Promise<void> {
+    await query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [newPasswordHash, userId]
+    );
+  }
+
   private mapToUser(row: any): User {
     return {
       id: row.id,
