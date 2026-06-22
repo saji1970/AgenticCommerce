@@ -18,6 +18,15 @@ export interface AgentMandate {
   validUntil?: string;
   createdAt: string;
   updatedAt: string;
+  // Card-on-File (CoF) / VRP fields
+  networkToken?: string;
+  citTransactionId?: string;
+  consentToken?: string;
+  dailyLimit?: number;
+  periodLimit?: number;
+  amountUsedToday?: number;
+  amountUsedPeriod?: number;
+  transactionsToday?: number;
 }
 
 export interface RegisterMandateRequest {

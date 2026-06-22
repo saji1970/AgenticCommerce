@@ -585,12 +585,13 @@
                                     <th>Type</th>
                                     <th>Status</th>
                                     <th>Amount</th>
+                                    <th>VRP Consent / Mandate</th>
                                     <th>User</th>
                                     <th>Date</th>
                                 </tr>
                             </thead>
                             <tbody id="transactionsTableBody">
-                                <tr><td colspan="5" class="loading">Loading transactions...</td></tr>
+                                <tr><td colspan="6" class="loading">Loading transactions...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1056,13 +1057,34 @@
             }
         }
 
+        function formatMandateInfo(t) {
+            if (!t.mandate_id) return '<span style="color:#999;">N/A</span>';
+            const agentName = escapeHtml(t.mandate_agent_name || t.agent_id || '');
+            const mType = escapeHtml(t.mandate_type || '');
+            const mStatus = t.mandate_status || '';
+            const mandateIdShort = t.mandate_id.substring(0, 8);
+            const constraints = t.mandate_constraints || {};
+            let limitInfo = '';
+            if (constraints.maxTransactionAmount) limitInfo += `Max: $${constraints.maxTransactionAmount}`;
+            if (constraints.dailyLimit) limitInfo += `${limitInfo ? ' | ' : ''}Daily: $${constraints.dailyLimit}`;
+            if (constraints.monthlyLimit) limitInfo += `${limitInfo ? ' | ' : ''}Monthly: $${constraints.monthlyLimit}`;
+
+            return `<div style="font-size:13px;line-height:1.5;">
+                <strong>${agentName}</strong><br>
+                <span class="badge ${mStatus}" style="font-size:10px;">${mType}</span>
+                <span class="badge ${mStatus}" style="font-size:10px;">${mStatus}</span><br>
+                <code style="font-size:11px;color:#666;" title="${escapeHtml(t.mandate_id)}">${mandateIdShort}...</code>
+                ${limitInfo ? `<br><span style="font-size:11px;color:#888;">${escapeHtml(limitInfo)}</span>` : ''}
+            </div>`;
+        }
+
         async function loadTransactions() {
             try {
                 const response = await fetch(`${API_URL}/admin/ap2/transactions`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
                 const data = await response.json();
-                
+
                 const tbody = document.getElementById('transactionsTableBody');
                 if (data.transactions && data.transactions.length > 0) {
                     tbody.innerHTML = data.transactions.map(t => `
@@ -1070,16 +1092,17 @@
                             <td>${t.type}</td>
                             <td><span class="badge ${t.status}">${t.status}</span></td>
                             <td>$${parseFloat(t.amount || 0).toFixed(2)}</td>
+                            <td>${formatMandateInfo(t)}</td>
                             <td>${t.user_email}</td>
                             <td>${new Date(t.requested_at).toLocaleDateString()}</td>
                         </tr>
                     `).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="5" class="empty">No transactions found</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty">No transactions found</td></tr>';
                 }
             } catch (error) {
                 console.error('Error loading transactions:', error);
-                document.getElementById('transactionsTableBody').innerHTML = '<tr><td colspan="5" class="empty">Error loading transactions</td></tr>';
+                document.getElementById('transactionsTableBody').innerHTML = '<tr><td colspan="6" class="empty">Error loading transactions</td></tr>';
             }
         }
 

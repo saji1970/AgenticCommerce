@@ -17,6 +17,8 @@ import {
   PAYMENT_METHODS_STORAGE_KEY,
   ensureDemoPaymentMethodsMerged,
 } from '../../services/savedPaymentMethods';
+import { mandateServiceClient, AgentMandate } from '../../services/mandate-service.client';
+import { storageService } from '../../services/storage.service';
 
 interface PaymentMethod {
   id: string;
@@ -78,6 +80,7 @@ export const PaymentMethodsScreen: React.FC = () => {
   const [showAddCard, setShowAddCard] = useState(false);
   const [showAddWallet, setShowAddWallet] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [checkoutMandates, setCheckoutMandates] = useState<AgentMandate[]>([]);
 
   // Card form
   const [cardNumber, setCardNumber] = useState('');
@@ -97,9 +100,47 @@ export const PaymentMethodsScreen: React.FC = () => {
       await ensureDemoPaymentMethodsMerged();
       const data = await AsyncStorage.getItem(PAYMENT_METHODS_STORAGE_KEY);
       setMethods(data ? JSON.parse(data) : []);
+
+      // Fetch active checkout mandates (VRP consents) from backend
+      try {
+        const user = await storageService.getUser();
+        if (user?.id) {
+          const mandates = await mandateServiceClient.getUserCheckoutMandates(user.id, 'active');
+          setCheckoutMandates(mandates);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch checkout mandates:', err);
+      }
     } catch {
       setMethods([]);
     }
+  };
+
+  /** Find an active checkout mandate linked to this payment method */
+  const findLinkedMandate = (method: PaymentMethod): AgentMandate | undefined => {
+    // 1. Direct mandateId match (locally stored link)
+    if (method.mandateId) {
+      const found = checkoutMandates.find(m => m.id === method.mandateId);
+      if (found) return found;
+    }
+    // 2. Match by paymentMethods array on the mandate
+    return checkoutMandates.find(m => {
+      const pmList = m.paymentMethods || [];
+      return pmList.some((pm: any) => {
+        if (pm.id === method.id) return true;
+        if (pm.last4 && method.last4 && pm.last4 === method.last4) return true;
+        if (pm.label && method.label && pm.label === method.label) return true;
+        return false;
+      });
+    }) || checkoutMandates.find(m => {
+      // 3. Fallback: check constraints.paymentMethod
+      const pm = m.constraints?.paymentMethod;
+      if (!pm) return false;
+      if (pm.id === method.id) return true;
+      if (pm.last4 && method.last4 && pm.last4 === method.last4) return true;
+      if (pm.label && method.label && pm.label === method.label) return true;
+      return false;
+    });
   };
 
   const saveMethods = async (updated: PaymentMethod[]) => {
@@ -266,6 +307,18 @@ export const PaymentMethodsScreen: React.FC = () => {
   };
 
   const getMandateStatusBadge = (method: PaymentMethod) => {
+    const linked = findLinkedMandate(method);
+    if (linked) {
+      const constraints = linked.constraints || {};
+      const limit = constraints.maxAmountPerPayment || constraints.maxTransactionAmount;
+      return (
+        <View style={styles.mandateBadge}>
+          <Text style={styles.mandateBadgeText}>
+            VRP Active{limit ? ` (max $${limit})` : ''}
+          </Text>
+        </View>
+      );
+    }
     if (method.mandateId) {
       return (
         <View style={styles.mandateBadge}>

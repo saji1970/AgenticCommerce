@@ -651,7 +651,29 @@ export const PaymentMandatesScreen: React.FC = () => {
                   <Text style={styles.detailLabel}>Agent</Text>
                   <Text style={styles.detailValue}>{detailConsent.agentName}</Text>
 
-                  <Text style={styles.detailLabel}>Payment Token</Text>
+                  <Text style={styles.detailLabel}>CIT Transaction</Text>
+                  {detailConsent.citTransactionId ? (
+                    <View style={styles.tokenBox}>
+                      <Text style={styles.tokenText} selectable>{detailConsent.citTransactionId}</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.detailMuted}>No CIT transaction</Text>
+                  )}
+
+                  <Text style={styles.detailLabel}>Network Token (VRP)</Text>
+                  {detailConsent.networkToken ? (
+                    <View style={[styles.tokenBox, { backgroundColor: '#ECFDF5' }]}>
+                      <Text style={styles.tokenText} selectable>
+                        {detailConsent.networkToken.length > 40
+                          ? `${detailConsent.networkToken.slice(0, 20)}...${detailConsent.networkToken.slice(-16)}`
+                          : detailConsent.networkToken}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.detailMuted}>No network token provisioned</Text>
+                  )}
+
+                  <Text style={styles.detailLabel}>Consent Token</Text>
                   {loadingDetail ? (
                     <ActivityIndicator size="small" color="#4F46E5" />
                   ) : detailToken ? (
@@ -661,7 +683,7 @@ export const PaymentMandatesScreen: React.FC = () => {
                       </Text>
                     </View>
                   ) : (
-                    <Text style={styles.detailMuted}>No token stored</Text>
+                    <Text style={styles.detailMuted}>No consent token stored</Text>
                   )}
 
                   <Text style={styles.detailLabel}>Limits</Text>

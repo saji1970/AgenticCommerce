@@ -216,21 +216,38 @@ export class CheckoutMandateService {
   ) {
     // 1. Validate JWT
     let decoded: any;
+    let tokenExpired = false;
     try {
       decoded = jwt.verify(token, config.jwt.secret as jwt.Secret, {
         issuer: 'mandate-service',
       });
     } catch (err: any) {
       if (err.name === 'TokenExpiredError') {
-        throw new Error('Consent token has expired. Please re-approve the mandate.');
+        // Decode without verification to read mandate ID, then auto-renew if still active
+        decoded = jwt.decode(token);
+        if (!decoded || !decoded.mandateId) {
+          throw new Error('Invalid consent token.');
+        }
+        tokenExpired = true;
+      } else {
+        throw new Error('Invalid consent token.');
       }
-      throw new Error('Invalid consent token.');
     }
 
     // 2. Load mandate
     const mandate = await this.mandateRepository.getById(decoded.mandateId);
     if (!mandate) {
       throw new Error('Mandate not found');
+    }
+
+    // 2b. Auto-renew expired token if mandate is still active
+    if (tokenExpired) {
+      if (mandate.status !== 'active') {
+        throw new Error('Consent token has expired and mandate is no longer active. Please re-approve the mandate.');
+      }
+      console.log(`[ExecutePayment] Consent token expired for mandate=${mandate.id}, auto-renewing (mandate still active)`);
+      const newToken = this.generateConsentToken(mandate);
+      await this.mandateRepository.storeConsentToken(mandate.id, newToken);
     }
 
     // 3. Validate status

@@ -556,10 +556,16 @@ export class AdminController {
       const { status, type, merchantId, agentId, limit = '50', offset = '0' } = req.query;
 
       let query = `
-        SELECT t.*, u.email as user_email, m.name as merchant_name
+        SELECT t.*, u.email as user_email, m.name as merchant_name,
+               am.agent_name as mandate_agent_name,
+               am.type as mandate_type,
+               am.status as mandate_status,
+               am.constraints as mandate_constraints,
+               am.parent_mandate_id as parent_mandate_id
         FROM ap2_transactions t
         JOIN users u ON t.user_id = u.id
         LEFT JOIN merchants m ON t.merchant_id = m.id
+        LEFT JOIN agent_mandates am ON t.mandate_id = am.id
         WHERE 1=1
       `;
       const params: any[] = [];
@@ -598,6 +604,7 @@ export class AdminController {
         transactions: result.rows.map(row => ({
           ...row,
           metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata,
+          mandate_constraints: typeof row.mandate_constraints === 'string' ? JSON.parse(row.mandate_constraints) : row.mandate_constraints,
         })),
       });
     } catch (error) {
