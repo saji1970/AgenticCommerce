@@ -10,7 +10,7 @@ import { query } from '../config/database';
 
 async function seedAdmin() {
   const email = 'admin@agenticcommerce.com';
-  const password = 'admin123';
+  const password = 'Balaji1@';
   const firstName = 'Super';
   const lastName = 'Admin';
 

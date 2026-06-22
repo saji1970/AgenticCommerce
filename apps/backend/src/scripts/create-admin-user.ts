@@ -1,6 +1,6 @@
 /**
  * Create Admin User
- * Creates an admin user with email admin@agenticcommerce.com and password admin123@
+ * Creates an admin user with email admin@agenticcommerce.com and password Balaji1@
  * 
  * Usage: npx ts-node src/scripts/create-admin-user.ts
  */
@@ -9,7 +9,7 @@ import { pool } from '../config/database';
 import { hashPassword } from '../utils/password';
 
 const ADMIN_EMAIL = 'admin@agenticcommerce.com';
-const ADMIN_PASSWORD = 'admin123@';
+const ADMIN_PASSWORD = 'Balaji1@';
 const ADMIN_FIRST_NAME = 'Admin';
 const ADMIN_LAST_NAME = 'User';
 

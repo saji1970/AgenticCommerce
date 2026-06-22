@@ -13,7 +13,7 @@ http://localhost:3000/admin
 
 ### Admin Credentials
 - **Email**: `admin@agenticcommerce.com`
-- **Password**: `admin123@`
+- **Password**: `Balaji1@`
 
 ## Features
 
