@@ -397,6 +397,11 @@ export class CheckoutMandateService {
         },
         metadata: {
           parentMandateId: mandate.parentMandateId || parent?.id || null,
+          parentAgentName: parent?.agentName || null,
+          parentConstraints: parent?.constraints || null,
+          citTransactionId: mandate.citTransactionId || null,
+          networkToken: mandate.networkToken || null,
+          paymentMethods: mandate.paymentMethods || [],
           description: description || null,
           isoMessage,
         },

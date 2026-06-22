@@ -245,43 +245,120 @@ router.get('/audit-logs',
 );
 
 // ============================================================================
-// VRP Consents & Transactions - proxy to payment gateway admin API
+// VRP Consents & Transactions - serve from mandate-service checkout mandates
 // ============================================================================
-const PAYMENT_GATEWAY_URL = config.paymentGateway.url.replace(/\/$/, '');
+import { MandateRepository } from '../repositories/mandate.repository';
+import { TransactionRepository } from '../repositories/transaction.repository';
 
-router.all('/vrp-consents*', authenticateAdmin, vrpAdminProxy);
-router.all('/vrp-transactions*', authenticateAdmin, vrpAdminProxy);
+const vrpMandateRepo = new MandateRepository();
+const vrpTxRepo = new TransactionRepository();
 
-async function vrpAdminProxy(req: Request, res: Response) {
-  const path = req.path;
-  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-  const targetUrl = `${PAYMENT_GATEWAY_URL}/api/admin${path}${qs}`;
-
+// GET /vrp-consents - list all checkout mandates as VRP consents
+router.get('/vrp-consents', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': req.headers['content-type'] || 'application/json',
-    };
-    if (req.headers.authorization) {
-      headers['Authorization'] = req.headers.authorization;
+    const { status, agentId, limit = '100', offset = '0' } = req.query;
+
+    // Query all checkout mandates (type=payment with checkoutMandate flag)
+    const result = await vrpMandateRepo.getAllMandates(
+      status as string | undefined,
+      'payment',
+      parseInt(limit as string, 10),
+      agentId as string | undefined,
+      parseInt(offset as string, 10),
+    );
+
+    // Filter to only checkout mandates and map to VRP consent shape
+    const consents = result.mandates
+      .filter(m => m.constraints?.checkoutMandate === true)
+      .map(m => ({
+        id: m.id,
+        userId: m.userId,
+        agentId: m.agentId,
+        agentName: m.agentName,
+        status: m.status,
+        maxAmountPerPayment: m.constraints?.maxAmountPerPayment ?? m.constraints?.maxTransactionAmount ?? 0,
+        dailyLimit: m.constraints?.dailyLimit ?? m.dailyLimit ?? null,
+        monthlyLimit: m.constraints?.monthlyLimit ?? m.periodLimit ?? null,
+        appMandateId: m.parentMandateId || null,
+        amountUsedToday: m.amountUsedToday ?? 0,
+        amountUsedMonth: m.amountUsedPeriod ?? 0,
+        transactionsToday: m.transactionsToday ?? 0,
+        networkToken: m.networkToken || null,
+        citTransactionId: m.citTransactionId || null,
+        paymentMethods: m.paymentMethods || [],
+        constraints: m.constraints || {},
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+        validUntil: m.validUntil || null,
+      }));
+
+    res.json({ success: true, data: consents, total: consents.length });
+  } catch (err: any) {
+    console.error('[Admin VRP] Error loading consents:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /vrp-consents/:id - get single VRP consent detail
+router.get('/vrp-consents/:id', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    const mandate = await vrpMandateRepo.getById(req.params.id);
+    if (!mandate) {
+      return res.status(404).json({ success: false, error: 'VRP consent not found' });
     }
 
-    const response = await axios({
-      method: req.method,
-      url: targetUrl,
-      data: req.body,
-      headers,
-      validateStatus: () => true,
-      timeout: 15000,
-    });
+    const transactions = await vrpTxRepo.getByMandateId(mandate.id);
 
-    res.status(response.status).json(response.data);
-  } catch (err: any) {
-    console.error('[Admin VRP Proxy] Error forwarding to payment gateway:', err.message);
-    res.status(502).json({
-      success: false,
-      error: err.response?.data?.error || 'Payment gateway unavailable',
+    res.json({
+      success: true,
+      data: {
+        id: mandate.id,
+        userId: mandate.userId,
+        agentId: mandate.agentId,
+        agentName: mandate.agentName,
+        status: mandate.status,
+        maxAmountPerPayment: mandate.constraints?.maxAmountPerPayment ?? mandate.constraints?.maxTransactionAmount ?? 0,
+        dailyLimit: mandate.constraints?.dailyLimit ?? mandate.dailyLimit ?? null,
+        monthlyLimit: mandate.constraints?.monthlyLimit ?? mandate.periodLimit ?? null,
+        appMandateId: mandate.parentMandateId || null,
+        amountUsedToday: mandate.amountUsedToday ?? 0,
+        amountUsedMonth: mandate.amountUsedPeriod ?? 0,
+        transactionsToday: mandate.transactionsToday ?? 0,
+        networkToken: mandate.networkToken || null,
+        citTransactionId: mandate.citTransactionId || null,
+        paymentMethods: mandate.paymentMethods || [],
+        constraints: mandate.constraints || {},
+        createdAt: mandate.createdAt,
+        updatedAt: mandate.updatedAt,
+        validUntil: mandate.validUntil || null,
+        transactions,
+      },
     });
+  } catch (err: any) {
+    console.error('[Admin VRP] Error loading consent detail:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
-}
+});
+
+// POST /vrp-consents/:id/suspend - suspend a VRP consent
+router.post('/vrp-consents/:id/suspend', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    const updated = await vrpMandateRepo.updateStatus(req.params.id, 'suspended');
+    res.json({ success: true, data: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /vrp-consents/:id/revoke - revoke a VRP consent
+router.post('/vrp-consents/:id/revoke', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    const { reason } = req.body || {};
+    const updated = await vrpMandateRepo.updateStatus(req.params.id, 'revoked', reason || 'Revoked by admin');
+    res.json({ success: true, data: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 export default router;
