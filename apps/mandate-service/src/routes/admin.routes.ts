@@ -310,28 +310,45 @@ router.get('/vrp-consents/:id', authenticateAdmin, async (req: Request, res: Res
 
     const transactions = await vrpTxRepo.getByMandateId(mandate.id);
 
+    const amountUsedToday = mandate.amountUsedToday ?? 0;
+    const amountUsedMonth = mandate.amountUsedPeriod ?? 0;
+    const transactionsToday = mandate.transactionsToday ?? 0;
+
     res.json({
       success: true,
       data: {
-        id: mandate.id,
-        userId: mandate.userId,
-        agentId: mandate.agentId,
-        agentName: mandate.agentName,
-        status: mandate.status,
-        maxAmountPerPayment: mandate.constraints?.maxAmountPerPayment ?? mandate.constraints?.maxTransactionAmount ?? 0,
-        dailyLimit: mandate.constraints?.dailyLimit ?? mandate.dailyLimit ?? null,
-        monthlyLimit: mandate.constraints?.monthlyLimit ?? mandate.periodLimit ?? null,
-        appMandateId: mandate.parentMandateId || null,
-        amountUsedToday: mandate.amountUsedToday ?? 0,
-        amountUsedMonth: mandate.amountUsedPeriod ?? 0,
-        transactionsToday: mandate.transactionsToday ?? 0,
-        networkToken: mandate.networkToken || null,
-        citTransactionId: mandate.citTransactionId || null,
-        paymentMethods: mandate.paymentMethods || [],
-        constraints: mandate.constraints || {},
-        createdAt: mandate.createdAt,
-        updatedAt: mandate.updatedAt,
-        validUntil: mandate.validUntil || null,
+        consent: {
+          id: mandate.id,
+          userId: mandate.userId,
+          agentId: mandate.agentId,
+          agentName: mandate.agentName,
+          status: mandate.status,
+          maxAmountPerPayment: mandate.constraints?.maxAmountPerPayment ?? mandate.constraints?.maxTransactionAmount ?? 0,
+          dailyLimit: mandate.constraints?.dailyLimit ?? mandate.dailyLimit ?? null,
+          monthlyLimit: mandate.constraints?.monthlyLimit ?? mandate.periodLimit ?? null,
+          appMandateId: mandate.parentMandateId || null,
+          merchantId: mandate.constraints?.merchantId || null,
+          amountUsedToday,
+          amountUsedMonth,
+          transactionsToday,
+          lastDailyReset: mandate.lastDailyReset || null,
+          lastMonthlyReset: mandate.lastMonthlyReset || null,
+          networkToken: mandate.networkToken || null,
+          citTransactionId: mandate.citTransactionId || null,
+          paymentMethod: mandate.paymentMethods?.[0] || {},
+          consentToken: mandate.consentToken || null,
+          constraints: mandate.constraints || {},
+          expiryDate: mandate.validUntil || null,
+          revokedAt: mandate.revokedAt || null,
+          revokedReason: mandate.revokedReason || null,
+          createdAt: mandate.createdAt,
+          updatedAt: mandate.updatedAt,
+        },
+        usage: {
+          amountUsedToday,
+          amountUsedMonth,
+          transactionsToday,
+        },
         transactions,
       },
     });
