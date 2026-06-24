@@ -328,6 +328,38 @@ export const vrpTransactionsApi = {
   },
 };
 
+// Disputes API
+export const disputesApi = {
+  getAll: async (params?: { status?: string; merchantId?: string; agentId?: string; limit?: number; offset?: number }) => {
+    const response = await apiClient.get('/disputes', { params });
+    return response.data;
+  },
+  getById: async (id: string) => {
+    const response = await apiClient.get(`/disputes/${id}`);
+    return response.data;
+  },
+  create: async (data: { transactionId: string; reason: string; disputeAmount: number; currency?: string; notes?: string }) => {
+    const response = await apiClient.post('/disputes', data);
+    return response.data;
+  },
+  update: async (id: string, data: { status?: string; notes?: string; externalCaseId?: string }) => {
+    const response = await apiClient.put(`/disputes/${id}`, data);
+    return response.data;
+  },
+  assembleEvidence: async (id: string) => {
+    const response = await apiClient.post(`/disputes/${id}/assemble-evidence`);
+    return response.data;
+  },
+  exportCSV: async (id: string) => {
+    const response = await apiClient.get(`/disputes/${id}/export-csv`, { responseType: 'blob' });
+    return response.data;
+  },
+  pushToBAU: async (id: string, webhookUrl: string) => {
+    const response = await apiClient.post(`/disputes/${id}/push-bau`, { webhookUrl });
+    return response.data;
+  },
+};
+
 // Settings API (kept for compatibility)
 export const settingsApi = {
   getAll: async () => {

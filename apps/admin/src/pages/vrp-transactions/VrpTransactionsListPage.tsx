@@ -17,7 +17,8 @@ import {
   EmptyState,
   Alert,
 } from '../../components/common';
-import { AlertTriangle, CreditCard, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, CreditCard, ChevronDown, ChevronUp, Scale } from 'lucide-react';
+import { CreateDisputeModal } from '../../components/disputes/CreateDisputeModal';
 
 interface OverrideDetail {
   limitType: string;
@@ -33,6 +34,7 @@ export function VrpTransactionsListPage() {
   const [page, setPage] = useState(0);
   const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
   const [selectedTx, setSelectedTx] = useState<any | null>(null);
+  const [disputeTx, setDisputeTx] = useState<any | null>(null);
   const limit = 20;
 
   const { data, isLoading, error } = useQuery({
@@ -353,9 +355,33 @@ export function VrpTransactionsListPage() {
                 </pre>
               </details>
             )}
+
+            <div className="pt-2 border-t">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setDisputeTx(selectedTx);
+                  setSelectedTx(null);
+                }}
+              >
+                <Scale className="h-4 w-4 mr-1 inline" />
+                Open Dispute
+              </Button>
+            </div>
           </div>
         )}
       </Modal>
+
+      {disputeTx && (
+        <CreateDisputeModal
+          isOpen={!!disputeTx}
+          onClose={() => setDisputeTx(null)}
+          prefillTransactionId={disputeTx.id}
+          prefillAmount={parseFloat(disputeTx.amount)}
+          prefillCurrency={disputeTx.currency}
+        />
+      )}
     </div>
   );
 }

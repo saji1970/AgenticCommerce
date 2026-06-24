@@ -15,6 +15,7 @@ import { adminDashboardController } from '../controllers/admin-dashboard.control
 import { adminMerchantController } from '../controllers/admin-merchant.controller';
 import { adminMandateController } from '../controllers/admin-mandate.controller';
 import { adminTransactionController } from '../controllers/admin-transaction.controller';
+import { adminDisputeController } from '../controllers/admin-dispute.controller';
 
 const router = Router();
 
@@ -399,5 +400,34 @@ router.get('/vrp-transactions', authenticateAdmin, async (req: Request, res: Res
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// ============================================================================
+// Disputes & Chargebacks
+// ============================================================================
+router.get('/disputes', authenticateAdmin, adminDisputeController.list);
+router.post('/disputes',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminDisputeController.create,
+);
+router.get('/disputes/:id', authenticateAdmin, adminDisputeController.getById);
+router.put('/disputes/:id',
+  authenticateAdmin,
+  requireAdminRole('super_admin', 'merchant_admin'),
+  adminDisputeController.update,
+);
+router.post('/disputes/:id/assemble-evidence',
+  authenticateAdmin,
+  adminDisputeController.assembleEvidence,
+);
+router.get('/disputes/:id/export-csv',
+  authenticateAdmin,
+  adminDisputeController.exportCSV,
+);
+router.post('/disputes/:id/push-bau',
+  authenticateAdmin,
+  requireAdminRole('super_admin'),
+  adminDisputeController.pushToBAU,
+);
 
 export default router;

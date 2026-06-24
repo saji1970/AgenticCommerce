@@ -14,6 +14,7 @@ import {
   Wallet,
   SlidersHorizontal,
   AlertTriangle,
+  Scale,
 } from 'lucide-react';
 
 interface NavItem {
@@ -40,6 +41,7 @@ export function Sidebar() {
     navigation.push({ name: 'VRP Transactions', href: '/vrp-transactions', icon: AlertTriangle });
     navigation.push({ name: 'Payment Methods', href: '/payment-methods', icon: Wallet });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
+    navigation.push({ name: 'Disputes', href: '/disputes', icon: Scale });
     navigation.push({ name: 'Default Limits', href: '/default-limits', icon: SlidersHorizontal });
     navigation.push({ name: 'Certificates', href: '/certificates', icon: Shield });
     navigation.push({ name: 'Audit Logs', href: '/audit-logs', icon: FileText });
@@ -53,6 +55,7 @@ export function Sidebar() {
     navigation.push({ name: 'VRP Transactions', href: '/vrp-transactions', icon: AlertTriangle });
     navigation.push({ name: 'Payment Methods', href: '/payment-methods', icon: Wallet });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
+    navigation.push({ name: 'Disputes', href: '/disputes', icon: Scale });
   } else if (isMerchantOperator) {
     navigation.push({ name: 'AI Apps', href: '/ai-apps', icon: Bot });
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
@@ -60,6 +63,7 @@ export function Sidebar() {
     navigation.push({ name: 'VRP Transactions', href: '/vrp-transactions', icon: AlertTriangle });
     navigation.push({ name: 'Payment Methods', href: '/payment-methods', icon: Wallet });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
+    navigation.push({ name: 'Disputes', href: '/disputes', icon: Scale });
   }
 
   return (

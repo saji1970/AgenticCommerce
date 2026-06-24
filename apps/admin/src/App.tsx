@@ -19,6 +19,7 @@ import { TransactionsListPage } from './pages/transactions/TransactionsListPage'
 import { AIAppsPage } from './pages/ai-apps/AIAppsPage';
 import { PaymentMethodsPage } from './pages/payment-methods/PaymentMethodsPage';
 import { DefaultLimitsPage } from './pages/default-limits/DefaultLimitsPage';
+import { DisputesListPage } from './pages/disputes/DisputesListPage';
 import { LoadingPage } from './components/common';
 
 function ProtectedRoute({ children, requiredRoles }: { children: React.ReactNode; requiredRoles?: AdminRole[] }) {
@@ -174,6 +175,16 @@ function App() {
         element={
           <ProtectedRoute requiredRoles={['super_admin']}>
             <DefaultLimitsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Disputes - all roles */}
+      <Route
+        path="/disputes"
+        element={
+          <ProtectedRoute>
+            <DisputesListPage />
           </ProtectedRoute>
         }
       />

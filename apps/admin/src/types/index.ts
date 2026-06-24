@@ -453,3 +453,25 @@ export interface AdminSettings {
     backup_retention_count: AdminSettingValue;
   };
 }
+
+export interface Dispute {
+  id: string;
+  transactionId: string;
+  mandateId: string | null;
+  userId: string;
+  agentId: string | null;
+  merchantId: string | null;
+  status: 'open' | 'investigating' | 'evidence_submitted' | 'won' | 'lost' | 'closed';
+  reason: string;
+  disputeAmount: number;
+  currency: string;
+  externalCaseId: string | null;
+  evidencePack: Record<string, any>;
+  bauPushStatus: 'pending' | 'pushed' | 'failed' | 'not_required';
+  bauPushResponse: Record<string, any> | null;
+  bauPushedAt: string | null;
+  notes: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
