@@ -14,6 +14,7 @@ import { SettingsPage } from './pages/settings/SettingsPage';
 import { AdminUsersPage } from './pages/admin-users/AdminUsersPage';
 import { MandatesListPage } from './pages/mandates/MandatesListPage';
 import { VrpConsentsListPage } from './pages/vrp-consents/VrpConsentsListPage';
+import { VrpTransactionsListPage } from './pages/vrp-transactions/VrpTransactionsListPage';
 import { TransactionsListPage } from './pages/transactions/TransactionsListPage';
 import { AIAppsPage } from './pages/ai-apps/AIAppsPage';
 import { PaymentMethodsPage } from './pages/payment-methods/PaymentMethodsPage';
@@ -133,6 +134,16 @@ function App() {
         element={
           <ProtectedRoute>
             <VrpConsentsListPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* VRP Transactions - all roles */}
+      <Route
+        path="/vrp-transactions"
+        element={
+          <ProtectedRoute>
+            <VrpTransactionsListPage />
           </ProtectedRoute>
         }
       />

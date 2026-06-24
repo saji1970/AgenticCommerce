@@ -13,6 +13,7 @@ import {
   Bot,
   Wallet,
   SlidersHorizontal,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface NavItem {
@@ -36,6 +37,7 @@ export function Sidebar() {
     navigation.push({ name: 'End Users', href: '/users', icon: Users });
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
     navigation.push({ name: 'VRP Consents', href: '/vrp-consents', icon: RefreshCw });
+    navigation.push({ name: 'VRP Transactions', href: '/vrp-transactions', icon: AlertTriangle });
     navigation.push({ name: 'Payment Methods', href: '/payment-methods', icon: Wallet });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
     navigation.push({ name: 'Default Limits', href: '/default-limits', icon: SlidersHorizontal });
@@ -48,12 +50,14 @@ export function Sidebar() {
     navigation.push({ name: 'Team Members', href: '/admin-users', icon: UserCog });
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
     navigation.push({ name: 'VRP Consents', href: '/vrp-consents', icon: RefreshCw });
+    navigation.push({ name: 'VRP Transactions', href: '/vrp-transactions', icon: AlertTriangle });
     navigation.push({ name: 'Payment Methods', href: '/payment-methods', icon: Wallet });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
   } else if (isMerchantOperator) {
     navigation.push({ name: 'AI Apps', href: '/ai-apps', icon: Bot });
     navigation.push({ name: 'Mandates', href: '/mandates', icon: FileText });
     navigation.push({ name: 'VRP Consents', href: '/vrp-consents', icon: RefreshCw });
+    navigation.push({ name: 'VRP Transactions', href: '/vrp-transactions', icon: AlertTriangle });
     navigation.push({ name: 'Payment Methods', href: '/payment-methods', icon: Wallet });
     navigation.push({ name: 'Transactions', href: '/transactions', icon: CreditCard });
   }

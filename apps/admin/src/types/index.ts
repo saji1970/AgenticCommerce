@@ -157,6 +157,7 @@ export interface VrpTransaction {
   transactionId: string | null;
   description: string | null;
   metadata: Record<string, unknown>;
+  isExceptional: boolean;
   mandateId: string | null;
   appMandateId: string | null;
   cartId: string | null;

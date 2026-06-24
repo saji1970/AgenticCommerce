@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { vrpConsentsApi } from '../../api/client';
 import { Modal, Badge, LoadingPage, Button } from '../common';
+import { AlertTriangle } from 'lucide-react';
 import type { VrpConsent, VrpTransaction } from '../../types';
 
 interface VrpConsentDetailModalProps {
@@ -235,12 +236,13 @@ export function VrpConsentDetailModal({
                       <th className="text-left px-3 py-2 font-medium text-gray-600">Mandate</th>
                       <th className="text-left px-3 py-2 font-medium text-gray-600">Cart / Intent</th>
                       <th className="text-left px-3 py-2 font-medium text-gray-600">Product</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Type</th>
                       <th className="text-left px-3 py-2 font-medium text-gray-600">Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {transactions.map((tx) => (
-                      <tr key={tx.id} className="hover:bg-gray-50">
+                      <tr key={tx.id} className={`hover:bg-gray-50 ${(tx as any).isExceptional || (tx.metadata as any)?.isExceptional ? 'bg-amber-50' : ''}`}>
                         <td className="px-3 py-2">
                           <code className="text-xs">{tx.id.slice(0, 8)}...</code>
                         </td>
@@ -292,6 +294,16 @@ export function VrpConsentDetailModal({
                             </div>
                           ) : (
                             <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {(tx as any).isExceptional || (tx.metadata as any)?.isExceptional ? (
+                            <Badge variant="warning">
+                              <AlertTriangle className="h-3 w-3 mr-1 inline" />
+                              Override
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-gray-400">Normal</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-gray-500">

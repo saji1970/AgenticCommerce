@@ -361,4 +361,43 @@ router.post('/vrp-consents/:id/revoke', authenticateAdmin, async (req: Request, 
   }
 });
 
+// ============================================================================
+// VRP Transactions (with exceptional transaction filter)
+// ============================================================================
+
+// GET /vrp-transactions - list all VRP/checkout transactions with filters
+router.get('/vrp-transactions', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    const { status, agentId, merchantId, userId, mandateId, isExceptional, limit = '20', offset = '0' } = req.query;
+
+    const filters: Record<string, any> = {};
+    if (status) filters.status = status as string;
+    if (agentId) filters.agentId = agentId as string;
+    if (merchantId) filters.merchantId = merchantId as string;
+    if (userId) filters.userId = userId as string;
+    if (mandateId) filters.mandateId = mandateId as string;
+    if (isExceptional === 'true') filters.isExceptional = true;
+    if (isExceptional === 'false') filters.isExceptional = false;
+
+    const result = await vrpTxRepo.getAll(
+      filters,
+      parseInt(limit as string, 10),
+      parseInt(offset as string, 10),
+    );
+
+    res.json({
+      success: true,
+      data: result.transactions,
+      pagination: {
+        total: result.total,
+        limit: parseInt(limit as string, 10),
+        offset: parseInt(offset as string, 10),
+      },
+    });
+  } catch (err: any) {
+    console.error('[Admin VRP Transactions] Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

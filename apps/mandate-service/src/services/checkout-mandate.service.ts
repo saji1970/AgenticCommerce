@@ -2,8 +2,17 @@ import jwt from 'jsonwebtoken';
 import { MandateRepository, AgentMandate } from '../repositories/mandate.repository';
 import { AIAgentAppRepository } from '../repositories/ai-agent-app.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
+import { MerchantRepository } from '../repositories/merchant.repository';
 import { config } from '../config/env';
 import { paymentClient } from '../clients/paymentClient';
+
+export interface OverrideDetail {
+  limitType: 'merchant_max_transaction' | 'merchant_daily_limit' | 'merchant_monthly_limit';
+  merchantLimit: number;
+  appMandateLimit: number;
+  actualAmount: number;
+  exceededBy: number;
+}
 
 function buildISOMessageFields(params: {
   networkToken: string;
@@ -56,11 +65,13 @@ export class CheckoutMandateService {
   private mandateRepository: MandateRepository;
   private agentRepository: AIAgentAppRepository;
   private transactionRepository: TransactionRepository;
+  private merchantRepository: MerchantRepository;
 
   constructor() {
     this.mandateRepository = new MandateRepository();
     this.agentRepository = new AIAgentAppRepository();
     this.transactionRepository = new TransactionRepository();
+    this.merchantRepository = new MerchantRepository();
   }
 
   async createCheckoutMandate(data: CreateCheckoutMandateData) {
@@ -223,7 +234,6 @@ export class CheckoutMandateService {
       });
     } catch (err: any) {
       if (err.name === 'TokenExpiredError') {
-        // Decode without verification to read mandate ID, then auto-renew if still active
         decoded = jwt.decode(token);
         if (!decoded || !decoded.mandateId) {
           throw new Error('Invalid consent token.');
@@ -266,15 +276,7 @@ export class CheckoutMandateService {
 
     const constraints = mandate.constraints || {};
 
-    // 5. Check per-payment limit — use parent APP mandate's maxTransactionAmount if available
-    //    (the parent is the user's authoritative spending limit source)
-    //    Note: mobile form creates with "maxAmountPerPayment", admin panel updates with "maxTransactionAmount"
-    let maxPerPayment = Math.max(
-      constraints.maxAmountPerPayment || 0,
-      constraints.maxTransactionAmount || 0
-    ) || constraints.maxAmountPerPayment;
-
-    // Resolve parent: use parentMandateId if set, otherwise look up by user+agent
+    // Resolve parent APP mandate: use parentMandateId if set, otherwise look up by user+agent
     let parent: AgentMandate | null = null;
     if (mandate.parentMandateId) {
       parent = await this.mandateRepository.getById(mandate.parentMandateId);
@@ -286,21 +288,37 @@ export class CheckoutMandateService {
       }
     }
 
-    if (parent && parent.status === 'active' && parent.constraints?.maxTransactionAmount) {
-      // Use parent's limit if it's more permissive (user updated it after checkout mandate was created)
-      if (!maxPerPayment || parent.constraints.maxTransactionAmount > maxPerPayment) {
-        console.log(`[ExecutePayment] Using parent maxTransactionAmount $${parent.constraints.maxTransactionAmount} instead of checkout mandate's $${maxPerPayment}`);
-        maxPerPayment = parent.constraints.maxTransactionAmount;
-      }
+    // Resolve merchantId via the agent's registered app
+    let merchantId: string | undefined;
+    const agentApp = await this.agentRepository.getByAgentId(mandate.agentId);
+    if (agentApp?.merchant_id) {
+      merchantId = agentApp.merchant_id;
     }
 
-    console.log(`[ExecutePayment] mandate=${mandate.id} amount=$${amount} maxPerPayment=$${maxPerPayment} parentId=${parent?.id || 'none'}`);
+    // ================================================================
+    // TIER 1: VRP Consent Limits (checked first — reject if no limits)
+    // ================================================================
+    const maxPerPayment = Math.max(
+      constraints.maxAmountPerPayment || 0,
+      constraints.maxTransactionAmount || 0
+    );
+    const dailyLimit = constraints.dailyLimit ?? mandate.dailyLimit ?? null;
+    const monthlyLimit = constraints.monthlyLimit ?? mandate.periodLimit ?? null;
 
+    // Guard: VRP consent MUST have at least one limit configured
+    if (!maxPerPayment && dailyLimit == null && monthlyLimit == null) {
+      throw new Error(
+        'VRP consent has no spending limits configured. ' +
+        'Please set at least one limit (per-payment, daily, or monthly) before making payments.'
+      );
+    }
+
+    // Per-payment limit
     if (maxPerPayment && amount > maxPerPayment) {
       throw new Error(`Amount $${amount.toFixed(2)} exceeds max per payment $${maxPerPayment}`);
     }
 
-    // 6. Reset daily counter if date rolled over
+    // Reset daily counter if date rolled over
     const today = new Date().toISOString().slice(0, 10);
     if (mandate.lastDailyReset && mandate.lastDailyReset.toString().slice(0, 10) !== today) {
       await this.mandateRepository.resetDailyUsage(mandate.id);
@@ -308,7 +326,7 @@ export class CheckoutMandateService {
       mandate.transactionsToday = 0;
     }
 
-    // 7. Reset monthly counter if month rolled over
+    // Reset monthly counter if month rolled over
     if (mandate.lastMonthlyReset) {
       const now = new Date();
       const lastReset = new Date(mandate.lastMonthlyReset);
@@ -318,36 +336,143 @@ export class CheckoutMandateService {
       }
     }
 
-    // 8. Check daily limit
-    const dailyLimit = constraints.dailyLimit || mandate.dailyLimit;
-    if (dailyLimit != null) {
-      const usedToday = mandate.amountUsedToday || 0;
-      if (usedToday + amount > dailyLimit) {
-        throw new Error(`Daily limit exceeded. Used: $${usedToday.toFixed(2)}, Requested: $${amount.toFixed(2)}, Limit: $${dailyLimit}`);
-      }
+    const usedToday = mandate.amountUsedToday || 0;
+    const usedMonth = mandate.amountUsedPeriod || 0;
+
+    // Daily limit
+    if (dailyLimit != null && usedToday + amount > dailyLimit) {
+      throw new Error(`Daily limit exceeded. Used: $${usedToday.toFixed(2)}, Requested: $${amount.toFixed(2)}, Limit: $${dailyLimit}`);
     }
 
-    // 9. Check monthly limit
-    const monthlyLimit = constraints.monthlyLimit || mandate.periodLimit;
-    if (monthlyLimit != null) {
-      const usedMonth = mandate.amountUsedPeriod || 0;
-      if (usedMonth + amount > monthlyLimit) {
-        throw new Error(`Monthly limit exceeded. Used: $${usedMonth.toFixed(2)}, Requested: $${amount.toFixed(2)}, Limit: $${monthlyLimit}`);
-      }
+    // Monthly limit
+    if (monthlyLimit != null && usedMonth + amount > monthlyLimit) {
+      throw new Error(`Monthly limit exceeded. Used: $${usedMonth.toFixed(2)}, Requested: $${amount.toFixed(2)}, Limit: $${monthlyLimit}`);
     }
 
-    // 10. Check parent mandate constraints (reuse parent loaded in step 5)
+    console.log(`[ExecutePayment] TIER 1 passed: mandate=${mandate.id} amount=$${amount} maxPerPayment=$${maxPerPayment} dailyLimit=$${dailyLimit} monthlyLimit=$${monthlyLimit}`);
+
+    // ================================================================
+    // TIER 2: APP/User Mandate Limits
+    // ================================================================
+    const pc = parent?.constraints || {};
+    const appMaxTxn = pc.maxTransactionAmount ?? null;
+    const appDailyLimit = pc.dailySpendingLimit ?? pc.dailyLimit ?? parent?.dailyLimit ?? null;
+    const appMonthlyLimit = pc.monthlySpendingLimit ?? pc.monthlyLimit ?? parent?.periodLimit ?? null;
+
     if (parent) {
       if (parent.status !== 'active') {
         throw new Error(`Parent app mandate is ${parent.status}. Child mandates are invalid when parent is not active.`);
       }
-      const pc = parent.constraints || {};
-      if (pc.maxTransactionAmount && amount > pc.maxTransactionAmount) {
-        throw new Error(`Transaction amount $${amount.toFixed(2)} exceeds parent app mandate limit $${pc.maxTransactionAmount}`);
+
+      // APP per-transaction limit
+      if (appMaxTxn != null && amount > appMaxTxn) {
+        throw new Error(`Transaction amount $${amount.toFixed(2)} exceeds parent app mandate per-transaction limit of $${appMaxTxn}`);
+      }
+
+      // APP daily spending limit
+      if (appDailyLimit != null && usedToday + amount > appDailyLimit) {
+        throw new Error(
+          `Transaction would exceed parent app mandate daily spending limit of $${appDailyLimit} (used today: $${usedToday.toFixed(2)})`
+        );
+      }
+
+      // APP monthly spending limit
+      if (appMonthlyLimit != null && usedMonth + amount > appMonthlyLimit) {
+        throw new Error(
+          `Transaction would exceed parent app mandate monthly spending limit of $${appMonthlyLimit} (used this month: $${usedMonth.toFixed(2)})`
+        );
+      }
+
+      console.log(`[ExecutePayment] TIER 2 passed: parentId=${parent.id} appMaxTxn=$${appMaxTxn} appDailyLimit=$${appDailyLimit} appMonthlyLimit=$${appMonthlyLimit}`);
+    }
+
+    // ================================================================
+    // TIER 3: Merchant Default Limits (with override logic)
+    // ================================================================
+    const overrideDetails: OverrideDetail[] = [];
+    let merchant = null;
+
+    if (merchantId) {
+      try {
+        merchant = await this.merchantRepository.getById(merchantId);
+      } catch (err) {
+        console.warn(`[ExecutePayment] Failed to load merchant ${merchantId}:`, err);
       }
     }
 
-    // 11. Authorize via Payment Gateway MIT
+    if (merchant) {
+      const merchMeta = merchant.metadata || {};
+      const merchMaxTxn = merchMeta.maxTransactionAmount ?? null;
+      const merchDailyLimit = merchMeta.dailyTransactionLimit ?? null;
+      const merchMonthlyLimit = merchMeta.monthlyTransactionLimit ?? null;
+
+      // Merchant per-transaction limit
+      if (merchMaxTxn != null && amount > merchMaxTxn) {
+        if (appMaxTxn != null && appMaxTxn > merchMaxTxn) {
+          // APP limit is higher → override allowed
+          overrideDetails.push({
+            limitType: 'merchant_max_transaction',
+            merchantLimit: merchMaxTxn,
+            appMandateLimit: appMaxTxn,
+            actualAmount: amount,
+            exceededBy: amount - merchMaxTxn,
+          });
+          console.log(`[ExecutePayment] TIER 3 OVERRIDE: merchant maxTxn $${merchMaxTxn} exceeded, but APP limit $${appMaxTxn} allows it`);
+        } else {
+          throw new Error(
+            `Amount $${amount.toFixed(2)} exceeds merchant default per-transaction limit of $${merchMaxTxn}. Contact merchant admin to increase limits.`
+          );
+        }
+      }
+
+      // Merchant daily limit
+      if (merchDailyLimit != null && usedToday + amount > merchDailyLimit) {
+        if (appDailyLimit != null && appDailyLimit > merchDailyLimit) {
+          overrideDetails.push({
+            limitType: 'merchant_daily_limit',
+            merchantLimit: merchDailyLimit,
+            appMandateLimit: appDailyLimit,
+            actualAmount: usedToday + amount,
+            exceededBy: (usedToday + amount) - merchDailyLimit,
+          });
+          console.log(`[ExecutePayment] TIER 3 OVERRIDE: merchant dailyLimit $${merchDailyLimit} exceeded, but APP limit $${appDailyLimit} allows it`);
+        } else {
+          throw new Error(
+            `Amount would exceed merchant default daily limit of $${merchDailyLimit} (used today: $${usedToday.toFixed(2)}). Contact merchant admin to increase limits.`
+          );
+        }
+      }
+
+      // Merchant monthly limit
+      if (merchMonthlyLimit != null && usedMonth + amount > merchMonthlyLimit) {
+        if (appMonthlyLimit != null && appMonthlyLimit > merchMonthlyLimit) {
+          overrideDetails.push({
+            limitType: 'merchant_monthly_limit',
+            merchantLimit: merchMonthlyLimit,
+            appMandateLimit: appMonthlyLimit,
+            actualAmount: usedMonth + amount,
+            exceededBy: (usedMonth + amount) - merchMonthlyLimit,
+          });
+          console.log(`[ExecutePayment] TIER 3 OVERRIDE: merchant monthlyLimit $${merchMonthlyLimit} exceeded, but APP limit $${appMonthlyLimit} allows it`);
+        } else {
+          throw new Error(
+            `Amount would exceed merchant default monthly limit of $${merchMonthlyLimit} (used this month: $${usedMonth.toFixed(2)}). Contact merchant admin to increase limits.`
+          );
+        }
+      }
+
+      if (overrideDetails.length > 0) {
+        console.log(`[ExecutePayment] TIER 3: ${overrideDetails.length} merchant limit override(s) applied`);
+      } else {
+        console.log(`[ExecutePayment] TIER 3 passed: merchant limits OK`);
+      }
+    }
+
+    const isExceptional = overrideDetails.length > 0;
+
+    // ================================================================
+    // Authorize via Payment Gateway MIT
+    // ================================================================
     const mitResult = await paymentClient.authorizeMIT({
       networkToken: mandate.networkToken,
       amount,
@@ -360,10 +485,10 @@ export class CheckoutMandateService {
       throw new Error(`MIT authorization failed: ${mitResult.errorCode || mitResult.message || 'Declined'}`);
     }
 
-    // 12. Update usage counters
+    // Update usage counters
     await this.mandateRepository.updateCheckoutUsage(mandate.id, amount);
 
-    // 13. Record transaction with ISO 8583 display fields
+    // Record transaction with ISO 8583 display fields
     const isoMessage = buildISOMessageFields({
       networkToken: mandate.networkToken,
       amount,
@@ -371,13 +496,6 @@ export class CheckoutMandateService {
       citTransactionId: mandate.citTransactionId,
       mandateId: mandate.id,
     });
-
-    // Resolve merchantId via the agent's registered app
-    let merchantId: string | undefined;
-    const agentApp = await this.agentRepository.getByAgentId(mandate.agentId);
-    if (agentApp?.merchant_id) {
-      merchantId = agentApp.merchant_id;
-    }
 
     try {
       await this.transactionRepository.create({
@@ -390,6 +508,7 @@ export class CheckoutMandateService {
         amount,
         currency,
         gatewayTransactionId: mitResult.transactionId,
+        isExceptional,
         gatewayResponse: {
           responseCode: mitResult.responseCode,
           message: mitResult.message,
@@ -404,6 +523,20 @@ export class CheckoutMandateService {
           paymentMethods: mandate.paymentMethods || [],
           description: description || null,
           isoMessage,
+          // Exceptional transaction details
+          ...(isExceptional ? {
+            isExceptional: true,
+            overrideDetails,
+            limitContext: {
+              vrpLimits: { maxPerPayment, dailyLimit, monthlyLimit },
+              appMandateLimits: parent ? { maxTransactionAmount: appMaxTxn, dailySpendingLimit: appDailyLimit, monthlySpendingLimit: appMonthlyLimit } : null,
+              merchantLimits: merchant ? {
+                maxTransactionAmount: merchant.metadata?.maxTransactionAmount ?? null,
+                dailyTransactionLimit: merchant.metadata?.dailyTransactionLimit ?? null,
+                monthlyTransactionLimit: merchant.metadata?.monthlyTransactionLimit ?? null,
+              } : null,
+            },
+          } : {}),
         },
         processedAt: new Date(),
       });
@@ -419,6 +552,7 @@ export class CheckoutMandateService {
       mandateId: mandate.id,
       responseCode: mitResult.responseCode,
       message: mitResult.message,
+      ...(isExceptional ? { isExceptional: true, overrideDetails } : {}),
     };
   }
 

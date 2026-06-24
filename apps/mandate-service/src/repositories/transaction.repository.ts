@@ -13,6 +13,7 @@ export interface Transaction {
   gatewayTransactionId: string | null;
   gatewayResponse: Record<string, any>;
   metadata: Record<string, any>;
+  isExceptional: boolean;
   errorMessage: string | null;
   processedAt: Date | null;
   createdAt: Date;
@@ -31,6 +32,7 @@ export interface CreateTransactionData {
   gatewayTransactionId?: string;
   gatewayResponse?: Record<string, any>;
   metadata?: Record<string, any>;
+  isExceptional?: boolean;
   errorMessage?: string;
   processedAt?: Date;
 }
@@ -42,13 +44,14 @@ export interface TransactionFilters {
   agentId?: string;
   userId?: string;
   mandateId?: string;
+  isExceptional?: boolean;
 }
 
 export class TransactionRepository {
   async create(data: CreateTransactionData): Promise<Transaction> {
     const result = await query(
-      `INSERT INTO transactions (mandate_id, user_id, agent_id, merchant_id, type, status, amount, currency, gateway_transaction_id, gateway_response, metadata, error_message, processed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `INSERT INTO transactions (mandate_id, user_id, agent_id, merchant_id, type, status, amount, currency, gateway_transaction_id, gateway_response, metadata, is_exceptional, error_message, processed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         data.mandateId || null,
@@ -62,6 +65,7 @@ export class TransactionRepository {
         data.gatewayTransactionId || null,
         JSON.stringify(data.gatewayResponse || {}),
         JSON.stringify(data.metadata || {}),
+        data.isExceptional || false,
         data.errorMessage || null,
         data.processedAt || null,
       ]
@@ -120,6 +124,12 @@ export class TransactionRepository {
       queryText += ` AND mandate_id = $${params.length}`;
       countText += ` AND mandate_id = $${countParams.length}`;
     }
+    if (filters.isExceptional !== undefined) {
+      params.push(filters.isExceptional);
+      countParams.push(filters.isExceptional);
+      queryText += ` AND is_exceptional = $${params.length}`;
+      countText += ` AND is_exceptional = $${countParams.length}`;
+    }
 
     queryText += ' ORDER BY created_at DESC';
     params.push(limit);
@@ -173,6 +183,7 @@ export class TransactionRepository {
       metadata: typeof row.metadata === 'string'
         ? JSON.parse(row.metadata)
         : row.metadata || {},
+      isExceptional: row.is_exceptional ?? false,
       errorMessage: row.error_message,
       processedAt: row.processed_at,
       createdAt: row.created_at,

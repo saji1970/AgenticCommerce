@@ -320,6 +320,14 @@ export const vrpConsentsApi = {
   },
 };
 
+// VRP Transactions API (with exceptional transaction support)
+export const vrpTransactionsApi = {
+  getAll: async (params?: { status?: string; agentId?: string; merchantId?: string; isExceptional?: boolean; limit?: number; offset?: number }) => {
+    const response = await apiClient.get('/vrp-transactions', { params });
+    return response.data;
+  },
+};
+
 // Settings API (kept for compatibility)
 export const settingsApi = {
   getAll: async () => {
