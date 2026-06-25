@@ -434,8 +434,16 @@ export function MandateDetailModal({
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {detail.transactions.map((tx) => (
-                      <tr key={tx.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2"><Badge variant={typeVariant(tx.type)}>{tx.type}</Badge></td>
+                      <tr key={tx.id} className={`hover:bg-gray-50 ${tx.type === 'CIT' ? 'bg-indigo-50' : ''}`}>
+                        <td className="px-3 py-2">
+                          {tx.type === 'CIT' ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">CIT</span>
+                          ) : tx.type === 'MIT' ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">MIT</span>
+                          ) : (
+                            <Badge variant={typeVariant(tx.type)}>{tx.type}</Badge>
+                          )}
+                        </td>
                         <td className="px-3 py-2 font-medium">
                           {tx.amount.toLocaleString('en-US', { style: 'currency', currency: tx.currency })}
                         </td>

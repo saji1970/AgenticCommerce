@@ -130,7 +130,7 @@ export const adminMandateController = {
       }
 
       // Fetch related data in parallel
-      const [parentMandate, childMandates, timeline, transactions, purchaseIntents, cartItems, linkedOrders] = await Promise.all([
+      const [parentMandate, childMandates, timeline, mitTransactions, purchaseIntents, cartItems, linkedOrders] = await Promise.all([
         mandate.parentMandateId ? mandateRepo.getById(mandate.parentMandateId) : null,
         mandate.type === 'app' ? mandateRepo.getChildMandates(id) : [],
         auditLogService.getByMandateId(id).catch(() => []),
@@ -139,6 +139,32 @@ export const adminMandateController = {
         backendDataRepository.getCartItemsByMandateId(id),
         backendDataRepository.getOrdersByMandateId(id),
       ]);
+
+      // Build transactions list: prepend CIT if this mandate has CIT data
+      const transactions: any[] = [];
+      if (mandate.citTransactionId) {
+        transactions.push({
+          id: `cit-${mandate.id}`,
+          type: 'CIT',
+          status: 'completed',
+          amount: mandate.constraints?.maxAmountPerPayment ?? mandate.constraints?.maxTransactionAmount ?? 0,
+          currency: 'USD',
+          createdAt: mandate.createdAt,
+          processedAt: mandate.createdAt,
+          transactionId: mandate.citTransactionId,
+          description: 'Initial CIT Authorization',
+          metadata: { networkToken: mandate.networkToken || null },
+        });
+      }
+      transactions.push(...mitTransactions.map(t => ({
+        id: t.id,
+        type: t.type,
+        status: t.status,
+        amount: t.amount,
+        currency: t.currency,
+        createdAt: t.createdAt,
+        processedAt: t.processedAt,
+      })));
 
       res.json({
         success: true,
@@ -186,15 +212,7 @@ export const adminMandateController = {
           metadata: e.metadata,
           createdAt: e.createdAt,
         })),
-        transactions: transactions.map(t => ({
-          id: t.id,
-          type: t.type,
-          status: t.status,
-          amount: t.amount,
-          currency: t.currency,
-          createdAt: t.createdAt,
-          processedAt: t.processedAt,
-        })),
+        transactions,
         purchaseIntents,
         cartItems,
         linkedOrders,

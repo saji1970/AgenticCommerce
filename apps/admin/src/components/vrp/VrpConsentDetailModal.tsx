@@ -297,14 +297,21 @@ export function VrpConsentDetailModal({
                           )}
                         </td>
                         <td className="px-3 py-2">
-                          {(tx as any).isExceptional || (tx.metadata as any)?.isExceptional ? (
-                            <Badge variant="warning">
-                              <AlertTriangle className="h-3 w-3 mr-1 inline" />
-                              Override
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-gray-400">Normal</span>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {(tx as any).type === 'CIT' ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">CIT</span>
+                            ) : (tx as any).type === 'MIT' ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">MIT</span>
+                            ) : null}
+                            {(tx as any).isExceptional || (tx.metadata as any)?.isExceptional ? (
+                              <Badge variant="warning">
+                                <AlertTriangle className="h-3 w-3 mr-1 inline" />
+                                Override
+                              </Badge>
+                            ) : (tx as any).type !== 'CIT' && (tx as any).type !== 'MIT' ? (
+                              <span className="text-xs text-gray-400">Normal</span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-gray-500">
                           {formatDate(tx.createdAt)}

@@ -308,7 +308,29 @@ router.get('/vrp-consents/:id', authenticateAdmin, async (req: Request, res: Res
       return res.status(404).json({ success: false, error: 'VRP consent not found' });
     }
 
-    const transactions = await vrpTxRepo.getByMandateId(mandate.id);
+    const mitTransactions = await vrpTxRepo.getByMandateId(mandate.id);
+
+    // Prepend synthesized CIT transaction if the mandate has CIT data
+    const transactions: any[] = [];
+    if (mandate.citTransactionId) {
+      transactions.push({
+        id: `cit-${mandate.id}`,
+        amount: mandate.constraints?.maxAmountPerPayment ?? mandate.constraints?.maxTransactionAmount ?? 0,
+        currency: 'USD',
+        status: 'completed',
+        transactionId: mandate.citTransactionId,
+        description: 'Initial CIT Authorization',
+        createdAt: mandate.createdAt,
+        type: 'CIT',
+        isExceptional: false,
+        processedAt: mandate.createdAt,
+        merchantId: null,
+        gatewayResponse: {},
+        metadata: { networkToken: mandate.networkToken || null },
+        errorMessage: null,
+      });
+    }
+    transactions.push(...mitTransactions);
 
     const amountUsedToday = mandate.amountUsedToday ?? 0;
     const amountUsedMonth = mandate.amountUsedPeriod ?? 0;
