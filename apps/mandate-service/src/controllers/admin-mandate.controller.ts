@@ -164,6 +164,13 @@ export const adminMandateController = {
         currency: t.currency,
         createdAt: t.createdAt,
         processedAt: t.processedAt,
+        transactionId: t.gatewayTransactionId,
+        description: t.metadata?.description || 'MIT Payment',
+        merchantId: t.merchantId,
+        isExceptional: t.isExceptional,
+        gatewayResponse: t.gatewayResponse || {},
+        metadata: t.metadata || {},
+        errorMessage: t.errorMessage,
       })));
 
       res.json({

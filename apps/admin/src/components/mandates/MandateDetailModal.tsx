@@ -2,7 +2,21 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mandatesApi } from '../../api/client';
 import { Modal, Badge, LoadingPage } from '../common';
+import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import type { MandateDetail } from '../../types';
+
+const ISO_FIELD_LABELS: Record<string, string> = {
+  MTI: 'Message Type Indicator',
+  DE2_NetworkToken: 'Network Token (masked)',
+  DE4_Amount: 'Transaction Amount',
+  DE7_TransmissionDateTime: 'Transmission Date/Time',
+  DE11_STAN: 'System Trace Audit Number',
+  DE25_POSConditionCode: 'POS Condition Code',
+  DE48_CoFIndicator: 'Card-on-File Indicator',
+  DE49_Currency: 'Currency Code',
+  DE63_OriginalCitRef: 'Original CIT Reference',
+  MandateId: 'Mandate ID',
+};
 
 interface MandateDetailModalProps {
   mandateId: string | null;
@@ -30,6 +44,7 @@ export function MandateDetailModal({
   const [isEditingConstraints, setIsEditingConstraints] = useState(false);
   const [editedConstraints, setEditedConstraints] = useState<Record<string, string>>({});
   const [constraintError, setConstraintError] = useState<string | null>(null);
+  const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
 
   const constraintsMutation = useMutation({
     mutationFn: (constraints: Record<string, unknown>) =>
@@ -433,16 +448,34 @@ export function MandateDetailModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {detail.transactions.map((tx) => (
-                      <tr key={tx.id} className={`hover:bg-gray-50 ${tx.type === 'CIT' ? 'bg-indigo-50' : ''}`}>
+                    {detail.transactions.map((tx) => {
+                      const txAny = tx as any;
+                      const isExpanded = expandedTxId === tx.id;
+                      const isoMessage = txAny.gatewayResponse?.isoMessage || txAny.metadata?.isoMessage || null;
+                      return (
+                        <>
+                        <tr
+                          key={tx.id}
+                          onClick={() => setExpandedTxId(isExpanded ? null : tx.id)}
+                          className={`cursor-pointer transition-colors ${isExpanded ? 'bg-indigo-50' : tx.type === 'CIT' ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-gray-50'}`}
+                        >
                         <td className="px-3 py-2">
-                          {tx.type === 'CIT' ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">CIT</span>
-                          ) : tx.type === 'MIT' ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">MIT</span>
-                          ) : (
-                            <Badge variant={typeVariant(tx.type)}>{tx.type}</Badge>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {isExpanded ? <ChevronDown className="h-3 w-3 text-gray-400 shrink-0" /> : <ChevronRight className="h-3 w-3 text-gray-400 shrink-0" />}
+                            {tx.type === 'CIT' ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">CIT</span>
+                            ) : tx.type === 'MIT' ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">MIT</span>
+                            ) : (
+                              <Badge variant={typeVariant(tx.type)}>{tx.type}</Badge>
+                            )}
+                            {txAny.isExceptional && (
+                              <Badge variant="warning">
+                                <AlertTriangle className="h-3 w-3 mr-1 inline" />
+                                Override
+                              </Badge>
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-2 font-medium">
                           {tx.amount.toLocaleString('en-US', { style: 'currency', currency: tx.currency })}
@@ -450,17 +483,136 @@ export function MandateDetailModal({
                         <td className="px-3 py-2"><Badge variant={statusVariant(tx.status)}>{tx.status}</Badge></td>
                         <td className="px-3 py-2 text-gray-500">{formatDate(tx.createdAt)}</td>
                         <td className="px-3 py-2">
-                          {onOpenTransaction && (
+                          {onOpenTransaction && !tx.id.startsWith('cit-') && (
                             <button
-                              onClick={() => onOpenTransaction(tx.id)}
+                              onClick={(e) => { e.stopPropagation(); onOpenTransaction(tx.id); }}
                               className="text-indigo-600 hover:text-indigo-800 text-xs underline"
                             >
-                              View
+                              Full View
                             </button>
                           )}
                         </td>
                       </tr>
-                    ))}
+                      {/* Expanded Detail Row */}
+                      {isExpanded && (
+                        <tr key={`${tx.id}-detail`}>
+                          <td colSpan={5} className="px-0 py-0">
+                            <div className="bg-gray-50 border-t border-b border-gray-200 px-6 py-4 space-y-4">
+                              {/* Transaction Info */}
+                              <div>
+                                <h4 className="font-semibold text-xs text-gray-700 uppercase tracking-wide mb-2">Transaction Info</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                                  <div><span className="text-gray-500">ID:</span> <code className="text-xs bg-white px-1 py-0.5 rounded">{tx.id}</code></div>
+                                  <div><span className="text-gray-500">Type:</span> <span className="font-medium">{tx.type}</span></div>
+                                  <div><span className="text-gray-500">Status:</span> <Badge variant={statusVariant(tx.status)}>{tx.status}</Badge></div>
+                                  <div><span className="text-gray-500">Amount:</span> <span className="font-medium">{tx.amount.toLocaleString('en-US', { style: 'currency', currency: tx.currency })}</span></div>
+                                  <div><span className="text-gray-500">Currency:</span> {tx.currency}</div>
+                                  <div><span className="text-gray-500">Created:</span> {formatDate(tx.createdAt)}</div>
+                                  {txAny.processedAt && (
+                                    <div><span className="text-gray-500">Processed:</span> {formatDate(txAny.processedAt)}</div>
+                                  )}
+                                  {txAny.transactionId && (
+                                    <div className="col-span-2"><span className="text-gray-500">Gateway TX ID:</span> <code className="text-xs bg-white px-1 py-0.5 rounded">{txAny.transactionId}</code></div>
+                                  )}
+                                  {txAny.description && (
+                                    <div className="col-span-2"><span className="text-gray-500">Description:</span> {txAny.description}</div>
+                                  )}
+                                  {txAny.merchantId && (
+                                    <div><span className="text-gray-500">Merchant:</span> <code className="text-xs">{txAny.merchantId}</code></div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Network Token (for CIT) */}
+                              {txAny.metadata?.networkToken && (
+                                <div>
+                                  <h4 className="font-semibold text-xs text-gray-700 uppercase tracking-wide mb-2">Network Token</h4>
+                                  <code className="text-xs bg-white px-2 py-1 rounded border break-all">{txAny.metadata.networkToken}</code>
+                                </div>
+                              )}
+
+                              {/* Error Message */}
+                              {txAny.errorMessage && (
+                                <div className="p-2 bg-red-50 rounded border border-red-200">
+                                  <span className="text-red-700 font-medium text-sm">Error:</span>{' '}
+                                  <span className="text-red-600 text-sm">{txAny.errorMessage}</span>
+                                </div>
+                              )}
+
+                              {/* ISO 8583 Message */}
+                              {isoMessage && typeof isoMessage === 'object' && Object.keys(isoMessage).length > 0 && (
+                                <div className="bg-gray-900 rounded-lg p-3">
+                                  <h4 className="font-semibold text-xs text-green-400 uppercase tracking-wide mb-2">ISO 8583 Message</h4>
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b border-gray-700">
+                                        <th className="text-left px-2 py-1 text-gray-400 font-medium">Field</th>
+                                        <th className="text-left px-2 py-1 text-gray-400 font-medium">Description</th>
+                                        <th className="text-left px-2 py-1 text-gray-400 font-medium">Value</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-800">
+                                      {Object.entries(isoMessage as Record<string, string>).map(([field, value]) => (
+                                        <tr key={field}>
+                                          <td className="px-2 py-1 font-mono text-green-300">{field}</td>
+                                          <td className="px-2 py-1 text-gray-400">{ISO_FIELD_LABELS[field] || field}</td>
+                                          <td className="px-2 py-1 font-mono text-gray-100">{String(value)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+
+                              {/* Metadata */}
+                              {txAny.metadata && Object.keys(txAny.metadata).filter((k: string) => k !== 'networkToken' && k !== 'isoMessage').length > 0 && (
+                                <div>
+                                  <h4 className="font-semibold text-xs text-gray-700 uppercase tracking-wide mb-2">Metadata</h4>
+                                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                    {Object.entries(txAny.metadata)
+                                      .filter(([key]) => key !== 'networkToken' && key !== 'isoMessage')
+                                      .map(([key, val]) => (
+                                        <div key={key}>
+                                          <span className="text-gray-500">{key}:</span>{' '}
+                                          <span className="font-medium">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Gateway Response */}
+                              {txAny.gatewayResponse && Object.keys(txAny.gatewayResponse).filter((k: string) => k !== 'isoMessage').length > 0 && (
+                                <div>
+                                  <h4 className="font-semibold text-xs text-gray-700 uppercase tracking-wide mb-2">Gateway Response</h4>
+                                  <pre className="text-xs bg-gray-900 text-gray-100 p-3 rounded overflow-x-auto">
+                                    {JSON.stringify(
+                                      Object.fromEntries(Object.entries(txAny.gatewayResponse).filter(([k]) => k !== 'isoMessage')),
+                                      null, 2
+                                    )}
+                                  </pre>
+                                </div>
+                              )}
+
+                              {/* Exceptional Override Details */}
+                              {txAny.isExceptional && txAny.metadata?.limitContext && (
+                                <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                                  <h4 className="font-semibold text-xs text-amber-700 uppercase tracking-wide mb-2">
+                                    <AlertTriangle className="h-3 w-3 inline mr-1" />
+                                    Merchant Limit Override
+                                  </h4>
+                                  <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
+                                    {JSON.stringify(txAny.metadata.limitContext, null, 2)}
+                                  </pre>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
