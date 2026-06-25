@@ -1,11 +1,18 @@
 import { Request, Response } from 'express';
 import { CheckoutMandateService } from '../services/checkout-mandate.service';
+import { TransactionRepository } from '../repositories/transaction.repository';
+import { MandateRepository } from '../repositories/mandate.repository';
 
 export class CheckoutMandateController {
   private checkoutService: CheckoutMandateService;
 
+  private transactionRepo: TransactionRepository;
+  private mandateRepo: MandateRepository;
+
   constructor() {
     this.checkoutService = new CheckoutMandateService();
+    this.transactionRepo = new TransactionRepository();
+    this.mandateRepo = new MandateRepository();
   }
 
   createCheckoutMandate = async (req: Request, res: Response) => {
@@ -157,12 +164,45 @@ export class CheckoutMandateController {
   getTransactions = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      // For now return empty transactions — the mandate-service doesn't have a
-      // dedicated transactions table yet; usage is tracked on the mandate itself.
+
+      // Fetch mandate to get CIT details
+      const mandate = await this.mandateRepo.getById(id);
+
+      // Fetch MIT transactions linked to this mandate
+      const mitTransactions = await this.transactionRepo.getByMandateId(id);
+
+      // Map to frontend shape
+      const transactions = mitTransactions.map(tx => ({
+        id: tx.id,
+        amount: tx.amount,
+        currency: tx.currency,
+        status: tx.status,
+        transactionId: tx.gatewayTransactionId,
+        description: tx.metadata?.description || 'MIT Payment',
+        createdAt: tx.createdAt,
+        type: 'MIT' as const,
+        isExceptional: tx.isExceptional,
+      }));
+
+      // Prepend CIT as the first entry if it exists on the mandate
+      if (mandate?.citTransactionId) {
+        transactions.unshift({
+          id: `cit-${mandate.id}`,
+          amount: mandate.constraints?.maxAmountPerPayment ?? 0,
+          currency: 'USD',
+          status: 'completed',
+          transactionId: mandate.citTransactionId,
+          description: 'Initial CIT Authorization',
+          createdAt: mandate.createdAt,
+          type: 'CIT' as const,
+          isExceptional: false,
+        });
+      }
+
       res.json({
         success: true,
-        data: [],
-        total: 0,
+        data: transactions,
+        total: transactions.length,
       });
     } catch (error) {
       console.error('Error getting transactions:', error);

@@ -77,6 +77,8 @@ export interface CheckoutTransaction {
   transactionId?: string;
   description?: string;
   createdAt: string;
+  type?: 'CIT' | 'MIT';
+  isExceptional?: boolean;
 }
 
 class MandateServiceClient {

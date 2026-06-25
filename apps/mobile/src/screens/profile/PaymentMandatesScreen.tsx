@@ -651,15 +651,6 @@ export const PaymentMandatesScreen: React.FC = () => {
                   <Text style={styles.detailLabel}>Agent</Text>
                   <Text style={styles.detailValue}>{detailConsent.agentName}</Text>
 
-                  <Text style={styles.detailLabel}>CIT Transaction</Text>
-                  {detailConsent.citTransactionId ? (
-                    <View style={styles.tokenBox}>
-                      <Text style={styles.tokenText} selectable>{detailConsent.citTransactionId}</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.detailMuted}>No CIT transaction</Text>
-                  )}
-
                   <Text style={styles.detailLabel}>Network Token (VRP)</Text>
                   {detailConsent.networkToken ? (
                     <View style={[styles.tokenBox, { backgroundColor: '#ECFDF5' }]}>
@@ -701,14 +692,30 @@ export const PaymentMandatesScreen: React.FC = () => {
                     <Text style={styles.detailMuted}>No transactions yet</Text>
                   ) : (
                     detailTransactions.map((tx) => (
-                      <View key={tx.id} style={styles.txRow}>
+                      <View key={tx.id} style={[styles.txRow, tx.type === 'CIT' && { borderLeftWidth: 3, borderLeftColor: '#6366F1' }]}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.txAmount}>{formatCurrency(tx?.amount)} {tx?.currency || 'USD'}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <View style={{
+                              backgroundColor: tx.type === 'CIT' ? '#EEF2FF' : '#F0FDF4',
+                              paddingHorizontal: 6,
+                              paddingVertical: 2,
+                              borderRadius: 4,
+                            }}>
+                              <Text style={{
+                                fontSize: 10,
+                                fontWeight: '700',
+                                color: tx.type === 'CIT' ? '#4338CA' : '#166534',
+                              }}>
+                                {tx.type === 'CIT' ? 'CIT' : 'MIT'}
+                              </Text>
+                            </View>
+                            <Text style={styles.txAmount}>{formatCurrency(tx?.amount)} {tx?.currency || 'USD'}</Text>
+                          </View>
                           <Text style={styles.txMeta}>
                             {tx.description || 'Payment'} • {new Date(tx.createdAt).toLocaleString()}
                           </Text>
                           {tx.transactionId && (
-                            <Text style={styles.txId}>ID: {tx.transactionId}</Text>
+                            <Text style={styles.txId} selectable>ID: {tx.transactionId}</Text>
                           )}
                         </View>
                         <View style={[styles.txStatusBadge, { backgroundColor: tx.status === 'completed' ? '#D1FAE5' : '#FEF3C7' }]}>
