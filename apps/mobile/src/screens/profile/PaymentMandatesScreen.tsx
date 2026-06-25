@@ -61,6 +61,7 @@ export const PaymentMandatesScreen: React.FC = () => {
   const [detailToken, setDetailToken] = useState<string | null>(null);
   const [detailTransactions, setDetailTransactions] = useState<CheckoutTransaction[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
 
   // Form state
   const [agentId, setAgentId] = useState(AppConfig.getDefaultAgent().id);
@@ -636,7 +637,7 @@ export const PaymentMandatesScreen: React.FC = () => {
         visible={!!detailConsent}
         transparent
         animationType="slide"
-        onRequestClose={() => setDetailConsent(null)}
+        onRequestClose={() => { setDetailConsent(null); setExpandedTxId(null); }}
       >
         <Pressable style={styles.modalOverlay} onPress={() => setDetailConsent(null)}>
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
@@ -692,40 +693,126 @@ export const PaymentMandatesScreen: React.FC = () => {
                   {detailTransactions.length === 0 ? (
                     <Text style={styles.detailMuted}>No transactions yet</Text>
                   ) : (
-                    detailTransactions.map((tx) => (
-                      <View key={tx.id} style={[styles.txRow, tx.type === 'CIT' && { borderLeftWidth: 3, borderLeftColor: '#6366F1' }]}>
-                        <View style={{ flex: 1 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                            <View style={{
-                              backgroundColor: tx.type === 'CIT' ? '#EEF2FF' : '#F0FDF4',
-                              paddingHorizontal: 6,
-                              paddingVertical: 2,
-                              borderRadius: 4,
-                            }}>
-                              <Text style={{
-                                fontSize: 10,
-                                fontWeight: '700',
-                                color: tx.type === 'CIT' ? '#4338CA' : '#166534',
-                              }}>
-                                {tx.type === 'CIT' ? 'CIT' : 'MIT'}
-                              </Text>
+                    detailTransactions.map((tx) => {
+                      const isExpanded = expandedTxId === tx.id;
+                      return (
+                        <TouchableOpacity
+                          key={tx.id}
+                          activeOpacity={0.7}
+                          onPress={() => setExpandedTxId(isExpanded ? null : tx.id)}
+                        >
+                          <View style={[styles.txRow, tx.type === 'CIT' && { borderLeftWidth: 3, borderLeftColor: '#6366F1' }, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                  <View style={{
+                                    backgroundColor: tx.type === 'CIT' ? '#EEF2FF' : '#F0FDF4',
+                                    paddingHorizontal: 6,
+                                    paddingVertical: 2,
+                                    borderRadius: 4,
+                                  }}>
+                                    <Text style={{
+                                      fontSize: 10,
+                                      fontWeight: '700',
+                                      color: tx.type === 'CIT' ? '#4338CA' : '#166534',
+                                    }}>
+                                      {tx.type === 'CIT' ? 'CIT' : 'MIT'}
+                                    </Text>
+                                  </View>
+                                  <Text style={styles.txAmount}>{formatCurrency(tx?.amount)} {tx?.currency || 'USD'}</Text>
+                                </View>
+                                <Text style={styles.txMeta}>
+                                  {tx.description || 'Payment'} • {new Date(tx.createdAt).toLocaleString()}
+                                </Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <View style={[styles.txStatusBadge, { backgroundColor: tx.status === 'completed' ? '#D1FAE5' : tx.status === 'failed' ? '#FEE2E2' : '#FEF3C7' }]}>
+                                  <Text style={[styles.txStatusText, { color: tx.status === 'completed' ? '#065F46' : tx.status === 'failed' ? '#991B1B' : '#92400E' }]}>
+                                    {tx.status}
+                                  </Text>
+                                </View>
+                                <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{isExpanded ? '▲' : '▼'}</Text>
+                              </View>
                             </View>
-                            <Text style={styles.txAmount}>{formatCurrency(tx?.amount)} {tx?.currency || 'USD'}</Text>
+
+                            {isExpanded && (
+                              <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
+                                {tx.transactionId && (
+                                  <View style={styles.txDetailRow}>
+                                    <Text style={styles.txDetailLabel}>Transaction ID</Text>
+                                    <Text style={styles.txDetailValue} selectable>{tx.transactionId}</Text>
+                                  </View>
+                                )}
+                                <View style={styles.txDetailRow}>
+                                  <Text style={styles.txDetailLabel}>Type</Text>
+                                  <Text style={styles.txDetailValue}>{tx.type === 'CIT' ? 'Customer Initiated (CIT)' : 'Merchant Initiated (MIT)'}</Text>
+                                </View>
+                                <View style={styles.txDetailRow}>
+                                  <Text style={styles.txDetailLabel}>Amount</Text>
+                                  <Text style={styles.txDetailValue}>{formatCurrency(tx.amount)} {tx.currency || 'USD'}</Text>
+                                </View>
+                                <View style={styles.txDetailRow}>
+                                  <Text style={styles.txDetailLabel}>Status</Text>
+                                  <Text style={[styles.txDetailValue, { color: tx.status === 'completed' ? '#065F46' : tx.status === 'failed' ? '#991B1B' : '#92400E' }]}>
+                                    {tx.status.toUpperCase()}
+                                  </Text>
+                                </View>
+                                {tx.processedAt && (
+                                  <View style={styles.txDetailRow}>
+                                    <Text style={styles.txDetailLabel}>Processed At</Text>
+                                    <Text style={styles.txDetailValue}>{new Date(tx.processedAt).toLocaleString()}</Text>
+                                  </View>
+                                )}
+                                {tx.merchantId && (
+                                  <View style={styles.txDetailRow}>
+                                    <Text style={styles.txDetailLabel}>Merchant ID</Text>
+                                    <Text style={styles.txDetailValue} selectable>{tx.merchantId}</Text>
+                                  </View>
+                                )}
+                                {tx.isExceptional && (
+                                  <View style={styles.txDetailRow}>
+                                    <Text style={styles.txDetailLabel}>Exceptional</Text>
+                                    <Text style={[styles.txDetailValue, { color: '#DC2626' }]}>Yes - exceeded normal limits</Text>
+                                  </View>
+                                )}
+                                {tx.gatewayResponse && tx.gatewayResponse.responseCode && (
+                                  <View style={styles.txDetailRow}>
+                                    <Text style={styles.txDetailLabel}>Gateway Response</Text>
+                                    <Text style={styles.txDetailValue}>{tx.gatewayResponse.responseCode} - {tx.gatewayResponse.message || 'OK'}</Text>
+                                  </View>
+                                )}
+                                {tx.metadata?.networkToken && (
+                                  <View style={styles.txDetailRow}>
+                                    <Text style={styles.txDetailLabel}>Network Token</Text>
+                                    <Text style={styles.txDetailValue} selectable>
+                                      {tx.metadata.networkToken.length > 30
+                                        ? `${tx.metadata.networkToken.slice(0, 14)}...${tx.metadata.networkToken.slice(-12)}`
+                                        : tx.metadata.networkToken}
+                                    </Text>
+                                  </View>
+                                )}
+                                {tx.metadata?.isoMessage && (
+                                  <View style={styles.txDetailRow}>
+                                    <Text style={styles.txDetailLabel}>ISO Message</Text>
+                                    <Text style={styles.txDetailValue}>{tx.metadata.isoMessage}</Text>
+                                  </View>
+                                )}
+                                {tx.errorMessage && (
+                                  <View style={styles.txDetailRow}>
+                                    <Text style={styles.txDetailLabel}>Error</Text>
+                                    <Text style={[styles.txDetailValue, { color: '#DC2626' }]}>{tx.errorMessage}</Text>
+                                  </View>
+                                )}
+                                <View style={styles.txDetailRow}>
+                                  <Text style={styles.txDetailLabel}>Created</Text>
+                                  <Text style={styles.txDetailValue}>{new Date(tx.createdAt).toLocaleString()}</Text>
+                                </View>
+                              </View>
+                            )}
                           </View>
-                          <Text style={styles.txMeta}>
-                            {tx.description || 'Payment'} • {new Date(tx.createdAt).toLocaleString()}
-                          </Text>
-                          {tx.transactionId && (
-                            <Text style={styles.txId} selectable>ID: {tx.transactionId}</Text>
-                          )}
-                        </View>
-                        <View style={[styles.txStatusBadge, { backgroundColor: tx.status === 'completed' ? '#D1FAE5' : '#FEF3C7' }]}>
-                          <Text style={[styles.txStatusText, { color: tx.status === 'completed' ? '#065F46' : '#92400E' }]}>
-                            {tx.status}
-                          </Text>
-                        </View>
-                      </View>
-                    ))
+                        </TouchableOpacity>
+                      );
+                    })
                   )}
                 </ScrollView>
               </>
@@ -1072,6 +1159,23 @@ const styles = StyleSheet.create({
   txStatusText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  txDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  txDetailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    flex: 1,
+  },
+  txDetailValue: {
+    fontSize: 12,
+    color: '#1F2937',
+    flex: 1.5,
+    textAlign: 'right',
   },
   rulesRow: {
     flexDirection: 'row',

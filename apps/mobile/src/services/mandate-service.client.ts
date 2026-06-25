@@ -79,6 +79,11 @@ export interface CheckoutTransaction {
   createdAt: string;
   type?: 'CIT' | 'MIT';
   isExceptional?: boolean;
+  processedAt?: string;
+  merchantId?: string;
+  gatewayResponse?: Record<string, any>;
+  metadata?: Record<string, any>;
+  errorMessage?: string;
 }
 
 class MandateServiceClient {

@@ -171,7 +171,7 @@ export class CheckoutMandateController {
       // Fetch MIT transactions linked to this mandate
       const mitTransactions = await this.transactionRepo.getByMandateId(id);
 
-      // Map to frontend shape
+      // Map to frontend shape with detail fields
       const transactions: Array<{
         id: string;
         amount: number;
@@ -182,6 +182,11 @@ export class CheckoutMandateController {
         createdAt: Date;
         type: 'CIT' | 'MIT';
         isExceptional: boolean;
+        processedAt: Date | null;
+        merchantId: string | null;
+        gatewayResponse: Record<string, any>;
+        metadata: Record<string, any>;
+        errorMessage: string | null;
       }> = mitTransactions.map(tx => ({
         id: tx.id,
         amount: tx.amount,
@@ -192,6 +197,11 @@ export class CheckoutMandateController {
         createdAt: tx.createdAt,
         type: 'MIT' as const,
         isExceptional: tx.isExceptional,
+        processedAt: tx.processedAt,
+        merchantId: tx.merchantId,
+        gatewayResponse: tx.gatewayResponse || {},
+        metadata: tx.metadata || {},
+        errorMessage: tx.errorMessage,
       }));
 
       // Prepend CIT as the first entry if it exists on the mandate
@@ -206,6 +216,11 @@ export class CheckoutMandateController {
           createdAt: mandate.createdAt,
           type: 'CIT' as const,
           isExceptional: false,
+          processedAt: mandate.createdAt,
+          merchantId: null,
+          gatewayResponse: {},
+          metadata: { networkToken: mandate.networkToken || null },
+          errorMessage: null,
         });
       }
 
