@@ -41,6 +41,7 @@ interface PaymentMethod {
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   active: { bg: '#D1FAE5', text: '#065F46' },
   pending: { bg: '#FEF3C7', text: '#92400E' },
+  completed: { bg: '#DBEAFE', text: '#1E40AF' },
   revoked: { bg: '#FEE2E2', text: '#991B1B' },
   expired: { bg: '#F3F4F6', text: '#6B7280' },
   suspended: { bg: '#FEF3C7', text: '#92400E' },
@@ -348,7 +349,7 @@ export const PaymentMandatesScreen: React.FC = () => {
                   <Text style={styles.consentAgent}>{consent.agentName}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
                     <Text style={[styles.statusText, { color: statusStyle.text }]}>
-                      {consent.status.toUpperCase()}
+                      {consent.status === 'completed' ? 'EXECUTED' : consent.status.toUpperCase()}
                     </Text>
                   </View>
                 </View>

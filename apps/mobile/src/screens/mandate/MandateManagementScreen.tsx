@@ -177,6 +177,8 @@ export const MandateManagementScreen: React.FC = () => {
         return '#10B981';
       case MandateStatus.PENDING:
         return '#F59E0B';
+      case MandateStatus.COMPLETED:
+        return '#3B82F6';
       case MandateStatus.SUSPENDED:
         return '#EF4444';
       case MandateStatus.REVOKED:
@@ -186,6 +188,14 @@ export const MandateManagementScreen: React.FC = () => {
       default:
         return '#6B7280';
     }
+  };
+
+  const getStatusLabel = (mandate: Mandate) => {
+    if (mandate.status === MandateStatus.COMPLETED &&
+        (mandate.type === MandateType.CART || mandate.type === MandateType.INTENT)) {
+      return 'EXECUTED';
+    }
+    return mandate.status.toUpperCase();
   };
 
   const renderMandate = (mandate: Mandate) => (
@@ -199,7 +209,7 @@ export const MandateManagementScreen: React.FC = () => {
           <Text style={styles.mandateType}>{mandate.type.toUpperCase()} MANDATE</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(mandate.status) }]}>
-          <Text style={styles.statusText}>{mandate.status.toUpperCase()}</Text>
+          <Text style={styles.statusText}>{getStatusLabel(mandate)}</Text>
         </View>
       </View>
 
