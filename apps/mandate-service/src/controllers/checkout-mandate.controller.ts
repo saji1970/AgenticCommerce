@@ -172,7 +172,17 @@ export class CheckoutMandateController {
       const mitTransactions = await this.transactionRepo.getByMandateId(id);
 
       // Map to frontend shape
-      const transactions = mitTransactions.map(tx => ({
+      const transactions: Array<{
+        id: string;
+        amount: number;
+        currency: string;
+        status: string;
+        transactionId: string | null;
+        description: string;
+        createdAt: Date;
+        type: 'CIT' | 'MIT';
+        isExceptional: boolean;
+      }> = mitTransactions.map(tx => ({
         id: tx.id,
         amount: tx.amount,
         currency: tx.currency,
