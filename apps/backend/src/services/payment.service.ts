@@ -76,13 +76,13 @@ export class PaymentService {
       }
     }
 
-    // Collect mandate tokens from each cart item for audit trail
+    // Collect mandate info from each cart item for audit trail and completion
     const mandateTokens: Array<{ mandateId: string; mandateToken: string; productId?: string }> = [];
     for (const item of cartItems) {
-      if (item.mandateId && item.mandateToken) {
+      if (item.mandateId) {
         mandateTokens.push({
           mandateId: item.mandateId,
-          mandateToken: item.mandateToken,
+          mandateToken: item.mandateToken || '',
           productId: item.productId,
         });
       }

@@ -79,7 +79,8 @@ export class CartController {
         normalizedProductImage,
         quantity,
         price,
-        variants
+        variants,
+        mandateId
       );
 
       res.status(201).json({
