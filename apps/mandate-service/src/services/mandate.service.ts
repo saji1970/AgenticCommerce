@@ -294,23 +294,23 @@ export class MandateService {
   }
 
   async completeMandatesAfterPayment(mandateIds: string[], userId?: string, productIds?: string[]) {
-    if (!mandateIds || mandateIds.length === 0) {
-      return { completed: [], completedIntents: [] };
+    const completed = mandateIds.length > 0
+      ? await this.mandateRepository.completeChildMandatesByIds(mandateIds)
+      : [];
+    if (completed.length > 0) {
+      console.log(`[MandateService] Completed ${completed.length} mandates after payment:`, completed.map(m => m.id));
     }
 
-    const completed = await this.mandateRepository.completeChildMandatesByIds(mandateIds);
-    console.log(`[MandateService] Completed ${completed.length} mandates after payment:`, completed.map(m => m.id));
-
-    // Also complete intent mandates whose productId matches any product in the paid cart
-    let completedIntents: any[] = [];
+    // Also complete cart/intent mandates whose productId matches any product in the paid cart
+    let completedByProduct: any[] = [];
     if (userId && productIds && productIds.length > 0) {
-      completedIntents = await this.mandateRepository.completeIntentMandatesByProductIds(userId, productIds);
-      if (completedIntents.length > 0) {
-        console.log(`[MandateService] Completed ${completedIntents.length} intent mandates for products:`, completedIntents.map(m => m.id));
+      completedByProduct = await this.mandateRepository.completeChildMandatesByProductIds(userId, productIds);
+      if (completedByProduct.length > 0) {
+        console.log(`[MandateService] Completed ${completedByProduct.length} cart/intent mandates by product match:`, completedByProduct.map(m => `${m.id} (${m.type})`));
       }
     }
 
-    return { completed, completedIntents };
+    return { completed, completedByProduct };
   }
 
   async getAppMandateWithChildren(mandateId: string) {

@@ -383,10 +383,10 @@ export class MandateRepository {
     return result.rows.map(row => this.mapRowToMandate(row));
   }
 
-  async completeIntentMandatesByProductIds(userId: string, productIds: string[]): Promise<AgentMandate[]> {
+  async completeChildMandatesByProductIds(userId: string, productIds: string[]): Promise<AgentMandate[]> {
     if (productIds.length === 0) return [];
 
-    // Complete active intent mandates whose constraints->productId matches any of the given product IDs
+    // Complete active cart/intent mandates whose constraints->productId matches any of the given product IDs
     const placeholders = productIds.map((_, i) => `$${i + 2}`).join(', ');
 
     const result = await query(
@@ -394,7 +394,7 @@ export class MandateRepository {
        SET status = 'completed',
            updated_at = CURRENT_TIMESTAMP
        WHERE user_id = $1
-         AND type = 'intent'
+         AND type IN ('intent', 'cart')
          AND status = 'active'
          AND constraints->>'productId' IN (${placeholders})
        RETURNING *`,
