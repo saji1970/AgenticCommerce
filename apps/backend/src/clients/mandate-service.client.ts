@@ -174,10 +174,11 @@ class MandateServiceClient {
     }
   }
   /**
-   * Complete mandates after successful payment (marks child mandates as completed)
+   * Complete mandates after successful payment (marks child mandates as completed).
+   * Also completes intent mandates whose productId matches any product in the paid cart.
    */
-  async completeMandates(mandateIds: string[]): Promise<void> {
-    await this.client.post('/mandates/complete', { mandateIds });
+  async completeMandates(mandateIds: string[], userId?: string, productIds?: string[]): Promise<void> {
+    await this.client.post('/mandates/complete', { mandateIds, userId, productIds });
   }
 
   /**

@@ -383,6 +383,27 @@ export class MandateRepository {
     return result.rows.map(row => this.mapRowToMandate(row));
   }
 
+  async completeIntentMandatesByProductIds(userId: string, productIds: string[]): Promise<AgentMandate[]> {
+    if (productIds.length === 0) return [];
+
+    // Complete active intent mandates whose constraints->productId matches any of the given product IDs
+    const placeholders = productIds.map((_, i) => `$${i + 2}`).join(', ');
+
+    const result = await query(
+      `UPDATE agent_mandates
+       SET status = 'completed',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1
+         AND type = 'intent'
+         AND status = 'active'
+         AND constraints->>'productId' IN (${placeholders})
+       RETURNING *`,
+      [userId, ...productIds]
+    );
+
+    return result.rows.map(row => this.mapRowToMandate(row));
+  }
+
   async updateCofData(mandateId: string, data: { networkToken: string; citTransactionId: string }): Promise<AgentMandate> {
     const result = await query(
       `UPDATE agent_mandates

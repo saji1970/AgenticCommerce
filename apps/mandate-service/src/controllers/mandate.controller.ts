@@ -265,16 +265,23 @@ export class MandateController {
   // Complete mandates after successful payment
   completeMandatesAfterPayment = async (req: Request, res: Response) => {
     try {
-      const { mandateIds } = req.body;
+      const { mandateIds, userId, productIds } = req.body;
 
-      if (!mandateIds || !Array.isArray(mandateIds) || mandateIds.length === 0) {
+      const hasMandateIds = mandateIds && Array.isArray(mandateIds) && mandateIds.length > 0;
+      const hasProductIds = productIds && Array.isArray(productIds) && productIds.length > 0;
+
+      if (!hasMandateIds && !hasProductIds) {
         return res.status(400).json({
           success: false,
-          error: 'mandateIds array is required',
+          error: 'mandateIds or productIds array is required',
         });
       }
 
-      const result = await this.mandateService.completeMandatesAfterPayment(mandateIds);
+      const result = await this.mandateService.completeMandatesAfterPayment(
+        hasMandateIds ? mandateIds : [],
+        userId,
+        hasProductIds ? productIds : undefined
+      );
 
       res.json({
         success: true,

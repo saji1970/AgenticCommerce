@@ -293,15 +293,24 @@ export class MandateService {
     return await this.mandateRepository.getUserMandates(userId, undefined, 'app');
   }
 
-  async completeMandatesAfterPayment(mandateIds: string[]) {
+  async completeMandatesAfterPayment(mandateIds: string[], userId?: string, productIds?: string[]) {
     if (!mandateIds || mandateIds.length === 0) {
-      return { completed: [] };
+      return { completed: [], completedIntents: [] };
     }
 
     const completed = await this.mandateRepository.completeChildMandatesByIds(mandateIds);
     console.log(`[MandateService] Completed ${completed.length} mandates after payment:`, completed.map(m => m.id));
 
-    return { completed };
+    // Also complete intent mandates whose productId matches any product in the paid cart
+    let completedIntents: any[] = [];
+    if (userId && productIds && productIds.length > 0) {
+      completedIntents = await this.mandateRepository.completeIntentMandatesByProductIds(userId, productIds);
+      if (completedIntents.length > 0) {
+        console.log(`[MandateService] Completed ${completedIntents.length} intent mandates for products:`, completedIntents.map(m => m.id));
+      }
+    }
+
+    return { completed, completedIntents };
   }
 
   async getAppMandateWithChildren(mandateId: string) {

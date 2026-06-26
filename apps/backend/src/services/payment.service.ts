@@ -198,19 +198,19 @@ export class PaymentService {
         await this.cartRepository.clearUserCart(userId);
 
         // Mark child mandates as completed after successful payment
-        if (mandateTokens.length > 0) {
-          try {
-            const mandateIds = mandateTokens
-              .map(t => t.mandateId)
-              .filter(id => id && id !== 'payment-mandate');
-            if (mandateIds.length > 0) {
-              await mandateServiceClient.completeMandates(mandateIds);
-              console.log('[PaymentService] Mandates marked as completed:', mandateIds);
-            }
-          } catch (completeError) {
-            // Non-blocking: payment still succeeds even if mandate-service is down
-            console.warn('[PaymentService] Failed to complete mandates (non-blocking):', completeError);
+        // Also pass productIds so intent mandates matching purchased products are completed
+        try {
+          const mandateIds = mandateTokens
+            .map(t => t.mandateId)
+            .filter(id => id && id !== 'payment-mandate');
+          const productIds = [...new Set(cartItems.map(item => item.productId).filter(Boolean))];
+          if (mandateIds.length > 0 || productIds.length > 0) {
+            await mandateServiceClient.completeMandates(mandateIds, userId, productIds);
+            console.log('[PaymentService] Mandates marked as completed:', mandateIds, '| Intent products:', productIds);
           }
+        } catch (completeError) {
+          // Non-blocking: payment still succeeds even if mandate-service is down
+          console.warn('[PaymentService] Failed to complete mandates (non-blocking):', completeError);
         }
 
         return {
